@@ -1,3 +1,7 @@
+VulkanGraphicsEngine.vcxproj.user
+dependencies/VulkanMemoryAllocator
+dependencies/VulkanSDK
+
 # Prerequisites
 *.d
 

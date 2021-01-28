@@ -1,0 +1,50 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="src\VulkanGraphicsContext.cpp" />
+    <ClCompile Include="src\VulkanGraphicsSwapChain.cpp" />
+    <ClCompile Include="src\VulkanGraphicsRenderer.cpp" />
+    <ClCompile Include="src\VulkanGraphicsImageView.cpp" />
+    <ClCompile Include="src\VulkanGraphicsRenderTarget.cpp" />
+    <ClCompile Include="src\VulkanGraphicsProgram.cpp" />
+    <ClCompile Include="src\VulkanGraphicsMemoryAllocator.cpp" />
+    <ClCompile Include="src\VulkanGraphicsCommandBuffers.cpp" />
+    <ClCompile Include="src\VulkanGraphicsVertexBuffer.cpp" />
+    <ClCompile Include="src\VulkanGraphicsIndexBuffer.cpp" />
+    <ClCompile Include="src\VulkanGraphicsOneTimeCommands.cpp" />
+    <ClCompile Include="src\VulkanGraphicsPipeline.cpp" />
+    <ClCompile Include="src\VulkanGraphicsObject.cpp" />
+    <ClCompile Include="src\VulkanGraphicsMaterials.cpp" />
+    <ClCompile Include="src\VulkanGraphicsDrawable.cpp" />
+    <ClCompile Include="src\VulkanGraphicsDescriptors.cpp" />
+    <ClCompile Include="src\VulkanGraphicsUniformBuffer.cpp" />
+    <ClCompile Include="src\VulkanGraphicsSampler.cpp" />
+    <ClCompile Include="src\VulkanGraphicsImage.cpp" />
+    <ClCompile Include="src\VulkanGraphicsSemaphore.cpp" />
+    <ClCompile Include="src\VulkanGraphicsFence.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\VulkanGraphicsContext.h" />
+    <ClInclude Include="include\VulkanGraphicsSwapChain.h" />
+    <ClInclude Include="include\VulkanGraphicsRenderer.h" />
+    <ClInclude Include="include\VulkanGraphicsImageView.h" />
+    <ClInclude Include="include\VulkanGraphicsRenderTarget.h" />
+    <ClInclude Include="include\VulkanGraphicsProgram.h" />
+    <ClInclude Include="include\VulkanGraphicsPipeline.h" />
+    <ClInclude Include="include\VulkanGraphicsMemoryAllocator.h" />
+    <ClInclude Include="include\VulkanGraphicsCommandBuffers.h" />
+    <ClInclude Include="include\VulkanGraphicsVertexBuffer.h" />
+    <ClInclude Include="include\VulkanGraphicsIndexBuffer.h" />
+    <ClInclude Include="include\VulkanGraphicsOneTimeCommands.h" />
+    <ClInclude Include="include\VulkanGraphicsDrawable.h" />
+    <ClInclude Include="include\VulkanGraphicsMaterials.h" />
+    <ClInclude Include="include\VulkanGraphicsObject.h" />
+    <ClInclude Include="include\VulkanGraphicsDescriptors.h" />
+    <ClInclude Include="include\VulkanGraphicsUniformBuffer.h" />
+    <ClInclude Include="include\VulkanGraphicsCombinedImageSampler.h" />
+    <ClInclude Include="include\VulkanGraphicsImage.h" />
+    <ClInclude Include="include\VulkanGraphicsSampler.h" />
+    <ClInclude Include="include\VulkanGraphicsSemaphore.h" />
+    <ClInclude Include="include\VulkanGraphicsFence.h" />
+  </ItemGroup>
+</Project>
