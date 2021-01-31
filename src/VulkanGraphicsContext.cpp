@@ -20,17 +20,24 @@ namespace vgfx
     void Context::init(
         const AppConfig& appConfig,
         const InstanceConfig& instanceConfig,
-        const DeviceConfig& deviceConfig)
+        const DeviceConfig& deviceConfig,
+        Renderer* pRenderer)
     {
         createInstance(
             appConfig,
             instanceConfig);
 
-        if (deviceConfig.pRenderer != nullptr) {
-            deviceConfig.pRenderer->bindToInstance(m_instance, m_pAllocationCallbacks);
+        if (pRenderer != nullptr) {
+            pRenderer->bindToInstance(m_instance, m_pAllocationCallbacks);
         }
 
-        pickPhysicalDevice(deviceConfig);
+        pickPhysicalDevice(
+            deviceConfig,
+            pRenderer);
+
+        if (pRenderer != nullptr) {
+            pRenderer->configureForDevice(m_physicalDevice);
+        }
 
         createLogicalDevice(deviceConfig);
 
@@ -114,9 +121,10 @@ namespace vgfx
             createInfo.ppEnabledExtensionNames = nullptr;
         }
 
+        std::vector<std::string> requestedAndAvailableLayers;
         std::vector<const char*> validationLayersAsCharPtrs;
         if (!instanceConfig.validationLayers.empty()) {
-            std::vector<std::string> requestedAndAvailableLayers =
+            requestedAndAvailableLayers =
                 checkValidationLayerSupport(instanceConfig.validationLayers);
 
             createInfo.enabledLayerCount = static_cast<uint32_t>(instanceConfig.validationLayers.size());
@@ -129,7 +137,8 @@ namespace vgfx
             createInfo.ppEnabledLayerNames = nullptr;
         }
 
-        if (vkCreateInstance(&createInfo, nullptr, &m_instance) != VK_SUCCESS) {
+        VkResult result = vkCreateInstance(&createInfo, nullptr, &m_instance);
+        if (result != VK_SUCCESS) {
             throw std::runtime_error("Failed to create instance!");
         }
     }
@@ -191,7 +200,8 @@ namespace vgfx
     }
 
     void Context::pickPhysicalDevice(
-        const DeviceConfig& deviceConfig)
+        const DeviceConfig& deviceConfig,
+        const Renderer* pRenderer)
     {
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(m_instance, &deviceCount, nullptr);
@@ -214,12 +224,9 @@ namespace vgfx
                     physicalDeviceProperties.vendorID,
                     physicalDeviceProperties.deviceType,
                     deviceConfig,
+                    pRenderer,
                     &queueFamilyProperties)) {
                 m_physicalDevice = device;
-
-                if (deviceConfig.pRenderer != nullptr) {
-                    deviceConfig.pRenderer->configureForDevice(m_physicalDevice);
-                }
 
                 std::cout << "Device is suitable. Device properties: " << std::endl << "  "
                     << "apiVersion: " << physicalDeviceProperties.apiVersion << std::endl << "  "
@@ -263,6 +270,7 @@ namespace vgfx
         uint32_t vendorId,
         VkPhysicalDeviceType deviceType,
         const DeviceConfig& deviceConfig,
+        const Renderer* pRenderer,
         std::vector<VkQueueFamilyProperties>* pQueueFamilyProperties)
     {
 
@@ -277,12 +285,17 @@ namespace vgfx
                 throw std::runtime_error("Device is not correct type.");
             }
 
-            m_queueFamilyIndices = checkQueueFamilySupport(device, deviceConfig, pQueueFamilyProperties);
+            m_queueFamilyIndices =
+                checkQueueFamilySupport(
+                    device,
+                    deviceConfig,
+                    pRenderer,
+                    pQueueFamilyProperties);
 
             checkDeviceExtensionSupport(device, deviceConfig);
 
-            if (deviceConfig.pRenderer != nullptr) {
-                deviceConfig.pRenderer->checkIsDeviceSuitable(device);
+            if (pRenderer != nullptr) {
+                pRenderer->checkIsDeviceSuitable(device);
             }
 
             checkDeviceFeatureSupport(device, deviceConfig); 
@@ -297,6 +310,7 @@ namespace vgfx
     Context::QueueFamilyIndices Context::checkQueueFamilySupport(
         VkPhysicalDevice device,
         const DeviceConfig& deviceConfig,
+        const Renderer* pRenderer,
         std::vector<VkQueueFamilyProperties>* pQueueFamilyProperties)
     {
         uint32_t queueFamilyCount = 0;
@@ -315,25 +329,27 @@ namespace vgfx
                 queueFamilyIndices.graphicsFamily = i;
             }
 
-            if (deviceConfig.dedicatedComputeQueueRequired
-                && queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT
-                && queueFamilyIndices.graphicsFamily != i
-                && queueFamilyIndices.transferFamily != i
-                && !queueFamilyIndices.computeFamily.has_value()) {
-                queueFamilyIndices.computeFamily = i;
+            if (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                if (!deviceConfig.dedicatedComputeQueueRequired
+                    || (queueFamilyIndices.graphicsFamily != i
+                        && queueFamilyIndices.transferFamily != i
+                        && !queueFamilyIndices.computeFamily.has_value())) {
+                    queueFamilyIndices.computeFamily = i;
+                }
             }
 
-            if (deviceConfig.dedicatedTransferQueueRequired
-                && queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT
-                && queueFamilyIndices.graphicsFamily != i
-                && queueFamilyIndices.computeFamily != i
-                && !queueFamilyIndices.transferFamily.has_value()) {
-                queueFamilyIndices.transferFamily = i;
+            if (queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+                if (!deviceConfig.dedicatedTransferQueueRequired
+                    || (queueFamilyIndices.graphicsFamily != i
+                        && queueFamilyIndices.computeFamily != i
+                        && !queueFamilyIndices.transferFamily.has_value())) {
+                    queueFamilyIndices.transferFamily = i;
+                }
             }
 
-            if (deviceConfig.pRenderer != nullptr
-                && deviceConfig.pRenderer->requiresPresentQueue()) {
-                bool presentSupport = deviceConfig.pRenderer->queueFamilySupportsPresent(device, i);
+            if (pRenderer != nullptr
+                && pRenderer->requiresPresentQueue()) {
+                bool presentSupport = pRenderer->queueFamilySupportsPresent(device, i);
 
                 if (presentSupport &&
                     (!queueFamilyIndices.presentFamily.has_value()
@@ -345,7 +361,7 @@ namespace vgfx
                 }
             }
 
-            if (queueFamilyIndices.isComplete(deviceConfig)) {
+            if (queueFamilyIndices.isComplete(deviceConfig, pRenderer)) {
                 *pQueueFamilyProperties = std::move(queueFamilyProperties);
                 return queueFamilyIndices;
             }
@@ -354,9 +370,11 @@ namespace vgfx
         throw std::runtime_error("Failed to find suitable set of queues for this device.");
     }
 
-    bool Context::QueueFamilyIndices::isComplete(const DeviceConfig& deviceConfig) const
+    bool Context::QueueFamilyIndices::isComplete(
+        const DeviceConfig& deviceConfig,
+        const Renderer* pRenderer) const
     {
-        bool presentQueueRequired = deviceConfig.pRenderer != nullptr && deviceConfig.pRenderer->requiresPresentQueue();
+        bool presentQueueRequired = pRenderer != nullptr && pRenderer->requiresPresentQueue();
 
         return (!deviceConfig.graphicsQueueRequired || this->graphicsFamily.has_value())
             && (!presentQueueRequired || this->presentFamily.has_value())
@@ -418,6 +436,7 @@ namespace vgfx
         const Context::DeviceConfig& deviceConfig)
     {
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+        std::vector<std::vector<float>> priorityVectors;
         for (const auto& itr : m_queueFamilyProperties) {
             VkDeviceQueueCreateInfo queueCreateInfo = {};
             queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -427,9 +446,9 @@ namespace vgfx
 
             const VkQueueFamilyProperties& queueFamily = itr.second;
 
-            std::vector<float> priorityVector;
-            priorityVector.resize(queueFamily.queueCount, 1.0f);
-            queueCreateInfo.pQueuePriorities = priorityVector.data();
+            priorityVectors.resize(priorityVectors.size() + 1);
+            priorityVectors.back().resize(queueFamily.queueCount, 1.0f);
+            queueCreateInfo.pQueuePriorities = priorityVectors.back().data();
 
             queueCreateInfo.queueCount = queueFamily.queueCount;
 

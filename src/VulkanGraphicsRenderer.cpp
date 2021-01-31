@@ -59,7 +59,7 @@ namespace vgfx
         return false;
     }
 
-    void WindowRenderer::checkIsDeviceSuitable(VkPhysicalDevice device)
+    void WindowRenderer::checkIsDeviceSuitable(VkPhysicalDevice device) const
     {
         uint32_t minImageCount = 0u;
         uint32_t maxImageCount = 0u;

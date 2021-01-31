@@ -17,11 +17,10 @@ void vgfx::Drawable::recordDrawCommands(
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         pipelineLayout,
         0, // Offset in descriptor array
-        descriptorSetBinding.size(), // count of descriptor sets
+        static_cast<uint32_t>(descriptorSetBinding.size()), // count of descriptor sets
         descriptorSetBinding.data(),
         0, // dynamic sets count
         nullptr); // dynamic sets ptr
-
 
     VkBuffer vertexBuffers[] = { m_spVertexBuffer->getHandle() };
     VkDeviceSize offsets[] = { 0 };

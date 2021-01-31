@@ -138,7 +138,7 @@
       <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)dependencies\VulkanMemoryAllocator\src;$(ProjectDir)dependencies\VulkanSDK\1.2.162.1\Include;$(ProjectDir)include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)dependencies\VulkanMemoryAllocator\src;$(VULKAN_SDK)\Include;$(ProjectDir)include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -188,7 +188,7 @@
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)dependencies\VulkanMemoryAllocator\src;$(ProjectDir)dependencies\VulkanSDK\1.2.162.1\Include;$(ProjectDir)include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)dependencies\VulkanMemoryAllocator\src;$(VULKAN_SDK)\Include;$(ProjectDir)include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
