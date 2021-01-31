@@ -77,14 +77,8 @@ namespace vgfx
             throw std::runtime_error("Failed vkGetPhysicalDeviceSurfaceFormatsKHR");
         }
 
-        std::vector<VkSurfaceFormatKHR> surfaceFormats(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, surfaceFormats.data());
-
         pSupportedImageFormats->resize(formatCount);
-        for (size_t i = 0; i < formatCount; ++i) {
-            const auto& imageFormat = surfaceFormats[i];
-            pSupportedImageFormats[imageFormat.format];
-        }
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, pSupportedImageFormats->data());
     }
 
     void WindowSwapChain::getSupportedPresentationModes(

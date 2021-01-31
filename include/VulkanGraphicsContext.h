@@ -32,8 +32,18 @@ namespace vgfx
             uint16_t majorVersion = 1u;
             uint16_t minorVersion = 0u;
             uint16_t patchVersion = 0u;
-            AppConfig(const std::string& nm, uint16_t major, uint16_t minor, uint16_t patch)
-                : name(nm), majorVersion(major), minorVersion(minor), patchVersion(patch) {}
+            AppConfig(
+                const std::string& nm,
+                uint16_t major,
+                uint16_t minor,
+                uint16_t patch)
+                : name(nm)
+                , majorVersion(major)
+                , minorVersion(minor)
+                , patchVersion(patch)
+            {
+
+            }
         };
 
         struct InstanceConfig
@@ -46,18 +56,18 @@ namespace vgfx
         {
             std::optional<uint32_t> requiredVendorId;
             std::optional<VkPhysicalDeviceType> requiredDeviceType;
-            VkPhysicalDeviceFeatures requiredDeviceFeatures;
+            VkPhysicalDeviceFeatures requiredDeviceFeatures = {};
             std::vector<std::string> requiredDeviceExtensions;
             bool graphicsQueueRequired = true;
             bool dedicatedComputeQueueRequired = false;
             bool dedicatedTransferQueueRequired = false;
-            vgfx::Renderer* pRenderer = nullptr;
         };
 
         void init(
             const AppConfig& appConfig,
             const InstanceConfig& instanceConfig,
-            const DeviceConfig& deviceConfig);
+            const DeviceConfig& deviceConfig,
+            Renderer* pRenderer);
 
         void shutdown();
 
@@ -111,7 +121,8 @@ namespace vgfx
             const std::vector<std::string>& validationLayers);
 
         void pickPhysicalDevice(
-            const DeviceConfig& deviceConfig);
+            const DeviceConfig& deviceConfig,
+            const Renderer* pRenderer);
 
         struct QueueFamilyIndices
         {
@@ -123,12 +134,15 @@ namespace vgfx
 
             std::optional<uint32_t> transferFamily;
 
-            bool isComplete(const DeviceConfig& deviceConfig) const;
+            bool isComplete(
+                const DeviceConfig& deviceConfig,
+                const Renderer* pRenderer) const;
         };
 
         QueueFamilyIndices checkQueueFamilySupport(
             VkPhysicalDevice device,
             const DeviceConfig& deviceConfig,
+            const Renderer* pRenderer,
             std::vector<VkQueueFamilyProperties>* pQueueFamilyProperties);
 
         bool isDeviceSuitable(
@@ -136,6 +150,7 @@ namespace vgfx
             uint32_t vendorId,
             VkPhysicalDeviceType deviceType,
             const DeviceConfig& deviceConfig,
+            const Renderer* pRenderer,
             std::vector<VkQueueFamilyProperties>* pQueueFamilyProperties);
 
         void checkDeviceExtensionSupport(

@@ -28,7 +28,7 @@ namespace vgfx
         virtual void bindToInstance(VkInstance instance, const VkAllocationCallbacks* pAllocationCallbacks) = 0;
 
         // Called by vgfx::Context to validate that a particular device will work for this Renderer.
-        virtual void checkIsDeviceSuitable(VkPhysicalDevice device) = 0;
+        virtual void checkIsDeviceSuitable(VkPhysicalDevice device) const = 0;
 
         // Returns true if this Renderer requires use of a presentation queue.
         bool requiresPresentQueue() const { return m_requiresPresentQueue; }
@@ -156,7 +156,7 @@ namespace vgfx
             m_spSwapChain->createVulkanSurface(instance, pAllocationCallbacks);
         }
 
-        void checkIsDeviceSuitable(VkPhysicalDevice device) override;
+        void checkIsDeviceSuitable(VkPhysicalDevice device) const override;
 
         bool queueFamilySupportsPresent(VkPhysicalDevice device, uint32_t familyIndex) const override;
 
