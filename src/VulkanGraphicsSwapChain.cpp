@@ -107,10 +107,6 @@ namespace vgfx
         const Config& config,
         const SwapChain::CreateImageViewFunc& createImageViewFunc)
     {
-        if (m_swapChain != VK_NULL_HANDLE) {
-            destroy();
-        }
-
         VkSwapchainCreateInfoKHR createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
         createInfo.surface = m_surface;
@@ -122,10 +118,8 @@ namespace vgfx
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = config.imageUsage;
 
-        uint32_t graphicsQueueFamilyIndex = context.getGraphicsQueueFamilyIndex().has_value() ?
-            context.getGraphicsQueueFamilyIndex().value() : static_cast<uint32_t>(-1);
-        uint32_t presentQueueFamilyIndex = context.getPresentQueueFamilyIndex().has_value() ?
-            context.getPresentQueueFamilyIndex().value() : static_cast<uint32_t>(-1);
+        uint32_t graphicsQueueFamilyIndex = context.getGraphicsQueueFamilyIndex().value();
+        uint32_t presentQueueFamilyIndex = context.getPresentQueueFamilyIndex().value();
 
         uint32_t queueFamilyIndices[] = { graphicsQueueFamilyIndex, presentQueueFamilyIndex };
         if (graphicsQueueFamilyIndex != presentQueueFamilyIndex) {
@@ -146,7 +140,12 @@ namespace vgfx
         createInfo.presentMode = config.presentMode;
         createInfo.clipped = VK_TRUE;
 
-        createInfo.oldSwapchain = m_swapChain;
+        if (m_swapChain != VK_NULL_HANDLE) {
+            createInfo.oldSwapchain = m_swapChain;
+            destroy();
+        } else {
+            createInfo.oldSwapchain = VK_NULL_HANDLE;
+        }
 
         VkDevice device = context.getLogicalDevice();
         VkAllocationCallbacks* pAllocationCallbacks = context.getAllocationCallbacks();
