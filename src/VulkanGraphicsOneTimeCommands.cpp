@@ -76,7 +76,7 @@ namespace vgfx
             memoryAllocator.createBuffer(
                 dataSizeBytes,
                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_COPY);
+                VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_ONLY);
 
         void* pDataDst = nullptr;
         memoryAllocator.mapBuffer(stagingBuffer, &pDataDst);

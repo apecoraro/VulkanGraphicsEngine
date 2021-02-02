@@ -23,7 +23,7 @@ namespace vgfx
             // is list of queue families that will access this buffer.
             std::vector<uint32_t> queueFamilyIndices;
 
-            Config(VkIndexType idxType) : indexType(indexType) {}
+            Config(VkIndexType idxType) : indexType(idxType) {}
         };
 
         IndexBuffer(
