@@ -90,6 +90,7 @@ namespace vgfx
 
     private:
         std::unique_ptr<CombinedImageSampler> m_spCombinedImageSampler;
+        VkDescriptorImageInfo m_imageInfo = {};
     };
 
     // Wraps a VkDescriptorPool.

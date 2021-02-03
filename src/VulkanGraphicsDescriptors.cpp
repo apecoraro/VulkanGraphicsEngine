@@ -46,15 +46,15 @@ namespace vgfx
         Descriptor::write(setIndex, pWriteSet);
 
         VkWriteDescriptorSet& writeSet = *pWriteSet;
+        // TODO should dstArrayElement not be hard coded?
         writeSet.dstArrayElement = 0;
 
-        VkDescriptorImageInfo imageInfo = {};
         // TODO should imageLayout not be hard coded?
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = m_spCombinedImageSampler->getImageView().getHandle();
-        imageInfo.sampler = m_spCombinedImageSampler->getSampler().getHandle();
+        m_imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        m_imageInfo.imageView = m_spCombinedImageSampler->getImageView().getHandle();
+        m_imageInfo.sampler = m_spCombinedImageSampler->getSampler().getHandle();
 
-        writeSet.pImageInfo = &imageInfo;
+        writeSet.pImageInfo = &m_imageInfo;
     }
 
     DescriptorSetBuffer::DescriptorSetBuffer(
@@ -63,19 +63,24 @@ namespace vgfx
         uint32_t bufferCount)
         : m_context(context)
         , m_descriptors(std::move(descriptors))
-        , m_descriptorWrites(descriptors.size())
+        , m_descriptorWrites(m_descriptors.size())
         , m_descriptorSets(bufferCount)
     {
         std::vector<VkDescriptorSetLayoutBinding> descriptorBindings;
-        descriptorBindings.reserve(descriptors.size());
-        size_t index = 0u;
-        for (const auto& descriptor : descriptors) {
-            VkDescriptorSetLayoutBinding& binding = descriptorBindings[index];
-            binding.binding = static_cast<uint32_t>(index);
+        descriptorBindings.reserve(m_descriptors.size());
+        uint32_t index = 0u;
+        for (const auto& descriptor : m_descriptors) {
+            VkDescriptorSetLayoutBinding binding = {};
+
+            binding.binding = index;
+            ++index;
+
             binding.descriptorType = descriptor->getType();
             binding.descriptorCount = descriptor->getCount();
             binding.stageFlags = descriptor->getStageFlags();
             binding.pImmutableSamplers = nullptr; // Optional
+
+            descriptorBindings.push_back(binding);
         }
 
         VkDescriptorSetLayoutCreateInfo layoutInfo = {};
@@ -124,12 +129,12 @@ namespace vgfx
             descriptorWrite.dstSet = descriptorSet;
 
             spDescriptor->write(descriptorSetIndex, &descriptorWrite);
-
-            vkUpdateDescriptorSets(
-                m_context.getLogicalDevice(),
-                static_cast<uint32_t>(m_descriptorWrites.size()),
-                m_descriptorWrites.data(), 0, nullptr);
         }
+
+        vkUpdateDescriptorSets(
+            m_context.getLogicalDevice(),
+            static_cast<uint32_t>(m_descriptorWrites.size()),
+            m_descriptorWrites.data(), 0, nullptr);
     }
 
     DescriptorPool::DescriptorPool(
