@@ -44,16 +44,16 @@ namespace vgfx
 
         struct InputAssemblyConfig
         {
-            InputAssemblyConfig(VkPrimitiveTopology primitiveTopology)
+            InputAssemblyConfig(VkPrimitiveTopology primitiveTopology, bool primRestartEnable)
             {
                 inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
                 inputAssemblyInfo.topology = primitiveTopology;
-                inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
+                inputAssemblyInfo.primitiveRestartEnable = primRestartEnable;
             }
             VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {};
         };
 
-        PipelineBuilder& configureMaterial(
+        PipelineBuilder& configureDrawableInput(
             const Material& material,
             const VertexBuffer::Config& vertexBufferConfig,
             const InputAssemblyConfig& inputAssemblyConfig);
@@ -87,7 +87,11 @@ namespace vgfx
         std::unique_ptr<Pipeline> createPipeline(Context& context);
     private:
         VkPipelineShaderStageCreateInfo m_vertShaderStageInfo = {};
+
+        VkVertexInputBindingDescription m_vertexBindingDescription;
+        std::vector<VkVertexInputAttributeDescription> m_vertexAttributeDescriptions;
         VkPipelineVertexInputStateCreateInfo m_vertexInputInfo = {};
+
         VkPipelineInputAssemblyStateCreateInfo m_inputAssembly = {};
 
         VkPipelineShaderStageCreateInfo m_fragShaderStageInfo = {};

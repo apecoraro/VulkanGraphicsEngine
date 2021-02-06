@@ -32,6 +32,7 @@ namespace vgfx
         : m_context(context)
         , m_indexType(config.indexType)
         , m_numIndices(numIndices)
+        , m_hasPrimitiveRestartValues(config.hasPrimitiveRestartValues)
     {
         VkDeviceSize dataSizeBytes = numIndices * IndexTypeSizeBytes(m_indexType);
         if (config.sharingMode == VK_SHARING_MODE_EXCLUSIVE) {

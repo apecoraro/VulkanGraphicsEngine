@@ -75,7 +75,7 @@ namespace vgfx
             s_fragmentShadersTable,
             context,
             fragmentShaderPath,
-            Program::Type::VERTEX,
+            Program::Type::FRAGMENT,
             fragmentShaderEntryPointFunc);
     }
 

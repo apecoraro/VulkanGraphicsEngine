@@ -25,13 +25,20 @@ namespace vgfx
         struct Config
         {
             uint32_t vertexStride = 0u; 
+            VkPrimitiveTopology primitiveTopology;
             VkSharingMode sharingMode = VK_SHARING_MODE_EXCLUSIVE;
             // If VK_SHARING_MODE_CONCURRENT then queueFamilyIndices is required, which
             // is list of queue families that will access this buffer.
             std::vector<uint32_t> queueFamilyIndices;
             std::vector<AttributeDescription> vertexAttrDescriptions;
 
-            Config(uint32_t vtxStride) : vertexStride(vtxStride) {}
+            Config(
+                uint32_t vtxStride,
+                VkPrimitiveTopology primTopo)
+                : vertexStride(vtxStride)
+                , primitiveTopology(primTopo)
+            {
+            }
         };
 
         using VertexData = void;

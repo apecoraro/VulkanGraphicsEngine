@@ -94,15 +94,19 @@ namespace vgfx
             attributeDescription.format = vtxBufferAttr.format;
             attributeDescription.offset = vtxBufferAttr.offset;
 
+            vtxAttrDescriptions.push_back(attributeDescription);
+
             ++bindingLocation;
         }
 
         return vtxAttrDescriptions;
     }
 
-    PipelineBuilder& PipelineBuilder::configureMaterial(
+    PipelineBuilder& PipelineBuilder::configureDrawableInput(
         const Material& material,
         const VertexBuffer::Config& vertexBufferConfig,
+        // TODO probably need to add some way to provide instance based data (i.e. VK_VERTEX_INPUT_RATE_INSTANCE).
+        // This would allow for instanced drawing.
         const InputAssemblyConfig& inputAssemblyConfig)
     {
         const Program& vertexShaderProgram = material.getVertexShader();
@@ -116,21 +120,21 @@ namespace vgfx
 
         m_vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         
-        auto vertexBindingDescription =
+        m_vertexBindingDescription =
             BuildVertexBindingDescription(
                 vertexBufferConfig,
                 VK_VERTEX_INPUT_RATE_VERTEX);
 
         m_vertexInputInfo.vertexBindingDescriptionCount = 1;
-        m_vertexInputInfo.pVertexBindingDescriptions = &vertexBindingDescription;
+        m_vertexInputInfo.pVertexBindingDescriptions = &m_vertexBindingDescription;
 
-        auto attributeDescriptions =
+        m_vertexAttributeDescriptions =
             BuildVertexAttributeDescriptions(
                 vertexBufferConfig,
-                vertexBindingDescription.binding);
+                m_vertexBindingDescription.binding);
 
-        m_vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-        m_vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+        m_vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(m_vertexAttributeDescriptions.size());
+        m_vertexInputInfo.pVertexAttributeDescriptions = m_vertexAttributeDescriptions.data();
 
         m_inputAssembly = inputAssemblyConfig.inputAssemblyInfo;
 

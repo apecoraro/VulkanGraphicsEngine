@@ -89,7 +89,7 @@ namespace vgfx
                 : vertexShaderPath(vtxShaderPath)
                 , vertexShaderEntryPointFunc(vtxShaderEntryPointFunc)
                 , fragmentShaderPath(fragShaderPath)
-                , fragmentShaderEntryPointFunc(fragmentShaderEntryPointFunc)
+                , fragmentShaderEntryPointFunc(fragShaderEntryPointFunc)
             {
 
             }
