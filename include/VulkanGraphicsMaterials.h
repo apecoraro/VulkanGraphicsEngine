@@ -33,6 +33,13 @@ namespace vgfx
             m_descriptorSetLayouts.reserve(m_descriptorSets.size());
             for (const auto& spDescSet : m_descriptorSets) {
                 m_descriptorSetLayouts.push_back(spDescSet->getLayout());
+            }
+        }
+
+        void initDescriptors(DescriptorPool& pool)
+        {
+            for (auto& spDescSet : m_descriptorSets) {
+                spDescSet->init(pool);
                 const auto& descSetCopies = spDescSet->getDescriptorSetCopies();
                 for (size_t i = 0; i < descSetCopies.size(); ++i) {
                     if (i == m_descriptorSetBindings.size()) {
@@ -40,14 +47,6 @@ namespace vgfx
                     }
                     m_descriptorSetBindings[i].push_back(descSetCopies[i]);
                 }
-            }
-        }
-
-        void initDescriptors(
-            DescriptorPool& pool)
-        {
-            for (auto& spDescSet : m_descriptorSets) {
-                spDescSet->init(pool);
             }
         }
 

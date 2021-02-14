@@ -127,7 +127,7 @@ namespace vgfx
             requestedAndAvailableLayers =
                 checkValidationLayerSupport(instanceConfig.validationLayers);
 
-            createInfo.enabledLayerCount = static_cast<uint32_t>(instanceConfig.validationLayers.size());
+            createInfo.enabledLayerCount = static_cast<uint32_t>(requestedAndAvailableLayers.size());
 
             ContainerOfStringsToCharPtrs(requestedAndAvailableLayers, &validationLayersAsCharPtrs);
 

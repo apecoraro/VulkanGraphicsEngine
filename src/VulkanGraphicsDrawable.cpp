@@ -9,9 +9,10 @@ void vgfx::Drawable::recordDrawCommands(
     VkPipelineLayout pipelineLayout,
     VkCommandBuffer commandBuffer)
 {
+    size_t bindingIndex = swapChainIndex % m_material.getDescriptorSetBindingCount();
     const auto& descriptorSetBinding =
-        m_material.getDescriptorSetBinding(
-            m_material.getDescriptorSetBindingCount() % swapChainIndex);
+        m_material.getDescriptorSetBinding(bindingIndex);
+
     vkCmdBindDescriptorSets(
         commandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,

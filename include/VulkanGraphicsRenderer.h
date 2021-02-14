@@ -53,6 +53,7 @@ namespace vgfx
         // Record one command buffer for each swap chain image using
         // the provided set of objects.
         void recordCommandBuffers(
+            CommandBufferFactory& commandBufferFactory,
             const Pipeline& pipeline,
             const std::vector<std::unique_ptr<Object>>& objects);
 
@@ -93,7 +94,6 @@ namespace vgfx
 
         uint32_t m_maxFramesInFlight = 0u;
 
-        std::unique_ptr<vgfx::CommandBufferFactory> m_spCommandBufferFactory;
         std::vector<VkCommandBuffer> m_commandBuffers;
 
         QueueSubmitInfo m_gfxQueueSubmitInfo;

@@ -6,24 +6,18 @@
 namespace vgfx
 {
     void Renderer::recordCommandBuffers(
+        CommandBufferFactory& commandBufferFactory,
         const Pipeline& pipeline,
         const std::vector<std::unique_ptr<Object>>& objects)
     {
-        if (m_spCommandBufferFactory.get() == nullptr) {
-            m_spCommandBufferFactory =
-                std::make_unique<vgfx::CommandBufferFactory>(
-                    *m_pContext,
-                    m_pContext->getGraphicsQueueFamilyIndex().value());
-        }
-
         m_commandBuffers.reserve(getSwapChain().getImageCount());
         for (size_t i = 0; i < getSwapChain().getImageCount(); ++i) {
             VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
             if (i < m_commandBuffers.size()) {
-                commandBuffer = m_spCommandBufferFactory->createCommandBuffer();
-                m_commandBuffers.push_back(commandBuffer);
-            } else {
                 commandBuffer = m_commandBuffers[i];
+            } else {
+                commandBuffer = commandBufferFactory.createCommandBuffer();
+                m_commandBuffers.push_back(commandBuffer);
             }
 
             recordCommandBuffer(commandBuffer, i, pipeline, objects);
@@ -273,6 +267,8 @@ namespace vgfx
 
         m_spRenderTarget =
             std::make_unique<RenderTarget>(context, *m_spSwapChain.get(), renderTargetConfig);
+
+        m_pContext = &context;
     }
 
     void WindowRenderer::recordCommandBuffer(
