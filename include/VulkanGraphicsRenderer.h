@@ -68,6 +68,14 @@ namespace vgfx
                 waitSemaphores.push_back(sem); 
                 waitSemaphoreStages.push_back(stage);
             }
+
+            void clearAll()
+            {
+                waitSemaphores.clear();
+                waitSemaphoreStages.clear();
+                commandBuffers.clear();
+                signalSemaphores.clear();
+            }
             // Should be same number of waitSemaphoreStages as waitSemaphores
             std::vector<VkSemaphore> waitSemaphores;
             std::vector<VkPipelineStageFlags> waitSemaphoreStages;

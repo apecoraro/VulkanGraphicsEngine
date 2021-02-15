@@ -289,7 +289,7 @@ namespace vgfx
         imageSubresourceRange.layerCount = 1;
 
         VkClearValue clearValue = {
-          { 0.0f, 0.0f, 0.0f, 1.0f },
+          { 0.0f, 1.0f, 0.0f, 1.0f },
         };
 
         vkBeginCommandBuffer(commandBuffer, &beginInfo);
@@ -404,6 +404,7 @@ namespace vgfx
         // after just a few frames they will have settled on a good size that doesn't require reallocation.
         // We clear them at the end of the frame because vectors don't release their memory unless shrink_to_fit
         // is called, so by clearing it simplifies the process of building them on the next frame.
+        m_gfxQueueSubmitInfo.clearAll();
         if (submitInfo.waitSemaphoreCount > m_gfxQueueSubmitInfo.waitSemaphores.capacity()) {
             m_gfxQueueSubmitInfo.waitSemaphores.reserve(submitInfo.waitSemaphoreCount);
             m_gfxQueueSubmitInfo.waitSemaphoreStages.reserve(submitInfo.waitSemaphoreCount);

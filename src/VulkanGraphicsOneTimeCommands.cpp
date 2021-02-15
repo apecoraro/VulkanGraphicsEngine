@@ -92,7 +92,7 @@ namespace vgfx
                 copyRegion.srcOffset = 0; // Optional
                 copyRegion.dstOffset = 0; // Optional
                 copyRegion.size = dataSizeBytes;
-                vkCmdCopyBuffer(commandBuffer, buffer.handle, stagingBuffer.handle, 1, &copyRegion);
+                vkCmdCopyBuffer(commandBuffer, stagingBuffer.handle, buffer.handle, 1, &copyRegion);
             });
 
         runner.submit(m_commandQueue);
