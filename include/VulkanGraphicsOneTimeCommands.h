@@ -3,6 +3,7 @@
 
 #include "VulkanGraphicsMemoryAllocator.h"
 #include "VulkanGraphicsCommandBuffers.h"
+#include "VulkanGraphicsImage.h"
 
 #include <cstdint>
 #include <functional>
@@ -49,6 +50,12 @@ namespace vgfx
             MemoryAllocator::Buffer& buffer,
             const void* pData,
             VkDeviceSize dataSizeBytes);
+
+        void copyDataToImage(
+            Image& image,
+            const void* pData,
+            VkDeviceSize dataSizeBytes);
+
     private:
         Context& m_context;
         CommandBufferFactory& m_commandBufferFactory;

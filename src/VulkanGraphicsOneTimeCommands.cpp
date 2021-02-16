@@ -99,4 +99,146 @@ namespace vgfx
 
         memoryAllocator.destroyBuffer(stagingBuffer);
     }
+
+    static void RecordImageMemBarrierCommand(
+        VkCommandBuffer vulkanCommandBuffer,
+        VkImage image,
+        VkImageLayout oldLayout,
+        VkImageLayout newLayout)
+    {
+        VkImageMemoryBarrier barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = oldLayout;
+        barrier.newLayout = newLayout;
+
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+        barrier.image = image;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+
+        VkPipelineStageFlags sourceStage;
+        if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+        {
+            barrier.srcAccessMask = 0;
+            sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+        {
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+        {
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        } else if (oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+        {
+            barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+            sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        } else
+        {
+            assert(false && "Unsupported old layout transition in QuantumVideoDecoder!");
+        }
+
+        VkPipelineStageFlags destinationStage;
+        if (newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+        {
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        } else if (newLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+        {
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        } else if (newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+        {
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        } else if (newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+        {
+            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        } else if (newLayout == VK_IMAGE_LAYOUT_GENERAL)
+        {
+            barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+            destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        } else
+        {
+            assert(false && "Unsupported new layout transition in QuantumVideoDecoder!");
+        }
+
+        vkCmdPipelineBarrier(vulkanCommandBuffer,
+            sourceStage,
+            destinationStage,
+            0, // VkDependencyFlags
+            0, // Memory Barrier Count
+            nullptr, // const VkMemoryBarrier*
+            0, // Buffer Memory Barrier Count
+            nullptr, // const VkBufferMemoryBarrier*
+            1, // Image Memory Barrier Count
+            &barrier); // const VkImageMemoryBarrier*
+    }
+
+    void OneTimeCommandsHelper::copyDataToImage(Image& image, const void* pData, VkDeviceSize dataSizeBytes)
+    {
+        auto& memoryAllocator = m_context.getMemoryAllocator();
+        auto stagingBuffer =
+            memoryAllocator.createBuffer(
+                dataSizeBytes,
+                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_ONLY);
+
+        void* pDataDst = nullptr;
+        memoryAllocator.mapBuffer(stagingBuffer, &pDataDst);
+
+        memcpy(pDataDst, pData, dataSizeBytes);
+
+        memoryAllocator.unmapBuffer(stagingBuffer);
+
+        OneTimeCommandsRunner runner(
+            m_commandBufferFactory,
+            [&image, &dataSizeBytes, &stagingBuffer] (VkCommandBuffer commandBuffer) {
+                RecordImageMemBarrierCommand(
+                    commandBuffer,
+                    image.getHandle(),
+                    VK_IMAGE_LAYOUT_UNDEFINED,
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+                VkBufferImageCopy copyRegion = {};
+                copyRegion.bufferOffset = 0;
+                copyRegion.bufferRowLength = 0;
+                copyRegion.bufferImageHeight = 0;
+
+                copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                copyRegion.imageSubresource.mipLevel = 0;
+                copyRegion.imageSubresource.baseArrayLayer = 0;
+                copyRegion.imageSubresource.layerCount = 1;
+
+                copyRegion.imageOffset = { 0, 0, 0 };
+                copyRegion.imageExtent = {
+                    image.getWidth(),
+                    image.getHeight(),
+                    1
+                };
+
+                vkCmdCopyBufferToImage(
+                    commandBuffer,
+                    stagingBuffer.handle,
+                    image.getHandle(),
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    1, &copyRegion);
+
+                RecordImageMemBarrierCommand(
+                    commandBuffer,
+                    image.getHandle(),
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            });
+
+        runner.submit(m_commandQueue);
+
+        memoryAllocator.destroyBuffer(stagingBuffer);
+    }
 }
