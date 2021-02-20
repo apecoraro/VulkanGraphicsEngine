@@ -1,5 +1,5 @@
-#ifndef QUANTUM_GFX_MATERIALS_H
-#define QUANTUM_GFX_MATERIALS_H
+#ifndef VGFX_MATERIALS_H
+#define VGFX_MATERIALS_H
 
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsDescriptors.h"

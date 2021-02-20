@@ -46,5 +46,6 @@
     <ClInclude Include="include\VulkanGraphicsSampler.h" />
     <ClInclude Include="include\VulkanGraphicsSemaphore.h" />
     <ClInclude Include="include\VulkanGraphicsFence.h" />
+    <ClInclude Include="include\VulkanGraphicsModelLoader.h" />
   </ItemGroup>
 </Project>

@@ -1,5 +1,5 @@
-#ifndef QUANTUM_GFX_VERTEX_BUFFER_H
-#define QUANTUM_GFX_VERTEX_BUFFER_H
+#ifndef VGFX_VERTEX_BUFFER_H
+#define VGFX_VERTEX_BUFFER_H
 
 #include "VulkanGraphicsContext.h"
 

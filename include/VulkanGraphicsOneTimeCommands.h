@@ -1,5 +1,5 @@
-#ifndef QUANTUM_GFX_ONE_TIME_COMMANDS_H
-#define QUANTUM_GFX_ONE_TIME_COMMANDS_H
+#ifndef VGFX_ONE_TIME_COMMANDS_H
+#define VGFX_ONE_TIME_COMMANDS_H
 
 #include "VulkanGraphicsMemoryAllocator.h"
 #include "VulkanGraphicsCommandBuffers.h"

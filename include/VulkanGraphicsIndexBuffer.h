@@ -1,5 +1,5 @@
-#ifndef QUANTUM_GFX_INDEX_BUFFER_H
-#define QUANTUM_GFX_INDEX_BUFFER_H
+#ifndef VGFX_INDEX_BUFFER_H
+#define VGFX_INDEX_BUFFER_H
 
 #include "VulkanGraphicsContext.h"
 

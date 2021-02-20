@@ -1,5 +1,5 @@
-#ifndef QUANTUM_GFX_SWAP_CHAIN_H
-#define QUANTUM_GFX_SWAP_CHAIN_H
+#ifndef VGFX_SWAP_CHAIN_H
+#define VGFX_SWAP_CHAIN_H
 
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsImageView.h"

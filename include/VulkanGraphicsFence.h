@@ -1,5 +1,5 @@
-#ifndef QUANTUM_GFX_FENCE_H
-#define QUANTUM_GFX_FENCE_H
+#ifndef VGFX_FENCE_H
+#define VGFX_FENCE_H
 
 #include "VulkanGraphicsContext.h"
 

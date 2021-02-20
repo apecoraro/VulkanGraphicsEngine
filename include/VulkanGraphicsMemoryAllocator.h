@@ -1,5 +1,5 @@
-#ifndef QUANTUM_GFX_MEMORY_ALLOCATOR_H
-#define QUANTUM_GFX_MEMORY_ALLOCATOR_H
+#ifndef VGFX_MEMORY_ALLOCATOR_H
+#define VGFX_MEMORY_ALLOCATOR_H
 
 #include <cstdint>
 #include <vector>

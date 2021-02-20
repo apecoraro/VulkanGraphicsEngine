@@ -1,5 +1,5 @@
-#ifndef QUANTUM_GFX_PIPELINE_H
-#define QUANTUM_GFX_PIPELINE_H
+#ifndef VGFX_PIPELINE_H
+#define VGFX_PIPELINE_H
 
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsMaterials.h"

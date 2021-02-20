@@ -1,5 +1,5 @@
-#ifndef QUANTUM_GFX_SEMAPHORE_H
-#define QUANTUM_GFX_SEMAPHORE_H
+#ifndef VGFX_SEMAPHORE_H
+#define VGFX_SEMAPHORE_H
 
 #include "VulkanGraphicsContext.h"
 

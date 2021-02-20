@@ -2,8 +2,8 @@
 //  Created by Alex Pecoraro on 3/5/20.
 //  Copyright � 2020 Rainway, Inc. All rights reserved.
 //
-#ifndef QUANTUM_GFX_CONTEXT_H
-#define QUANTUM_GFX_CONTEXT_H
+#ifndef VGFX_CONTEXT_H
+#define VGFX_CONTEXT_H
 
 #include "VulkanGraphicsCommandBuffers.h"
 #include "VulkanGraphicsMemoryAllocator.h"

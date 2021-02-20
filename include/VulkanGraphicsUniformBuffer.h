@@ -1,5 +1,5 @@
-#ifndef QUANTUM_GFX_UNIFORM_BUFFER_H
-#define QUANTUM_GFX_UNIFORM_BUFFER_H
+#ifndef VGFX_UNIFORM_BUFFER_H
+#define VGFX_UNIFORM_BUFFER_H
 
 #include "VulkanGraphicsContext.h"
 

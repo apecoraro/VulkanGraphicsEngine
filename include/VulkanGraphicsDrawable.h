@@ -1,5 +1,5 @@
-#ifndef QUANTUM_GFX_DRAWABLE_H
-#define QUANTUM_GFX_DRAWABLE_H
+#ifndef VGFX_DRAWABLE_H
+#define VGFX_DRAWABLE_H
 
 #include "VulkanGraphicsContext.h"
 

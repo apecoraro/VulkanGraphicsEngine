@@ -1,5 +1,5 @@
-#ifndef QUANTUM_GFX_RENDERER_H
-#define QUANTUM_GFX_RENDERER_H
+#ifndef VGFX_RENDERER_H
+#define VGFX_RENDERER_H
 
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsCommandBuffers.h"

@@ -1,5 +1,5 @@
-#ifndef QUANTUM_GFX_SAMPLER_H
-#define QUANTUM_GFX_SAMPLER_H
+#ifndef VGFX_SAMPLER_H
+#define VGFX_SAMPLER_H
 
 #include "VulkanGraphicsContext.h"
 
