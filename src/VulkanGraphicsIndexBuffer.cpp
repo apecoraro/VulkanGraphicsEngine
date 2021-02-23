@@ -25,7 +25,7 @@ namespace vgfx
     IndexBuffer::IndexBuffer(
         Context& context,
         CommandBufferFactory& commandBufferFactory,
-        const CommandQueue& commandQueue,
+        CommandQueue& commandQueue,
         const Config& config,
         const void* pIndices,
         uint32_t numIndices)

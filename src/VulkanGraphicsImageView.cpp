@@ -5,7 +5,10 @@
 
 namespace vgfx
 {
-    ImageView::ImageView(Context& context, const Config& config)
+    ImageView::ImageView(
+        Context& context,
+        const Config& config,
+        VkImage image)
         : m_context(context)
     {
         VkDevice device = context.getLogicalDevice();
@@ -13,7 +16,10 @@ namespace vgfx
 
         VkAllocationCallbacks* pAllocationCallbacks = context.getAllocationCallbacks();
 
-        if (vkCreateImageView(device, &config.imageViewInfo, pAllocationCallbacks, &m_imageView) != VK_SUCCESS) {
+        VkImageViewCreateInfo imageViewInfo = config.imageViewInfo;
+        imageViewInfo.image = image;
+
+        if (vkCreateImageView(device, &imageViewInfo, pAllocationCallbacks, &m_imageView) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create image view!");
         }
     }

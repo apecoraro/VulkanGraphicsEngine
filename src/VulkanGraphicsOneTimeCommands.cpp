@@ -48,7 +48,7 @@ namespace vgfx
         Context& context,
         CommandBufferFactory& commandBufferFactory,
         // TODO CommandBufferFactory - create command buffers, must use pool created for the provided queue
-        const CommandQueue& queue)
+        CommandQueue& queue)
         : m_context(context)
         , m_commandBufferFactory(commandBufferFactory)
         , m_commandQueue(queue)

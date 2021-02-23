@@ -41,6 +41,15 @@ namespace vgfx
         Image(
             Context& context,
             const Config& config);
+
+        Image(
+            Context& context,
+            vgfx::CommandBufferFactory& commandBufferFactory,
+            vgfx::CommandQueue& commandQueue,
+            const Config& config,
+            const void* pImageData,
+            size_t imageDataSize);
+
         ~Image();
 
         uint32_t getWidth() const { return m_extent.width; }

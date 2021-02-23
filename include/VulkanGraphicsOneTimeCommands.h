@@ -37,7 +37,7 @@ namespace vgfx
         OneTimeCommandsHelper(
             Context& context,
             CommandBufferFactory& commandBufferFactory,
-            const CommandQueue& commandQueue);
+            CommandQueue& commandQueue);
         ~OneTimeCommandsHelper();
 
         // Records and submits one-time-use command buffer that copies the

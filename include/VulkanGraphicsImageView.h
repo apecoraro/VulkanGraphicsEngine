@@ -14,13 +14,12 @@ namespace vgfx
         struct Config
         {
             Config(
-                VkImage image,
                 VkFormat format, // format must be compatible with image's format.
                 VkImageViewType viewType,
                 uint32_t mipMapLevels)
             { 
                 imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-                imageViewInfo.image = image;
+                imageViewInfo.image = VK_NULL_HANDLE;
                 imageViewInfo.format = format;
                 imageViewInfo.viewType = viewType,
                 imageViewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -34,20 +33,19 @@ namespace vgfx
                 imageViewInfo.subresourceRange.layerCount = 1;
             }
 
-            Config(
-                const vgfx::Image& image,
-                VkFormat format, // format must be compatible with image's format.
-                VkImageViewType viewType,
-                uint32_t mipMapLevels)
-                : Config(image.getHandle(), format, viewType, mipMapLevels)
-            {
-
-            }
-
             VkImageViewCreateInfo imageViewInfo = {};
         };
 
-        ImageView(Context& context, const Config& config);
+        ImageView(
+            Context& context,
+            const Config& config,
+            VkImage image);
+
+        ImageView(
+            Context& context,
+            const Config& config,
+            const vgfx::Image& image) : ImageView(context, config, image.getHandle()) {}
+
         ~ImageView()
         {
             destroy();

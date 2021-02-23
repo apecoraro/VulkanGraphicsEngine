@@ -11,11 +11,13 @@
 
 namespace vgfx
 {
+    using MaterialId = std::pair<Program*, Program*>;
     //  Encapsulates a vertex and fragment shader;
     class Material
     {
     public:
         Material(
+            MaterialId materialId,
             const Program& vertexShader,
             const Program& fragmentShader)
             : m_vertexShader(vertexShader)
@@ -25,7 +27,7 @@ namespace vgfx
 
         ~Material() = default;
 
-        void configureDescriptorSets(
+        void attachDescriptorSets(
             std::vector<std::unique_ptr<DescriptorSetBuffer>>&& descriptorSets)
         {
             m_descriptorSets = std::move(descriptorSets);
@@ -50,6 +52,7 @@ namespace vgfx
             }
         }
 
+        const MaterialId& getId() const { return m_materialId; }
         const Program& getVertexShader() const { return m_vertexShader; }
         const Program& getFragmentShader() const { return m_fragmentShader; }
         size_t getDescriptorSetCount() const { return m_descriptorSets.size(); }
@@ -64,6 +67,7 @@ namespace vgfx
             return m_descriptorSetBindings[index];
         }
     private:
+        MaterialId m_materialId;
         const Program& m_vertexShader;
         const Program& m_fragmentShader;
         std::vector<std::unique_ptr<DescriptorSetBuffer>> m_descriptorSets;
@@ -75,22 +79,30 @@ namespace vgfx
     {
         struct MaterialInfo
         {
+            std::vector<VkFormat> vertexShaderInputs; // vertex attribute input types, in location order
             std::string vertexShaderPath;
             std::string vertexShaderEntryPointFunc;
+            std::vector<VkFormat> fragmentShaderInputs; // frag shader input types, in location order
             std::string fragmentShaderPath;
             std::string fragmentShaderEntryPointFunc;
+            std::vector<std::pair<VkDescriptorType, VkShaderStageFlags>> descriptorBindings; // Descriptors (uniform buffers, samplers, etc.) in location order
 
             MaterialInfo(
+                const std::vector<VkFormat>& vtxShaderInputs,
                 std::string vtxShaderPath,
                 std::string vtxShaderEntryPointFunc,
+                const std::vector<VkFormat>& fragShaderInputs,
                 std::string fragShaderPath,
-                std::string fragShaderEntryPointFunc)
-                : vertexShaderPath(vtxShaderPath)
+                std::string fragShaderEntryPointFunc,
+                const std::vector<std::pair<VkDescriptorType, VkShaderStageFlags>>& descBindings)
+                : vertexShaderInputs(vtxShaderInputs)
+                , vertexShaderPath(vtxShaderPath)
                 , vertexShaderEntryPointFunc(vtxShaderEntryPointFunc)
+                , fragmentShaderInputs(fragShaderInputs)
                 , fragmentShaderPath(fragShaderPath)
                 , fragmentShaderEntryPointFunc(fragShaderEntryPointFunc)
+                , descriptorBindings(descBindings)
             {
-
             }
         };
 

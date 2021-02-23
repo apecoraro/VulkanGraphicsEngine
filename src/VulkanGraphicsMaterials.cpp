@@ -107,6 +107,7 @@ namespace vgfx
 
         std::unique_ptr<Material>& spMaterial = s_materialsTable[materialId];
         spMaterial = std::make_unique<Material>(
+            materialId,
             vertexShader,
             fragmentShader);
 

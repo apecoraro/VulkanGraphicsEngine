@@ -7,10 +7,10 @@
 namespace vgfx
 {
     UniformBufferDescriptor::UniformBufferDescriptor(
-        std::vector<std::unique_ptr<UniformBuffer>>&& uniformBuffers,
+        std::unique_ptr<UniformBuffer> uniformBuffer,
         const LayoutBindingConfig& layoutBindingConfig)
         : Descriptor(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, layoutBindingConfig)
-        , m_uniformBuffers(std::move(uniformBuffers))
+        , m_uniformBuffer(std::move(uniformBuffer))
     {
     }
 
@@ -21,11 +21,10 @@ namespace vgfx
         VkWriteDescriptorSet& writeSet = *pWriteSet;
         writeSet.dstArrayElement = 0;
 
-        auto& uniformBuffer = *m_uniformBuffers[setIndex].get();
         VkDescriptorBufferInfo bufferInfo = {};
-        bufferInfo.buffer = uniformBuffer.getHandle(setIndex);
+        bufferInfo.buffer = m_uniformBuffer->getHandle(setIndex);
         bufferInfo.offset = 0;
-        bufferInfo.range = uniformBuffer.getSize();
+        bufferInfo.range = m_uniformBuffer->getSize();
 
         writeSet.pBufferInfo = &bufferInfo;
     }
@@ -64,7 +63,7 @@ namespace vgfx
         : m_context(context)
         , m_descriptors(std::move(descriptors))
         , m_descriptorWrites(m_descriptors.size())
-        , m_descriptorSets(bufferCount)
+        , m_descriptorSetCopies(bufferCount)
     {
         std::vector<VkDescriptorSetLayoutBinding> descriptorBindings;
         descriptorBindings.reserve(m_descriptors.size());
@@ -111,17 +110,22 @@ namespace vgfx
     }
 
     void DescriptorSetBuffer::init(DescriptorPool& pool)
-    { 
-        pool.allocateDescriptorSets(m_descriptorSetLayout, &m_descriptorSets);
+    {
+        pool.allocateDescriptorSets(m_descriptorSetLayout, &m_descriptorSetCopies);
 
-        for (size_t index = 0u; index < m_descriptorSets.size(); ++index) {
+        update();
+    }
+
+    void DescriptorSetBuffer::update()
+    {
+        for (size_t index = 0u; index < m_descriptorSetCopies.size(); ++index) {
             writeDescriptorSet(index);
         }
     }
 
     void DescriptorSetBuffer::writeDescriptorSet(size_t descriptorSetIndex)
     {
-        VkDescriptorSet descriptorSet = m_descriptorSets[descriptorSetIndex];
+        VkDescriptorSet descriptorSet = m_descriptorSetCopies[descriptorSetIndex];
         for (size_t dindex = 0u; dindex < m_descriptors.size(); ++dindex) {
             auto& spDescriptor = m_descriptors[dindex];
             VkWriteDescriptorSet& descriptorWrite = m_descriptorWrites[dindex];

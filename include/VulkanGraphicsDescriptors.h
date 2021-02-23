@@ -65,7 +65,7 @@ namespace vgfx
     public:
         // VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
         UniformBufferDescriptor(
-            std::vector<std::unique_ptr<UniformBuffer>>&& uniformBuffers,
+            std::unique_ptr<UniformBuffer> uniformBuffer,
             const LayoutBindingConfig& layoutBindingConfig);
 
         virtual ~UniformBufferDescriptor() = default;
@@ -73,7 +73,7 @@ namespace vgfx
         void write(size_t setIndex, VkWriteDescriptorSet* pWriteSet) override;
 
     private:
-        std::vector<std::unique_ptr<UniformBuffer>> m_uniformBuffers;
+        std::unique_ptr<UniformBuffer> m_uniformBuffer;
     };
 
     class CombinedImageSamplerDescriptor : public Descriptor
@@ -126,12 +126,13 @@ namespace vgfx
         VkDescriptorSetLayout getLayout() const { return m_descriptorSetLayout; }
 
         void init(DescriptorPool& pool);
+        void update();
 
-        virtual size_t getCopyCount() const { return m_descriptorSets.size();  }
+        virtual size_t getCopyCount() const { return m_descriptorSetCopies.size();  }
         virtual const std::vector<std::unique_ptr<Descriptor>>& getDescriptors() const { return m_descriptors;  }
 
         const std::vector<VkDescriptorSet> getDescriptorSetCopies() const {
-            return m_descriptorSets;
+            return m_descriptorSetCopies;
         }
     private:
         void writeDescriptorSet(size_t descriptorSetIndex);
@@ -139,7 +140,7 @@ namespace vgfx
         Context& m_context;
         std::vector<std::unique_ptr<Descriptor>> m_descriptors;
         std::vector<VkWriteDescriptorSet> m_descriptorWrites;
-        std::vector<VkDescriptorSet> m_descriptorSets;
+        std::vector<VkDescriptorSet> m_descriptorSetCopies;
         VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
     };
 

@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="src\VulkanGraphicsFence.cpp" />
     <ClCompile Include="src\VulkanGraphicsImage.cpp" />
+    <ClCompile Include="src\VulkanGraphicsModelDatabase.cpp" />
     <ClCompile Include="src\VulkanGraphicsSampler.cpp" />
     <ClCompile Include="src\VulkanGraphicsCommandBuffers.cpp" />
     <ClCompile Include="src\VulkanGraphicsDescriptors.cpp" />
@@ -53,7 +54,7 @@
     <ClInclude Include="include\VulkanGraphicsIndexBuffer.h" />
     <ClInclude Include="include\VulkanGraphicsMaterials.h" />
     <ClInclude Include="include\VulkanGraphicsMemoryAllocator.h" />
-    <ClInclude Include="include\VulkanGraphicsModelLoader.h" />
+    <ClInclude Include="include\VulkanGraphicsModelDatabase.h" />
     <ClInclude Include="include\VulkanGraphicsObject.h" />
     <ClInclude Include="include\VulkanGraphicsPipeline.h" />
     <ClInclude Include="include\VulkanGraphicsProgram.h" />
@@ -139,7 +140,7 @@
       <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)dependencies\VulkanMemoryAllocator\src;$(VULKAN_SDK)\Include;$(ProjectDir)include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)dependencies\glm;$(ProjectDir)dependencies\stb;$(ProjectDir)dependencies\tinyobjloader;$(ProjectDir)dependencies\VulkanMemoryAllocator\src;$(VULKAN_SDK)\Include;$(ProjectDir)include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -189,7 +190,7 @@
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)dependencies\VulkanMemoryAllocator\src;$(VULKAN_SDK)\Include;$(ProjectDir)include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)dependencies\glm;$(ProjectDir)dependencies\stb;$(ProjectDir)dependencies\tinyobjloader;$(ProjectDir)dependencies\VulkanMemoryAllocator\src;$(VULKAN_SDK)\Include;$(ProjectDir)include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>

@@ -10,6 +10,9 @@
 
 #include <vulkan/vulkan.h>
 
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+
 namespace vgfx
 {
     class VertexBuffer
@@ -46,7 +49,7 @@ namespace vgfx
         VertexBuffer(
             Context& context,
             CommandBufferFactory& commandBufferFactory,
-            const CommandQueue& commandQueue,
+            CommandQueue& commandQueue,
             const Config& config,
             const VertexData* pVertexData,
             size_t vertexDataSizeBytes);
@@ -69,6 +72,17 @@ namespace vgfx
         std::vector<AttributeDescription> m_vertexAttrDescriptions;
 
         MemoryAllocator::Buffer m_buffer;
+    };
+
+    struct Vertex
+    {
+        glm::vec3 pos;
+        glm::vec3 color;
+        glm::vec2 texCoord;
+        bool operator==(const Vertex& other) const
+        {
+            return pos == other.pos && color == other.color && texCoord == other.texCoord;
+        }
     };
 }
 

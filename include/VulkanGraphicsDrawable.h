@@ -38,6 +38,9 @@ namespace vgfx
             VkPipelineLayout pipelineLayout,
             VkCommandBuffer commandBuffer);
 
+        const VertexBuffer& getVertexBuffer() const { return *m_spVertexBuffer.get(); }
+        const IndexBuffer& getIndexBuffer() const { return *m_spIndexBuffer.get(); }
+        const Material& getMaterial() const { return m_material; }
     private:
         std::unique_ptr<VertexBuffer> m_spVertexBuffer;				// GPU versions
         std::unique_ptr<IndexBuffer> m_spIndexBuffer;

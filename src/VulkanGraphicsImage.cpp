@@ -1,5 +1,7 @@
 #include "VulkanGraphicsImage.h"
 
+#include "VulkanGraphicsOneTimeCommands.h"
+
 vgfx::Image::Image(
     Context& context,
     const Config& config)
@@ -12,6 +14,23 @@ vgfx::Image::Image(
     VmaMemoryUsage imageMemoryUsage = VmaMemoryUsage::VMA_MEMORY_USAGE_GPU_ONLY;
 
     m_image = memoryAllocator.createImage(config.imageInfo, imageMemoryUsage);
+}
+
+vgfx::Image::Image(
+    Context& context,
+    vgfx::CommandBufferFactory& commandBufferFactory,
+    vgfx::CommandQueue& commandQueue,
+    const Config& config,
+    const void* pImageData,
+    size_t imageDataSize)
+    : Image(context, config)
+{
+    OneTimeCommandsHelper helper(
+        context,
+        commandBufferFactory,
+        commandQueue);
+
+    helper.copyDataToImage(*this, pImageData, imageDataSize);
 }
 
 vgfx::Image::~Image()
