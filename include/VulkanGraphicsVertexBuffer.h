@@ -74,6 +74,7 @@ namespace vgfx
         MemoryAllocator::Buffer m_buffer;
     };
 
+    // TODO add some other options for Vertex format.
     struct Vertex
     {
         glm::vec3 pos;

@@ -28,6 +28,12 @@ template<> struct std::hash<vgfx::Vertex> {
 
 namespace vgfx
 {
+    VertexBuffer::Config ModelDatabase::VertexBufferConfig(
+            sizeof(Vertex),
+            VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST); // TODO do all Obj models use this?
+
+    IndexBuffer::Config ModelDatabase::IndexBufferConfig(VK_INDEX_TYPE_UINT32);
+
     static std::unique_ptr<VertexBuffer> CreateVertexBuffer(
         Context& context,
         CommandBufferFactory& commandBufferFactory,
@@ -101,25 +107,20 @@ namespace vgfx
             }
         }
 
-        VertexBuffer::Config vertexBufferConfig(
-            sizeof(Vertex),
-            VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-
         std::unique_ptr<VertexBuffer> spVertexBuffer =
             CreateVertexBuffer(
                 context,
                 commandBufferFactory,
                 commandQueue,
-                vertexBufferConfig,
+                ModelDatabase::VertexBufferConfig,
                 vertices);
 
-        IndexBuffer::Config indexBufferConfig(VK_INDEX_TYPE_UINT32);
         std::unique_ptr<IndexBuffer> spIndexBuffer =
             std::make_unique<IndexBuffer>(
                 context,
                 commandBufferFactory,
                 commandQueue,
-                indexBufferConfig,
+                ModelDatabase::IndexBufferConfig,
                 indices.data(),
                 static_cast<uint32_t>(indices.size()));
     }

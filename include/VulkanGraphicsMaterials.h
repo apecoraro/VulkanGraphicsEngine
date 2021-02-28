@@ -36,6 +36,13 @@ namespace vgfx
             for (const auto& spDescSet : m_descriptorSets) {
                 m_descriptorSetLayouts.push_back(spDescSet->getLayout());
             }
+
+            m_areDescriptorSetsInitialized = false;
+        }
+
+        bool areDescriptorSetsInitialized() const
+        {
+            return m_areDescriptorSetsInitialized;
         }
 
         void initDescriptors(DescriptorPool& pool)
@@ -50,6 +57,8 @@ namespace vgfx
                     m_descriptorSetBindings[i].push_back(descSetCopies[i]);
                 }
             }
+
+            m_areDescriptorSetsInitialized = true;
         }
 
         const MaterialId& getId() const { return m_materialId; }
@@ -70,6 +79,7 @@ namespace vgfx
         MaterialId m_materialId;
         const Program& m_vertexShader;
         const Program& m_fragmentShader;
+        bool m_areDescriptorSetsInitialized = false;
         std::vector<std::unique_ptr<DescriptorSetBuffer>> m_descriptorSets;
         std::vector<std::vector<VkDescriptorSet>> m_descriptorSetBindings;
         std::vector<VkDescriptorSetLayout> m_descriptorSetLayouts;

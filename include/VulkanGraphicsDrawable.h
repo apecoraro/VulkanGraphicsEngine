@@ -24,7 +24,7 @@ namespace vgfx
             Context& context,
             std::unique_ptr<VertexBuffer> spVertexBuffer,
             std::unique_ptr<IndexBuffer> spIndexBuffer,
-            const Material& material)
+            Material& material)
             : m_spVertexBuffer(std::move(spVertexBuffer))
             , m_spIndexBuffer(std::move(spIndexBuffer))
             , m_material(material)
@@ -39,12 +39,17 @@ namespace vgfx
             VkCommandBuffer commandBuffer);
 
         const VertexBuffer& getVertexBuffer() const { return *m_spVertexBuffer.get(); }
+        VertexBuffer& getVertexBuffer() { return *m_spVertexBuffer.get(); }
+
         const IndexBuffer& getIndexBuffer() const { return *m_spIndexBuffer.get(); }
+        IndexBuffer& getIndexBuffer() { return *m_spIndexBuffer.get(); }
+
         const Material& getMaterial() const { return m_material; }
+        Material& getMaterial() { return m_material; }
     private:
         std::unique_ptr<VertexBuffer> m_spVertexBuffer;				// GPU versions
         std::unique_ptr<IndexBuffer> m_spIndexBuffer;
-        const Material& m_material;
+        Material& m_material;
     };
 }
 #endif

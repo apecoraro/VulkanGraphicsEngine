@@ -24,9 +24,17 @@ namespace vgfx
             // Pairs of ImageView and Sampler configs corresponding to each image in the model,
             // defines how the image will be sampled. TODO add Sampler reuse.
             ImageSamplingConfigs imageSamplingConfigs;
+            ModelConfig(
+                const MaterialsDatabase::MaterialInfo& mi,
+                const ImageSamplingConfigs& isc)
+                : materialInfo(mi)
+                , imageSamplingConfigs(isc)
+            {
+            }
         };
 
-        using ModelConfigMap = std::unordered_map<std::string, ModelConfig>;
+        using ModelPath = std::string;
+        using ModelConfigMap = std::unordered_map<ModelPath, ModelConfig>;
         struct Config
         {
             ModelConfigMap modelConfigMap;
@@ -40,6 +48,10 @@ namespace vgfx
             uint32_t swapChainImageCount,
             CommandBufferFactory& commandBufferFactory,
             CommandQueue& commandQueue);
+ 
+        // Default vertex and index buffer config for all models/drawables created by this.
+        static VertexBuffer::Config VertexBufferConfig;
+        static IndexBuffer::Config IndexBufferConfig;
 
     private:
         Drawable* findDrawable(const std::string& modelPath, const Material& material);
