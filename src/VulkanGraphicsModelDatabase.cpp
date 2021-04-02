@@ -160,7 +160,7 @@ namespace vgfx
         const std::string& modelPath,
         uint32_t swapChainImageCount,
         CommandBufferFactory& commandBufferFactory,
-        CommandQueue& commandQueue)
+        CommandQueue commandQueue)
     {
         ModelConfigMap::iterator modelCfgItr = m_modelConfigMap.find(modelPath);
         if (modelCfgItr == m_modelConfigMap.end()) {

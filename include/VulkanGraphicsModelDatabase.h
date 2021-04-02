@@ -47,7 +47,7 @@ namespace vgfx
             const std::string& modelPath,
             uint32_t swapChainImageCount,
             CommandBufferFactory& commandBufferFactory,
-            CommandQueue& commandQueue);
+            CommandQueue commandQueue);
  
         // Default vertex and index buffer config for all models/drawables created by this.
         static VertexBuffer::Config VertexBufferConfig;

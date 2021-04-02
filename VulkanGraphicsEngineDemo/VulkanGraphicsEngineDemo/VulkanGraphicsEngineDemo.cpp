@@ -8,9 +8,11 @@
 #include "VulkanGraphicsSampler.h"
 #include "VulkanGraphicsSwapChain.h"
 
-#include <iostream>
 
 #include <vulkan/vulkan.h>
+
+#include <algorithm>
+#include <iostream>
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -38,7 +40,7 @@ public:
         m_enableValidationLayers(enableValidationLayers)
     {
     }
-
+	
     void init(
         void* window,
         const std::function<VkResult(VkInstance, void*, const VkAllocationCallbacks*, VkSurfaceKHR*)>& createVulkanSurface,
@@ -82,7 +84,10 @@ public:
         // Seems like if the window is not fullscreen then we are basically limited to the size of
         // the window for the SwapChain. If fullscreen then there might be other choices, although
         // I need to test that out a bit.
-        swapChainConfig.imageExtent = { windowWidth, windowHeight };
+        swapChainConfig.imageExtent = {
+			static_cast<uint32_t>(windowWidth),
+			static_cast<uint32_t>(windowHeight)
+		};
 
         m_spWindowRenderer = std::make_unique<vgfx::WindowRenderer>(
             swapChainConfig,
@@ -106,11 +111,10 @@ public:
             [] (vgfx::Context& context, VkImage image, VkFormat imageFormat)
             {
                 vgfx::ImageView::Config cfg(
-                        image,
                         imageFormat,
                         VK_IMAGE_VIEW_TYPE_2D,
                         1u);
-                return std::make_unique<vgfx::ImageView>(context, cfg);
+                return std::make_unique<vgfx::ImageView>(context, cfg, image);
             },
             // If only double buffering is available then one frame in flight, otherwise
             // 2 frames in flight (i.e. triple buffering).
@@ -166,7 +170,7 @@ public:
         vgfx::ModelDatabase::ModelConfig modelConfig(materialInfo, imageSamplingConfigs);
         vgfx::ModelDatabase::Config config;
         config.modelConfigMap = { { modelPath, modelConfig } };
-        m_spModelDatabase = std::make_unique<vgfx::ModelDatabase>();
+        m_spModelDatabase = std::make_unique<vgfx::ModelDatabase>(config);
 
         initGraphicsObject(m_graphicsContext, *m_spCommandBufferFactory, *m_spModelDatabase, modelPath);
     }
@@ -306,11 +310,10 @@ public:
             [](vgfx::Context& context, VkImage image, VkFormat imageFormat)
             {
                 vgfx::ImageView::Config cfg(
-                    image,
                     imageFormat,
                     VK_IMAGE_VIEW_TYPE_2D,
                     1u);
-                return std::make_unique<vgfx::ImageView>(context, cfg);
+                return std::make_unique<vgfx::ImageView>(context, cfg, image);
             },
             // If only double buffering is available then one frame in flight, otherwise
             // 2 frames in flight (i.e. triple buffering).
@@ -367,15 +370,15 @@ bool DemoInit(
     if (s_pDemo == nullptr) {
         try {
             s_pDemo = new Demo(enableValidationLayers);
-            s_pDemo->init(
-                window,
-                createVulkanSurface,
-                getFramebufferSize,
-                platformSpecificExtensionCount,
-                platformSpecificExtensions,
-                pModelPath,
-                pVertexShaderPath,
-                pFragShaderPath)
+			s_pDemo->init(
+				window,
+				createVulkanSurface,
+				getFramebufferSize,
+				platformSpecificExtensionCount,
+				platformSpecificExtensions,
+				pModelPath,
+				pVertexShaderPath,
+				pFragShaderPath);
         } catch(const std::exception& e) {
             std::cerr << e.what() << '\n';
             return false;
