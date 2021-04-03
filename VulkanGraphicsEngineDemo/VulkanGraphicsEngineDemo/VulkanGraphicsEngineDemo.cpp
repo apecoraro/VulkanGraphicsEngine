@@ -205,6 +205,9 @@ public:
         vgfx::ModelDatabase& modelDatabase,
         const std::string& modelPath)
     {
+        // TODO pass in the size of the Model-View-Projection matrix
+        // then get a reference to it and update all copies of it with
+        // an initial value.
         auto& model = modelDatabase.getOrCreateDrawable(
             graphicsContext,
             modelPath,
@@ -230,8 +233,8 @@ public:
         // GraphicsPipeline is specific to a material, vertex buffer config,
         // and input assembly config.
         vgfx::PipelineBuilder::InputAssemblyConfig inputConfig(
-            vgfx::ModelDatabase::VertexBufferConfig.primitiveTopology,
-            vgfx::ModelDatabase::IndexBufferConfig.hasPrimitiveRestartValues);
+            vgfx::ModelDatabase::GetDefaultVertexBufferConfig().primitiveTopology,
+            vgfx::ModelDatabase::GetDefaultIndexBufferConfig().hasPrimitiveRestartValues);
 
         m_spGraphicsPipeline =
             createGraphicsPipeline(
@@ -239,7 +242,7 @@ public:
                 m_spWindowRenderer->getSwapChain(),
                 *m_spWindowRenderer->getRenderTarget(),
                 model.getMaterial(),
-                vgfx::ModelDatabase::VertexBufferConfig,
+                vgfx::ModelDatabase::GetDefaultVertexBufferConfig(),
                 inputConfig);
 
         m_graphicsObjects.push_back(std::move(spModelObject));

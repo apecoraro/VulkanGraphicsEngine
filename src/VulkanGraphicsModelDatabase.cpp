@@ -17,8 +17,8 @@
 
 #include <unordered_map>
 
-template<> struct std::hash<vgfx::Vertex> {
-    size_t operator()(vgfx::Vertex const& vertex) const {
+template<> struct std::hash<vgfx::Vertex_xyz_rgb_uv> {
+    size_t operator()(vgfx::Vertex_xyz_rgb_uv const& vertex) const {
         return (
             (hash<glm::vec3>()(vertex.pos) ^
             (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
@@ -28,41 +28,26 @@ template<> struct std::hash<vgfx::Vertex> {
 
 namespace vgfx
 {
-    VertexBuffer::Config ModelDatabase::VertexBufferConfig(
-            sizeof(Vertex),
+    VertexBuffer::Config ModelDatabase::DefaultVertexBufferConfig(
+            sizeof(Vertex_xyz_rgb_uv),
             VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST); // TODO do all Obj models use this?
 
-    IndexBuffer::Config ModelDatabase::IndexBufferConfig(VK_INDEX_TYPE_UINT32);
+    IndexBuffer::Config ModelDatabase::DefaultIndexBufferConfig(VK_INDEX_TYPE_UINT32);
 
     static std::unique_ptr<VertexBuffer> CreateVertexBuffer(
         Context& context,
         CommandBufferFactory& commandBufferFactory,
         CommandQueue& commandQueue,
-        VertexBuffer::Config& config,
-        const std::vector<Vertex>& vertices)
+        const VertexBuffer::Config& config,
+        const std::vector<Vertex_xyz_rgb_uv>& vertices)
     {
-        config.vertexAttrDescriptions.push_back(
-            VertexBuffer::AttributeDescription(
-                VK_FORMAT_R32G32_SFLOAT,
-                offsetof(Vertex, pos)));
-
-        config.vertexAttrDescriptions.push_back(
-            VertexBuffer::AttributeDescription(
-                VK_FORMAT_R32G32B32_SFLOAT,
-                offsetof(Vertex, color)));
-
-        config.vertexAttrDescriptions.push_back(
-            VertexBuffer::AttributeDescription(
-                VK_FORMAT_R32G32_SFLOAT,
-                offsetof(Vertex, texCoord)));
-
         return std::make_unique<VertexBuffer>(
             context,
             commandBufferFactory,
             commandQueue,
             config,
             vertices.data(),
-            vertices.size() * sizeof(Vertex));
+            vertices.size() * sizeof(Vertex_xyz_rgb_uv));
     }
 
     static void LoadVertices(
@@ -75,13 +60,13 @@ namespace vgfx
         std::unique_ptr<IndexBuffer>* pspIndexBuffer,
         std::string* pDiffuseTexturePath)
     {
-        std::vector<Vertex> vertices;
+        std::vector<Vertex_xyz_rgb_uv> vertices;
         std::vector<uint32_t> indices;
-        std::unordered_map<Vertex, uint32_t> uniqueVertices;
+        std::unordered_map<Vertex_xyz_rgb_uv, uint32_t> uniqueVertices;
 
         for (const auto& shape : shapes) {
             for (const auto& index : shape.mesh.indices) {
-                Vertex vertex = {
+                Vertex_xyz_rgb_uv vertex = {
                     {
                         attrib.vertices[3 * index.vertex_index + 0],
                         attrib.vertices[3 * index.vertex_index + 1],
@@ -97,7 +82,6 @@ namespace vgfx
                     },
                 };
 
-                vertices.push_back(vertex);
                 if (uniqueVertices.count(vertex) == 0) {
                     uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
                     vertices.push_back(vertex);
@@ -112,7 +96,7 @@ namespace vgfx
                 context,
                 commandBufferFactory,
                 commandQueue,
-                ModelDatabase::VertexBufferConfig,
+                ModelDatabase::GetDefaultVertexBufferConfig(),
                 vertices);
 
         std::unique_ptr<IndexBuffer> spIndexBuffer =
@@ -120,7 +104,7 @@ namespace vgfx
                 context,
                 commandBufferFactory,
                 commandQueue,
-                ModelDatabase::IndexBufferConfig,
+                ModelDatabase::GetDefaultIndexBufferConfig(),
                 indices.data(),
                 static_cast<uint32_t>(indices.size()));
     }
@@ -167,7 +151,7 @@ namespace vgfx
             throw std::runtime_error("Unknown model path!");
         }
 
-        MaterialsDatabase::MaterialInfo materialInfo = modelCfgItr->second.materialInfo;
+        auto& materialInfo = modelCfgItr->second.materialInfo;
         Material& material = MaterialsDatabase::GetOrLoadMaterial(context, materialInfo);
         Drawable* pDrawable = findDrawable(modelPath, material);
         if (pDrawable != nullptr) {
@@ -262,12 +246,50 @@ namespace vgfx
 
             material.attachDescriptorSets(std::move(descriptorSets));
         }
+
+        auto& models = m_drawableDatabase[modelPath];
+        models.push_back(std::move(
+            std::make_unique<Drawable>(
+                context,
+                std::move(spVertexBuffer),
+                std::move(spIndexBuffer),
+                material)));
+
+        return *models.back().get();
+    }
+
+    VertexBuffer::Config& ModelDatabase::GetDefaultVertexBufferConfig()
+    {
+        // Initialize the vertex attribute descriptions if not already.
+        if (DefaultVertexBufferConfig.vertexAttrDescriptions.empty()) {
+            DefaultVertexBufferConfig.vertexAttrDescriptions.push_back(
+                VertexBuffer::AttributeDescription(
+                    VK_FORMAT_R32G32B32_SFLOAT,
+                    offsetof(Vertex_xyz_rgb_uv, pos)));
+
+            DefaultVertexBufferConfig.vertexAttrDescriptions.push_back(
+                VertexBuffer::AttributeDescription(
+                    VK_FORMAT_R32G32B32_SFLOAT,
+                    offsetof(Vertex_xyz_rgb_uv, color)));
+
+            DefaultVertexBufferConfig.vertexAttrDescriptions.push_back(
+                VertexBuffer::AttributeDescription(
+                    VK_FORMAT_R32G32_SFLOAT,
+                    offsetof(Vertex_xyz_rgb_uv, texCoord)));
+        }
+
+        return DefaultVertexBufferConfig;
+    }
+
+    IndexBuffer::Config& ModelDatabase::GetDefaultIndexBufferConfig()
+    {
+        return DefaultIndexBufferConfig;
     }
 
     Drawable* ModelDatabase::findDrawable(const std::string& modelPath, const Material& material)
     {
         const auto& findIt = m_drawableDatabase.find(modelPath);
-        if (findIt == m_drawableDatabase.end()) {
+        if (findIt != m_drawableDatabase.end()) {
             for (const auto& spDrawable : findIt->second) {
                 if (spDrawable->getMaterial().getId() == material.getId()) {
                     return spDrawable.get();

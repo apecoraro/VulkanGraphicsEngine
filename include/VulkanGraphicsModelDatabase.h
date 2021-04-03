@@ -50,10 +50,13 @@ namespace vgfx
             CommandQueue commandQueue);
  
         // Default vertex and index buffer config for all models/drawables created by this.
-        static VertexBuffer::Config VertexBufferConfig;
-        static IndexBuffer::Config IndexBufferConfig;
+        static VertexBuffer::Config& GetDefaultVertexBufferConfig();
+        static IndexBuffer::Config& GetDefaultIndexBufferConfig();
 
     private:
+        static VertexBuffer::Config DefaultVertexBufferConfig;
+        static IndexBuffer::Config DefaultIndexBufferConfig;
+
         Drawable* findDrawable(const std::string& modelPath, const Material& material);
 
         struct ImageData

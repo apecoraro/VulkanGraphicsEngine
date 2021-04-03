@@ -1,5 +1,6 @@
 VulkanGraphicsEngine.vcxproj.user
 dependencies/VulkanSDK
+dependencies/glfw
 
 # Prerequisites
 *.d

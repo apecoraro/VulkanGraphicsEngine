@@ -17,7 +17,7 @@ Input Types:
 * rgba - 4 component color
 * uv - 2D texture coordinates.
 
-pos_rgb_uv_in - xyz position, rgb color, uv texture coords.
+xyz_rgb_uv_in - xyz position, rgb color, uv texture coords.
 
 For each output:
 [OutputType0]_[OutputType1]...[OutputTypeN]_out
