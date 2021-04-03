@@ -17,8 +17,8 @@
 
 #include <unordered_map>
 
-template<> struct std::hash<vgfx::Vertex_xyz_rgb_uv> {
-    size_t operator()(vgfx::Vertex_xyz_rgb_uv const& vertex) const {
+template<> struct std::hash<vgfx::VertexXyzRgbUv> {
+    size_t operator()(vgfx::VertexXyzRgbUv const& vertex) const {
         return (
             (hash<glm::vec3>()(vertex.pos) ^
             (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
@@ -29,7 +29,7 @@ template<> struct std::hash<vgfx::Vertex_xyz_rgb_uv> {
 namespace vgfx
 {
     VertexBuffer::Config ModelDatabase::DefaultVertexBufferConfig(
-            sizeof(Vertex_xyz_rgb_uv),
+            sizeof(VertexXyzRgbUv),
             VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST); // TODO do all Obj models use this?
 
     IndexBuffer::Config ModelDatabase::DefaultIndexBufferConfig(VK_INDEX_TYPE_UINT32);
@@ -39,7 +39,7 @@ namespace vgfx
         CommandBufferFactory& commandBufferFactory,
         CommandQueue& commandQueue,
         const VertexBuffer::Config& config,
-        const std::vector<Vertex_xyz_rgb_uv>& vertices)
+        const std::vector<VertexXyzRgbUv>& vertices)
     {
         return std::make_unique<VertexBuffer>(
             context,
@@ -47,7 +47,7 @@ namespace vgfx
             commandQueue,
             config,
             vertices.data(),
-            vertices.size() * sizeof(Vertex_xyz_rgb_uv));
+            vertices.size() * sizeof(VertexXyzRgbUv));
     }
 
     static void LoadVertices(
@@ -60,13 +60,13 @@ namespace vgfx
         std::unique_ptr<IndexBuffer>* pspIndexBuffer,
         std::string* pDiffuseTexturePath)
     {
-        std::vector<Vertex_xyz_rgb_uv> vertices;
+        std::vector<VertexXyzRgbUv> vertices;
         std::vector<uint32_t> indices;
-        std::unordered_map<Vertex_xyz_rgb_uv, uint32_t> uniqueVertices;
+        std::unordered_map<VertexXyzRgbUv, uint32_t> uniqueVertices;
 
         for (const auto& shape : shapes) {
             for (const auto& index : shape.mesh.indices) {
-                Vertex_xyz_rgb_uv vertex = {
+                VertexXyzRgbUv vertex = {
                     {
                         attrib.vertices[3 * index.vertex_index + 0],
                         attrib.vertices[3 * index.vertex_index + 1],
@@ -109,34 +109,24 @@ namespace vgfx
                 static_cast<uint32_t>(indices.size()));
     }
 
-    void BuildImageSamplerDescriptorSet(
-        std::unique_ptr<CombinedImageSampler> spCombinedImageSampler,
-        VkShaderStageFlags shaderStageFlags,
-        std::vector<std::unique_ptr<Descriptor>>* pBindings)
+    std::unique_ptr<CombinedImageSamplerDescriptor>
+    BuildImageSamplerDescriptorSet(
+        const CombinedImageSampler& combinedImageSampler,
+        VkShaderStageFlags shaderStageFlags)
     {
         Descriptor::LayoutBindingConfig bindingConfig(shaderStageFlags);
 
-        std::unique_ptr<CombinedImageSamplerDescriptor> spCombinedImageSamplerDescriptor =
-            std::make_unique<CombinedImageSamplerDescriptor>(
-                std::move(spCombinedImageSampler),
-                bindingConfig);
-
-        pBindings->push_back(std::move(spCombinedImageSamplerDescriptor));
+        return std::make_unique<CombinedImageSamplerDescriptor>(combinedImageSampler, bindingConfig);
     }
 
-    void BuildUniformBufferDescriptorSet(
-        std::unique_ptr<UniformBuffer> spUniformBuffer,
-        VkShaderStageFlags shaderStageFlags,
-        std::vector<std::unique_ptr<Descriptor>>* pBindings)
+    std::unique_ptr<UniformBufferDescriptor>
+    BuildUniformBufferDescriptorSet(
+        UniformBuffer& uniformBuffer,
+        VkShaderStageFlags shaderStageFlags)
     {
         Descriptor::LayoutBindingConfig bindingConfig(shaderStageFlags);
 
-        std::unique_ptr<UniformBufferDescriptor> spUniformBufferDescriptor =
-            std::make_unique<UniformBufferDescriptor>(
-                std::move(spUniformBuffer),
-                bindingConfig);
-
-        pBindings->push_back(std::move(spUniformBufferDescriptor));
+        return std::make_unique<UniformBufferDescriptor>(uniformBuffer, bindingConfig);
     }
 
     Drawable& ModelDatabase::getOrCreateDrawable(
@@ -187,40 +177,46 @@ namespace vgfx
             std::vector<std::unique_ptr<Descriptor>> imageSamplerDescriptors;
             std::vector<std::unique_ptr<Descriptor>> uboDescriptors;
 
-            ImageSamplingConfigs::iterator imageSamplingCfgItr = modelCfgItr->second.imageSamplingConfigs.begin();
             for (size_t i = 0; i < materialInfo.descriptorBindings.size(); ++i) {
-                const auto& descriptorBindingInfo = materialInfo.descriptorBindings[i];
-                if (descriptorBindingInfo.first == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
-                    if (imageSamplingCfgItr == modelCfgItr->second.imageSamplingConfigs.end()) {
-                        assert(false && "Not enough sampling configs to match up with the material descriptor bindings!");
+                const auto& descriptorBinding = materialInfo.descriptorBindings[i];
+                if (descriptorBinding.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+                    const MaterialsDatabase::CombinedImageSamplerDescriptorBinding&
+                        imageSamplerDescBinding =
+                            static_cast<const MaterialsDatabase::CombinedImageSamplerDescriptorBinding&>(descriptorBinding);
+                    if (imageSamplerDescBinding.imageType != MaterialsDatabase::ImageType::CUSTOM) {
+                        // Currently only support diffuse.
+                        assert(imageSamplerDescBinding.imageType != MaterialsDatabase::ImageType::DIFFUSE);
+                        ImageData& imageData =
+                            getOrLoadImage(
+                                materials.front().diffuse_texname.c_str(),
+                                imageSamplerDescBinding.imageViewConfig.value(), // ImageView::Config
+                                imageSamplerDescBinding.samplerConfig.value(), // Sampler::Config
+                                context,
+                                commandBufferFactory,
+                                commandQueue);
+
+                        CombinedImageSampler imageSampler(*imageData.spImageView.get(), *imageData.spSampler.get());
+                        imageSamplerDescriptors.push_back(
+                            std::move(
+                                BuildImageSamplerDescriptorSet(
+                                    imageSampler,
+                                    descriptorBinding.shaderStageFlags)));
+                    } else {
+                        imageSamplerDescriptors.push_back(
+                            std::move(
+                                BuildImageSamplerDescriptorSet(
+                                    imageSamplerDescBinding.imageSampler.value(),
+                                    descriptorBinding.shaderStageFlags)));
                     }
+                } else if (descriptorBinding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+                    const MaterialsDatabase::UniformBufferDescriptorBinding& uniformBufferDescBinding =
+                            static_cast<const MaterialsDatabase::UniformBufferDescriptorBinding&>(descriptorBinding);
 
-                    ImageData& imageData =
-                        getOrLoadImage(
-                            materials.front().diffuse_texname.c_str(),
-                            imageSamplingCfgItr->first, // ImageView::Config
-                            imageSamplingCfgItr->second, // Sampler::Config
-                            context,
-                            commandBufferFactory,
-                            commandQueue);
-
-                    ++imageSamplingCfgItr;
-
-                    BuildImageSamplerDescriptorSet(
-                        std::make_unique<CombinedImageSampler>(
-                            *imageData.spImageView.get(),
-                            *imageData.spSampler.get()),
-                        descriptorBindingInfo.second,
-                        &imageSamplerDescriptors);
-
-                } else if (descriptorBindingInfo.first == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
-                    UniformBuffer::Config ubConfig(swapChainImageCount);
-                    std::unique_ptr<UniformBuffer> spUniformBuffer = std::make_unique<UniformBuffer>(context, ubConfig);
-
-                    BuildUniformBufferDescriptorSet(
-                        std::move(spUniformBuffer),
-                        descriptorBindingInfo.second,
-                        &uboDescriptors);
+                    uboDescriptors.push_back(
+                        std::move(
+                            BuildUniformBufferDescriptorSet(
+                                uniformBufferDescBinding.uniformBuffer,
+                                descriptorBinding.shaderStageFlags)));
                 }
             }
 
@@ -265,17 +261,17 @@ namespace vgfx
             DefaultVertexBufferConfig.vertexAttrDescriptions.push_back(
                 VertexBuffer::AttributeDescription(
                     VK_FORMAT_R32G32B32_SFLOAT,
-                    offsetof(Vertex_xyz_rgb_uv, pos)));
+                    offsetof(VertexXyzRgbUv, pos)));
 
             DefaultVertexBufferConfig.vertexAttrDescriptions.push_back(
                 VertexBuffer::AttributeDescription(
                     VK_FORMAT_R32G32B32_SFLOAT,
-                    offsetof(Vertex_xyz_rgb_uv, color)));
+                    offsetof(VertexXyzRgbUv, color)));
 
             DefaultVertexBufferConfig.vertexAttrDescriptions.push_back(
                 VertexBuffer::AttributeDescription(
                     VK_FORMAT_R32G32_SFLOAT,
-                    offsetof(Vertex_xyz_rgb_uv, texCoord)));
+                    offsetof(VertexXyzRgbUv, texCoord)));
         }
 
         return DefaultVertexBufferConfig;

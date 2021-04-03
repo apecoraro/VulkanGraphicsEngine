@@ -6,14 +6,6 @@
 
 namespace vgfx
 {
-    UniformBufferDescriptor::UniformBufferDescriptor(
-        std::unique_ptr<UniformBuffer> uniformBuffer,
-        const LayoutBindingConfig& layoutBindingConfig)
-        : Descriptor(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, layoutBindingConfig)
-        , m_uniformBuffer(std::move(uniformBuffer))
-    {
-    }
-
     void UniformBufferDescriptor::write(size_t setIndex, VkWriteDescriptorSet* pWriteSet)
     {
         Descriptor::write(setIndex, pWriteSet);
@@ -22,20 +14,11 @@ namespace vgfx
         writeSet.dstArrayElement = 0;
 
         VkDescriptorBufferInfo bufferInfo = {};
-        bufferInfo.buffer = m_uniformBuffer->getHandle(setIndex);
+        bufferInfo.buffer = m_uniformBuffer.getHandle(setIndex);
         bufferInfo.offset = 0;
-        bufferInfo.range = m_uniformBuffer->getSize();
+        bufferInfo.range = m_uniformBuffer.getSize();
 
         writeSet.pBufferInfo = &bufferInfo;
-    }
-
-    CombinedImageSamplerDescriptor::CombinedImageSamplerDescriptor(
-        std::unique_ptr<CombinedImageSampler> spCombinedImageSampler,
-        const LayoutBindingConfig& layoutBindingConfig)
-        : Descriptor(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, layoutBindingConfig)
-        , m_spCombinedImageSampler(std::move(spCombinedImageSampler))
-    {
-
     }
 
     void CombinedImageSamplerDescriptor::write(
@@ -50,8 +33,8 @@ namespace vgfx
 
         // TODO should imageLayout not be hard coded?
         m_imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        m_imageInfo.imageView = m_spCombinedImageSampler->getImageView().getHandle();
-        m_imageInfo.sampler = m_spCombinedImageSampler->getSampler().getHandle();
+        m_imageInfo.imageView = m_combinedImageSampler.getImageView().getHandle();
+        m_imageInfo.sampler = m_combinedImageSampler.getSampler().getHandle();
 
         writeSet.pImageInfo = &m_imageInfo;
     }

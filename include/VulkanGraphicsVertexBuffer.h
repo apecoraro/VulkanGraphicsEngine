@@ -75,12 +75,12 @@ namespace vgfx
     };
 
     // TODO add some other options for Vertex format.
-    struct Vertex_xyz_rgb_uv
+    struct VertexXyzRgbUv
     {
         glm::vec3 pos;
         glm::vec3 color;
         glm::vec2 texCoord;
-        bool operator==(const Vertex_xyz_rgb_uv& other) const
+        bool operator==(const VertexXyzRgbUv& other) const
         {
             return pos == other.pos && color == other.color && texCoord == other.texCoord;
         }

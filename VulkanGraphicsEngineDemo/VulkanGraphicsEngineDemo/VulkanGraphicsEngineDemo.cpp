@@ -139,20 +139,26 @@ public:
             VK_FORMAT_R32G32_SFLOAT // uv
         };
         std::string fragmentShaderEntryPointFunc = "main";
-        // Descriptors (uniform buffers, samplers, etc.) in location order
-        std::vector<std::pair<VkDescriptorType, VkShaderStageFlags>> descriptorBindings = {
-            std::make_pair(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+
+        struct ModelViewProj {
+            glm::mat4 model;
+            glm::mat4 view;
+            glm::mat4 proj;
         };
-        vgfx::MaterialsDatabase::MaterialInfo materialInfo(
-            vertexShaderInputs,
-            vertexShaderPath,
-            vertexShaderEntryPointFunc,
-            fragmentShaderInputs,
-            fragmentShaderPath,
-            fragmentShaderEntryPointFunc,
-            descriptorBindings);
-        vgfx::ModelDatabase::ImageSamplingConfigs imageSamplingConfigs = {
-            std::make_pair(
+        vgfx::UniformBuffer::Config uniformBufferConfig(
+            m_spWindowRenderer->getSwapChain().getImageCount(),
+            sizeof(ModelViewProj));
+        // TODO need to update all copies of MvpUniform with data.
+        std::unique_ptr<vgfx::UniformBuffer> spMvpUniform =
+            std::make_unique<vgfx::UniformBuffer>(m_graphicsContext, uniformBufferConfig);
+        // Descriptors (uniform buffers, samplers, etc.) in location order
+        std::vector<vgfx::MaterialsDatabase::DescriptorBinding> descriptorBindings = {
+            vgfx::MaterialsDatabase::UniformBufferDescriptorBinding(
+                VK_SHADER_STAGE_VERTEX_BIT,
+                *spMvpUniform.get()),
+            vgfx::MaterialsDatabase::CombinedImageSamplerDescriptorBinding(
+                VK_SHADER_STAGE_FRAGMENT_BIT,
+                vgfx::MaterialsDatabase::ImageType::DIFFUSE,
                 vgfx::ImageView::Config(
                     VK_FORMAT_R8G8B8A8_UNORM,
                     VK_IMAGE_VIEW_TYPE_2D,
@@ -166,8 +172,16 @@ public:
                     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
                     false, 0))
         };
+        vgfx::MaterialsDatabase::MaterialInfo materialInfo(
+            vertexShaderInputs,
+            vertexShaderPath,
+            vertexShaderEntryPointFunc,
+            fragmentShaderInputs,
+            fragmentShaderPath,
+            fragmentShaderEntryPointFunc,
+            std::move(descriptorBindings));
 
-        vgfx::ModelDatabase::ModelConfig modelConfig(materialInfo, imageSamplingConfigs);
+        vgfx::ModelDatabase::ModelConfig modelConfig(materialInfo);
         vgfx::ModelDatabase::Config config;
         config.modelConfigMap = { { modelPath, modelConfig } };
         m_spModelDatabase = std::make_unique<vgfx::ModelDatabase>(config);
@@ -205,9 +219,6 @@ public:
         vgfx::ModelDatabase& modelDatabase,
         const std::string& modelPath)
     {
-        // TODO pass in the size of the Model-View-Projection matrix
-        // then get a reference to it and update all copies of it with
-        // an initial value.
         auto& model = modelDatabase.getOrCreateDrawable(
             graphicsContext,
             modelPath,

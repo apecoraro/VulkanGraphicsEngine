@@ -17,18 +17,12 @@ namespace vgfx
     class ModelDatabase
     {
     public:
-        using ImageSamplingConfigs = std::vector<std::pair<ImageView::Config, Sampler::Config>>;
         struct ModelConfig
         {
             MaterialsDatabase::MaterialInfo materialInfo;
-            // Pairs of ImageView and Sampler configs corresponding to each image in the model,
-            // defines how the image will be sampled. TODO add Sampler reuse.
-            ImageSamplingConfigs imageSamplingConfigs;
             ModelConfig(
-                const MaterialsDatabase::MaterialInfo& mi,
-                const ImageSamplingConfigs& isc)
+                const MaterialsDatabase::MaterialInfo& mi)
                 : materialInfo(mi)
-                , imageSamplingConfigs(isc)
             {
             }
         };

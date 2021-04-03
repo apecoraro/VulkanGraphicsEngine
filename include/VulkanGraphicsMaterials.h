@@ -5,6 +5,7 @@
 #include "VulkanGraphicsDescriptors.h"
 #include "VulkanGraphicsProgram.h"
 
+#include <cassert>
 #include <vector>
 
 #include <vulkan/vulkan.h>
@@ -87,6 +88,69 @@ namespace vgfx
 
     namespace MaterialsDatabase
     {
+        struct DescriptorBinding
+        {
+            const VkDescriptorType descriptorType;
+            const VkShaderStageFlags shaderStageFlags;
+            DescriptorBinding(VkDescriptorType descType, VkShaderStageFlags shStFlags)
+                : descriptorType(descType)
+                , shaderStageFlags(shStFlags)
+            {
+            }
+        };
+
+        struct UniformBufferDescriptorBinding : public DescriptorBinding
+        {
+            UniformBuffer& uniformBuffer;
+            UniformBufferDescriptorBinding(
+                VkShaderStageFlags shaderStageFlags,
+                UniformBuffer& buffer)
+                : DescriptorBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, shaderStageFlags)
+                , uniformBuffer(buffer)
+            {
+            }
+        };
+
+        enum class ImageType
+        {
+            DIFFUSE,
+            CUSTOM
+        };
+
+        struct CombinedImageSamplerDescriptorBinding : public DescriptorBinding
+        {
+            // This type is used to determine which
+            // image from the model will be loaded for this CombinedImageSampler.
+            const ImageType imageType;
+            const std::optional<vgfx::ImageView::Config> imageViewConfig;
+            const std::optional<vgfx::Sampler::Config> samplerConfig;
+            // If imageType == CUSTOM then this imageSampler is used.
+            const std::optional<CombinedImageSampler> imageSampler;
+
+            CombinedImageSamplerDescriptorBinding(
+                VkShaderStageFlags shaderStageFlags,
+                ImageType imgType,
+                const vgfx::ImageView::Config& imgViewCfg,
+                const vgfx::Sampler::Config& smplrCfg)
+                : DescriptorBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, shaderStageFlags)
+                , imageType(imgType)
+                , imageViewConfig(imgViewCfg)
+                , samplerConfig(smplrCfg)
+            {
+            }
+
+            CombinedImageSamplerDescriptorBinding(
+                VkShaderStageFlags shaderStageFlags,
+                // Note that the CombinedImageSampler will be eventually owned by the the Material
+                // that gets created with this binding.
+                CombinedImageSampler& imgSmplr)
+                : DescriptorBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, shaderStageFlags)
+                , imageType(ImageType::CUSTOM)
+                , imageSampler(imgSmplr)
+            {
+            }
+        };
+
         struct MaterialInfo
         {
             std::vector<VkFormat> vertexShaderInputs; // vertex attribute input types, in location order
@@ -95,7 +159,7 @@ namespace vgfx
             std::vector<VkFormat> fragmentShaderInputs; // frag shader input types, in location order
             std::string fragmentShaderPath;
             std::string fragmentShaderEntryPointFunc;
-            std::vector<std::pair<VkDescriptorType, VkShaderStageFlags>> descriptorBindings; // Descriptors (uniform buffers, samplers, etc.) in location order
+            std::vector<DescriptorBinding> descriptorBindings; // Descriptors (uniform buffers, samplers, etc.) in location order
 
             MaterialInfo(
                 const std::vector<VkFormat>& vtxShaderInputs,
@@ -104,7 +168,7 @@ namespace vgfx
                 const std::vector<VkFormat>& fragShaderInputs,
                 std::string fragShaderPath,
                 std::string fragShaderEntryPointFunc,
-                const std::vector<std::pair<VkDescriptorType, VkShaderStageFlags>>& descBindings)
+                std::vector<DescriptorBinding>&& descBindings)
                 : vertexShaderInputs(vtxShaderInputs)
                 , vertexShaderPath(vtxShaderPath)
                 , vertexShaderEntryPointFunc(vtxShaderEntryPointFunc)

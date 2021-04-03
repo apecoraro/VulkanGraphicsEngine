@@ -65,15 +65,18 @@ namespace vgfx
     public:
         // VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
         UniformBufferDescriptor(
-            std::unique_ptr<UniformBuffer> uniformBuffer,
-            const LayoutBindingConfig& layoutBindingConfig);
+            UniformBuffer& uniformBuffer,
+            const LayoutBindingConfig& layoutBindingConfig)
+            : Descriptor(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, layoutBindingConfig)
+            , m_uniformBuffer(uniformBuffer)
+        {}
 
         virtual ~UniformBufferDescriptor() = default;
 
         void write(size_t setIndex, VkWriteDescriptorSet* pWriteSet) override;
 
     private:
-        std::unique_ptr<UniformBuffer> m_uniformBuffer;
+        UniformBuffer& m_uniformBuffer;
     };
 
     class CombinedImageSamplerDescriptor : public Descriptor
@@ -81,15 +84,19 @@ namespace vgfx
     public:
         // VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
         CombinedImageSamplerDescriptor(
-            std::unique_ptr<CombinedImageSampler> spCombinedImageSampler,
-            const LayoutBindingConfig& layoutBindingConfig);
+            const CombinedImageSampler& combinedImageSampler,
+            const LayoutBindingConfig& layoutBindingConfig)
+            : Descriptor(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, layoutBindingConfig)
+            , m_combinedImageSampler(combinedImageSampler)
+        {
+        }
 
         virtual ~CombinedImageSamplerDescriptor() = default;
 
         void write(size_t setIndex, VkWriteDescriptorSet* pWriteSet) override;
 
     private:
-        std::unique_ptr<CombinedImageSampler> m_spCombinedImageSampler;
+        CombinedImageSampler m_combinedImageSampler;
         VkDescriptorImageInfo m_imageInfo = {};
     };
 
