@@ -42,7 +42,7 @@ namespace vgfx
             return m_images[index];
         }
 
-        VkExtent2D getImageExtent() const {
+        const VkExtent2D& getImageExtent() const {
             return m_imageExtent;
         }
 

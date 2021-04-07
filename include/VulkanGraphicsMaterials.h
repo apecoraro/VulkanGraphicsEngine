@@ -90,64 +90,47 @@ namespace vgfx
     {
         struct DescriptorBinding
         {
-            const VkDescriptorType descriptorType;
-            const VkShaderStageFlags shaderStageFlags;
-            DescriptorBinding(VkDescriptorType descType, VkShaderStageFlags shStFlags)
-                : descriptorType(descType)
-                , shaderStageFlags(shStFlags)
+            // Basic is just to specify the Descriptor, but if the Descriptor is some type
+            // of image sampler, then specify config parameters to create it with
+            // CombinedImagesamplerDescriptorBinding after loading the image from disk.
+            std::unique_ptr<Descriptor> m_spDescriptor;
+            virtual VkDescriptorType getDescriptorType() const
             {
-            }
-        };
-
-        struct UniformBufferDescriptorBinding : public DescriptorBinding
-        {
-            UniformBuffer& uniformBuffer;
-            UniformBufferDescriptorBinding(
-                VkShaderStageFlags shaderStageFlags,
-                UniformBuffer& buffer)
-                : DescriptorBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, shaderStageFlags)
-                , uniformBuffer(buffer)
-            {
+                return m_spDescriptor->getType();
             }
         };
 
         enum class ImageType
         {
             DIFFUSE,
-            CUSTOM
         };
 
         struct CombinedImageSamplerDescriptorBinding : public DescriptorBinding
         {
             // This type is used to determine which
             // image from the model will be loaded for this CombinedImageSampler.
+            VkDescriptorType descriptorType;
+            Descriptor::LayoutBindingConfig descriptorConfig;
             const ImageType imageType;
-            const std::optional<vgfx::ImageView::Config> imageViewConfig;
-            const std::optional<vgfx::Sampler::Config> samplerConfig;
-            // If imageType == CUSTOM then this imageSampler is used.
-            const std::optional<CombinedImageSampler> imageSampler;
+            const vgfx::ImageView::Config imageViewConfig;
+            const vgfx::Sampler::Config samplerConfig;
 
             CombinedImageSamplerDescriptorBinding(
-                VkShaderStageFlags shaderStageFlags,
+                Descriptor::LayoutBindingConfig descConfig,
                 ImageType imgType,
                 const vgfx::ImageView::Config& imgViewCfg,
                 const vgfx::Sampler::Config& smplrCfg)
-                : DescriptorBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, shaderStageFlags)
+                : descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+                , descriptorConfig(descConfig)
                 , imageType(imgType)
                 , imageViewConfig(imgViewCfg)
                 , samplerConfig(smplrCfg)
             {
             }
 
-            CombinedImageSamplerDescriptorBinding(
-                VkShaderStageFlags shaderStageFlags,
-                // Note that the CombinedImageSampler will be eventually owned by the the Material
-                // that gets created with this binding.
-                CombinedImageSampler& imgSmplr)
-                : DescriptorBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, shaderStageFlags)
-                , imageType(ImageType::CUSTOM)
-                , imageSampler(imgSmplr)
+            VkDescriptorType getDescriptorType() const override
             {
+                return this->descriptorType;
             }
         };
 
@@ -159,7 +142,8 @@ namespace vgfx
             std::vector<VkFormat> fragmentShaderInputs; // frag shader input types, in location order
             std::string fragmentShaderPath;
             std::string fragmentShaderEntryPointFunc;
-            std::vector<DescriptorBinding> descriptorBindings; // Descriptors (uniform buffers, samplers, etc.) in location order
+            using DescriptorBindings = std::vector<DescriptorBinding*>;
+            DescriptorBindings descriptorBindings; // Descriptors (uniform buffers, samplers, etc.) in location order
 
             MaterialInfo(
                 const std::vector<VkFormat>& vtxShaderInputs,
@@ -168,7 +152,7 @@ namespace vgfx
                 const std::vector<VkFormat>& fragShaderInputs,
                 std::string fragShaderPath,
                 std::string fragShaderEntryPointFunc,
-                std::vector<DescriptorBinding>&& descBindings)
+                const DescriptorBindings& descBindings)
                 : vertexShaderInputs(vtxShaderInputs)
                 , vertexShaderPath(vtxShaderPath)
                 , vertexShaderEntryPointFunc(vtxShaderEntryPointFunc)

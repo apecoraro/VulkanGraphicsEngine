@@ -109,16 +109,6 @@ namespace vgfx
                 static_cast<uint32_t>(indices.size()));
     }
 
-    std::unique_ptr<CombinedImageSamplerDescriptor>
-    BuildImageSamplerDescriptorSet(
-        const CombinedImageSampler& combinedImageSampler,
-        VkShaderStageFlags shaderStageFlags)
-    {
-        Descriptor::LayoutBindingConfig bindingConfig(shaderStageFlags);
-
-        return std::make_unique<CombinedImageSamplerDescriptor>(combinedImageSampler, bindingConfig);
-    }
-
     std::unique_ptr<UniformBufferDescriptor>
     BuildUniformBufferDescriptorSet(
         UniformBuffer& uniformBuffer,
@@ -178,45 +168,40 @@ namespace vgfx
             std::vector<std::unique_ptr<Descriptor>> uboDescriptors;
 
             for (size_t i = 0; i < materialInfo.descriptorBindings.size(); ++i) {
-                const auto& descriptorBinding = materialInfo.descriptorBindings[i];
-                if (descriptorBinding.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
-                    const MaterialsDatabase::CombinedImageSamplerDescriptorBinding&
-                        imageSamplerDescBinding =
-                            static_cast<const MaterialsDatabase::CombinedImageSamplerDescriptorBinding&>(descriptorBinding);
-                    if (imageSamplerDescBinding.imageType != MaterialsDatabase::ImageType::CUSTOM) {
-                        // Currently only support diffuse.
-                        assert(imageSamplerDescBinding.imageType != MaterialsDatabase::ImageType::DIFFUSE);
-                        ImageData& imageData =
-                            getOrLoadImage(
-                                materials.front().diffuse_texname.c_str(),
-                                imageSamplerDescBinding.imageViewConfig.value(), // ImageView::Config
-                                imageSamplerDescBinding.samplerConfig.value(), // Sampler::Config
-                                context,
-                                commandBufferFactory,
-                                commandQueue);
+                const auto& pDescriptorBinding = materialInfo.descriptorBindings[i];
+                if (pDescriptorBinding->m_spDescriptor == nullptr
+                    && pDescriptorBinding->getDescriptorType() == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+                    const MaterialsDatabase::CombinedImageSamplerDescriptorBinding*
+                        pImageSamplerDescBinding =
+                            static_cast<const MaterialsDatabase::CombinedImageSamplerDescriptorBinding*>(pDescriptorBinding);
+                    assert(pImageSamplerDescBinding->imageType == MaterialsDatabase::ImageType::DIFFUSE);
+                    // Currently only support diffuse.
+                    Image& image =
+                        getOrLoadImage(
+                            materials.front().diffuse_texname.c_str(),
+                            context,
+                            commandBufferFactory,
+                            commandQueue);
 
-                        CombinedImageSampler imageSampler(*imageData.spImageView.get(), *imageData.spSampler.get());
-                        imageSamplerDescriptors.push_back(
-                            std::move(
-                                BuildImageSamplerDescriptorSet(
-                                    imageSampler,
-                                    descriptorBinding.shaderStageFlags)));
-                    } else {
-                        imageSamplerDescriptors.push_back(
-                            std::move(
-                                BuildImageSamplerDescriptorSet(
-                                    imageSamplerDescBinding.imageSampler.value(),
-                                    descriptorBinding.shaderStageFlags)));
-                    }
-                } else if (descriptorBinding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
-                    const MaterialsDatabase::UniformBufferDescriptorBinding& uniformBufferDescBinding =
-                            static_cast<const MaterialsDatabase::UniformBufferDescriptorBinding&>(descriptorBinding);
+                    ImageView& imageView =
+                        getOrCreateImageView(pImageSamplerDescBinding->imageViewConfig.value(), context, image);
+
+                    Sampler& sampler =
+                        getOrCreateSampler(pImageSamplerDescBinding->samplerConfig.value(), context);
+
+                    CombinedImageSampler imageSampler(imageView, sampler);
+                    imageSamplerDescriptors.push_back(
+                        std::move(std::make_unique<CombinedImageSamplerDescriptor>(
+                            imageSampler, pImageSamplerDescBinding->descriptorConfig)));
+                } else if (pDescriptorBinding->descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+                    const MaterialsDatabase::UniformBufferDescriptorBinding* pUniformBufferDescBinding =
+                            static_cast<const MaterialsDatabase::UniformBufferDescriptorBinding*>(pDescriptorBinding);
 
                     uboDescriptors.push_back(
                         std::move(
                             BuildUniformBufferDescriptorSet(
-                                uniformBufferDescBinding.uniformBuffer,
-                                descriptorBinding.shaderStageFlags)));
+                                pUniformBufferDescBinding->uniformBuffer,
+                                pUniformBufferDescBinding->shaderStageFlags)));
                 }
             }
 
@@ -295,18 +280,15 @@ namespace vgfx
         return nullptr;
     }
 
-    ModelDatabase::ImageData& ModelDatabase::getOrLoadImage(
+    Image& ModelDatabase::getOrLoadImage(
         const std::string& path,
-        const ImageView::Config& imageViewConfig,
-        const Sampler::Config& samplerConfig,
         Context& context,
         CommandBufferFactory& commandBufferFactory,
         CommandQueue& commandQueue)
     {
-        ImageData& imageData = m_imageDatabase[path];
-        if (imageData.spImage != nullptr) {
-            assert(imageData.spImageView != nullptr && imageData.spSampler != nullptr);
-            return imageData;
+        auto& spImage = m_imageDatabase[path];
+        if (spImage != nullptr) {
+            return *spImage.get();
         }
 
         int32_t texWidth = 0;
@@ -326,7 +308,7 @@ namespace vgfx
             VK_IMAGE_TILING_OPTIMAL,
             VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 
-        imageData.spImage =
+        spImage =
             std::make_unique<Image>(
                 context,
                 commandBufferFactory,
@@ -337,12 +319,30 @@ namespace vgfx
 
         stbi_image_free(pPixels);
 
-        imageData.spImageView =
-            std::make_unique<ImageView>(context, imageViewConfig, *imageData.spImage.get());
+        return *spImage.get();
+    }
 
-        imageData.spSampler =
-            std::make_unique<Sampler>(context, samplerConfig);
+    ImageView& ModelDatabase::getOrCreateImageView(const ImageView::Config& config, Context& context, const vgfx::Image& image)
+    {
+        auto& spImageView = m_imageViewDatabase[config];
+        if (spImageView != nullptr) {
+            return *spImageView.get();
+        }
 
-        return imageData;
+        spImageView = std::make_unique<ImageView>(context, config, image);
+
+        return *spImageView.get();
+    }
+
+    Sampler& ModelDatabase::getOrCreateSampler(const Sampler::Config& config, Context& context)
+    {
+        auto& spSampler = m_samplerDatabase[config];
+        if (spSampler != nullptr) {
+            return *spSampler.get();
+        }
+
+        spSampler = std::make_unique<Sampler>(context, config);
+
+        return *spSampler.get();
     }
 }

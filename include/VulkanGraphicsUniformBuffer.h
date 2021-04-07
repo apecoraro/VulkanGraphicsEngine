@@ -3,6 +3,7 @@
 
 #include "VulkanGraphicsContext.h"
 
+#include <cassert>
 #include <cstdint>
 #include <vector>
 
@@ -39,25 +40,30 @@ namespace vgfx
 
         bool update(
             size_t bufferIndex,
-            std::function<void(void*)>& callback,
+            void* pData,
+            size_t sizeOfDataBytes,
             bool leaveMapped)
         {
+            assert(sizeOfDataBytes <= m_bufferSize);
             if (m_pMappedPtrs[bufferIndex] == nullptr) {
-                if (m_context.getMemoryAllocator().mapBuffer(m_buffers[bufferIndex], &m_pMappedPtrs[bufferIndex])) {
+                if (!m_context.getMemoryAllocator().mapBuffer(m_buffers[bufferIndex], &m_pMappedPtrs[bufferIndex])) {
                     return false;
                 }
             }
 
-            callback(m_pMappedPtrs[bufferIndex]);
+            memcpy(m_pMappedPtrs[bufferIndex], pData, sizeOfDataBytes);
 
             if (!leaveMapped) {
                 m_context.getMemoryAllocator().unmapBuffer(m_buffers[bufferIndex]);
                 m_pMappedPtrs[bufferIndex] = nullptr;
             }
+            return true;
         }
 
         VkBuffer getHandle(size_t copyIndex) { return m_buffers[copyIndex].handle;  }
         uint32_t getSize() const { return m_bufferSize; }
+        uint32_t getCopyCount() const { return m_copyCount; }
+
     private:
         void destroy();
 

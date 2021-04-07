@@ -13,6 +13,8 @@
 
 #include <algorithm>
 #include <iostream>
+#include <glm\ext\matrix_transform.hpp>
+#include <glm\ext\matrix_clip_space.hpp>
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -30,6 +32,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 
     return VK_FALSE;
 }
+
+struct ModelViewProj {
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
 
 class Demo
 {
@@ -138,40 +146,55 @@ public:
             VK_FORMAT_R32G32B32_SFLOAT, // color
             VK_FORMAT_R32G32_SFLOAT // uv
         };
+
         std::string fragmentShaderEntryPointFunc = "main";
 
-        struct ModelViewProj {
-            glm::mat4 model;
-            glm::mat4 view;
-            glm::mat4 proj;
-        };
         vgfx::UniformBuffer::Config uniformBufferConfig(
-            m_spWindowRenderer->getSwapChain().getImageCount(),
-            sizeof(ModelViewProj));
-        // TODO need to update all copies of MvpUniform with data.
-        std::unique_ptr<vgfx::UniformBuffer> spMvpUniform =
+            sizeof(ModelViewProj), // Size of buffer
+            m_spWindowRenderer->getSwapChain().getImageCount()); // Number of copies
+        m_spMvpMatrixUniform =
             std::make_unique<vgfx::UniformBuffer>(m_graphicsContext, uniformBufferConfig);
+        m_mvpMatrix.model = glm::identity<glm::mat4>();
+        m_mvpMatrix.view = glm::lookAt(
+            glm::vec3(2.0f, 2.0f, 2.0f), // eye
+            glm::vec3(0.0f, 0.0f, 0.0f), // center
+            glm::vec3(0.0f, 0.0f, 1.0f)); // up
+        auto& swapChainExtent = m_spWindowRenderer->getSwapChain().getImageExtent();
+        m_mvpMatrix.proj = glm::perspective(
+            glm::radians(45.0f),
+            static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height),
+            0.1f, // near
+            10.0f); // far
+        bool keepUBMapped = true;
+        for (size_t index = 0; index < m_spMvpMatrixUniform->getCopyCount(); ++index) {
+            m_spMvpMatrixUniform->update(index, &m_mvpMatrix, sizeof(m_mvpMatrix), keepUBMapped);
+        }
+
+        vgfx::MaterialsDatabase::UniformBufferDescriptorBinding ubBinding(
+            VK_SHADER_STAGE_VERTEX_BIT,
+            *m_spMvpMatrixUniform.get());
+
+        vgfx::MaterialsDatabase::CombinedImageSamplerDescriptorBinding isBinding(
+            VK_SHADER_STAGE_FRAGMENT_BIT,
+            vgfx::MaterialsDatabase::ImageType::DIFFUSE,
+            vgfx::ImageView::Config(
+                VK_FORMAT_R8G8B8A8_UNORM,
+                VK_IMAGE_VIEW_TYPE_2D,
+                1), // TODO add support for mip maps
+            vgfx::Sampler::Config(
+                VK_FILTER_LINEAR,
+                VK_FILTER_LINEAR,
+                VK_SAMPLER_MIPMAP_MODE_LINEAR,
+                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                false, 0)); // Last two parameters are for anisotropic filtering
         // Descriptors (uniform buffers, samplers, etc.) in location order
-        std::vector<vgfx::MaterialsDatabase::DescriptorBinding> descriptorBindings = {
-            vgfx::MaterialsDatabase::UniformBufferDescriptorBinding(
-                VK_SHADER_STAGE_VERTEX_BIT,
-                *spMvpUniform.get()),
-            vgfx::MaterialsDatabase::CombinedImageSamplerDescriptorBinding(
-                VK_SHADER_STAGE_FRAGMENT_BIT,
-                vgfx::MaterialsDatabase::ImageType::DIFFUSE,
-                vgfx::ImageView::Config(
-                    VK_FORMAT_R8G8B8A8_UNORM,
-                    VK_IMAGE_VIEW_TYPE_2D,
-                    1), // TODO add support for mip maps
-                vgfx::Sampler::Config(
-                    VK_FILTER_LINEAR,
-                    VK_FILTER_LINEAR,
-                    VK_SAMPLER_MIPMAP_MODE_LINEAR,
-                    VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                    VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                    VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                    false, 0))
+        vgfx::MaterialsDatabase::MaterialInfo::DescriptorBindings descriptorBindings = {
+           &ubBinding,
+           &isBinding,
         };
+
         vgfx::MaterialsDatabase::MaterialInfo materialInfo(
             vertexShaderInputs,
             vertexShaderPath,
@@ -179,7 +202,7 @@ public:
             fragmentShaderInputs,
             fragmentShaderPath,
             fragmentShaderEntryPointFunc,
-            std::move(descriptorBindings));
+            descriptorBindings);
 
         vgfx::ModelDatabase::ModelConfig modelConfig(materialInfo);
         vgfx::ModelDatabase::Config config;
@@ -198,7 +221,8 @@ public:
     std::unique_ptr<vgfx::WindowRenderer> m_spWindowRenderer;
 
     std::unique_ptr<vgfx::CommandBufferFactory> m_spCommandBufferFactory;
-    std::unique_ptr<vgfx::Drawable> m_spVideoDrawable;
+    ModelViewProj m_mvpMatrix;
+    std::unique_ptr<vgfx::UniformBuffer> m_spMvpMatrixUniform;
     std::vector<std::unique_ptr<vgfx::Object>> m_graphicsObjects;
     std::unique_ptr<vgfx::ModelDatabase> m_spModelDatabase;
     std::unique_ptr<vgfx::Pipeline> m_spGraphicsPipeline;

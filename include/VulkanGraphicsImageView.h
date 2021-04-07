@@ -33,6 +33,11 @@ namespace vgfx
                 imageViewInfo.subresourceRange.layerCount = 1;
             }
 
+            bool operator<(const ImageView::Config& rhs) const
+            {
+                return this->imageViewInfo.format < rhs.imageViewInfo.format;
+            }
+
             VkImageViewCreateInfo imageViewInfo = {};
         };
 

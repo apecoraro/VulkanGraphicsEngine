@@ -53,20 +53,20 @@ namespace vgfx
 
         Drawable* findDrawable(const std::string& modelPath, const Material& material);
 
-        struct ImageData
-        {
-            std::unique_ptr<Image> spImage;
-            std::unique_ptr<ImageView> spImageView;
-            std::unique_ptr<Sampler> spSampler;
-        };
-
-        ImageData& getOrLoadImage(
+        vgfx::Image& getOrLoadImage(
             const std::string& path,
-            const ImageView::Config& imageViewConfig,
-            const Sampler::Config& samplerConfig,
             Context& context,
             CommandBufferFactory& commandBufferFactory,
             CommandQueue& commandQueue);
+
+        ImageView& getOrCreateImageView(
+            const ImageView::Config& config,
+            Context& context,
+            const vgfx::Image& image);
+
+        Sampler& getOrCreateSampler(
+            const Sampler::Config& config,
+            Context& context);
 
         ModelConfigMap m_modelConfigMap;
 
@@ -75,8 +75,14 @@ namespace vgfx
         using DrawableDatabase = std::unordered_map<FilePath, std::vector<std::unique_ptr<Drawable>>>;
         DrawableDatabase m_drawableDatabase;
 
-        using ImageDatabase = std::unordered_map<FilePath, ImageData>;
+        using ImageDatabase = std::unordered_map<FilePath, std::unique_ptr<Image>>;
         ImageDatabase m_imageDatabase;
+
+        using ImageViewDatabase = std::map<ImageView::Config, std::unique_ptr<ImageView>>;
+        ImageViewDatabase m_imageViewDatabase;
+
+        using SamplerDatabase = std::map<Sampler::Config, std::unique_ptr<Sampler>>;
+        SamplerDatabase m_samplerDatabase;
     };
 }
 #endif

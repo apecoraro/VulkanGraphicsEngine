@@ -44,6 +44,12 @@ namespace vgfx
                 samplerInfo.minLod = 0.0f;
                 samplerInfo.maxLod = 0.0f;
             }
+
+            bool operator<(const Sampler::Config& rhs) const
+            {
+                return this->samplerInfo.magFilter < rhs.samplerInfo.magFilter;
+            }
+
             VkSamplerCreateInfo samplerInfo = {};
         };
 
