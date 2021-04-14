@@ -15,7 +15,6 @@ namespace vgfx
             : m_imageView(imageView)
             , m_sampler(sampler)
         {
-
         }
 
         ~CombinedImageSampler() = default;

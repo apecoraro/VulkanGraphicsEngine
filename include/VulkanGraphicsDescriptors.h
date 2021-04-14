@@ -12,92 +12,131 @@
 
 namespace vgfx
 {
-    class Descriptor
+    class DescriptorSetLayout
     {
     public:
-        struct LayoutBindingConfig
+        struct DescriptorBinding
         {
+            // The number of copies that this descriptors needs, generally if this descriptor is
+            // going to be updated every frame then there needs to be one copy for each swap chain
+            // image. If never updated then only one copy.
+            size_t copyCount = 1u;
+            VkDescriptorType descriptorType = VK_DESCRIPTOR_TYPE_MAX_ENUM;
             // Mask of stages that access this descriptor.
             VkShaderStageFlags shaderStageFlags = VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
             // Corresponds to the descriptorCount field of VkDescriptorSetLayoutBinding,
             // indicates this Descriptor is an array with arrayElementCount elements.
-            uint32_t arrayElementCount = 1;
+            uint32_t arrayElementCount = 1u;
             const VkSampler* pImmutableSamplers = nullptr;
 
-            LayoutBindingConfig(
+            DescriptorBinding(
+                size_t copies,
+                VkDescriptorType descType,
                 VkShaderStageFlags shaderStage,
-                uint32_t arrayElemCount = 1)
-                : shaderStageFlags(shaderStage)
+                uint32_t arrayElemCount = 1u,
+                const VkSampler* pImmSplrs = nullptr)
+                : copyCount(copies)
+                , descriptorType(descType)
+                , shaderStageFlags(shaderStage)
                 , arrayElementCount(arrayElemCount)
+                , pImmutableSamplers(pImmSplrs)
             {
-
             }
         };
 
-        Descriptor(
-            VkDescriptorType type,
-            const LayoutBindingConfig& layoutBindingConfig)
-            : m_type(type)
-            , m_layoutBindingConfig(layoutBindingConfig)
-        {
+        using BindingIndex = uint32_t; // VkDescriptorSetLayoutBinding::binding
+        using DescriptorBindings = std::map<BindingIndex, DescriptorBinding>;
 
+        DescriptorSetLayout(
+            Context& context,
+            const DescriptorBindings& descriptorBindings);
+
+        ~DescriptorSetLayout();
+
+        VkDescriptorSetLayout getHandle() const { return m_descriptorSetLayout; }
+
+        const DescriptorBindings& getDescriptorBindings() const
+        {
+            return m_descriptorBindings;
         }
+    private:
+        Context& m_context;
+        DescriptorBindings m_descriptorBindings;
+        VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
+    };
+
+    class Descriptor
+    {
+    public:
+        Descriptor(VkDescriptorType type)
+            : m_type(type)
+        {
+        }
+
         virtual ~Descriptor() = default;
 
-        VkDescriptorType getType() const { return m_type; }
-        uint32_t getCount() const { return m_layoutBindingConfig.arrayElementCount;  }
-        VkShaderStageFlags getStageFlags() const{ return m_layoutBindingConfig.shaderStageFlags;  }
-
-        virtual void write(size_t setIndex, VkWriteDescriptorSet* pWriteSet)
+        virtual void write(VkWriteDescriptorSet* pWriteSet)
         {
             VkWriteDescriptorSet& writeSet = *pWriteSet;
             writeSet.descriptorType = m_type;
-            writeSet.descriptorCount = m_layoutBindingConfig.arrayElementCount;
+            writeSet.descriptorCount = 1;
         }
 
     protected:
         VkDescriptorType m_type = VK_DESCRIPTOR_TYPE_MAX_ENUM;
-        LayoutBindingConfig m_layoutBindingConfig;
     };
 
     class UniformBufferDescriptor : public Descriptor
     {
     public:
         // VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-        UniformBufferDescriptor(
-            UniformBuffer& uniformBuffer,
-            const LayoutBindingConfig& layoutBindingConfig)
-            : Descriptor(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, layoutBindingConfig)
+        UniformBufferDescriptor(UniformBuffer& uniformBuffer)
+            : Descriptor(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
             , m_uniformBuffer(uniformBuffer)
-        {}
+        {
+        }
 
         virtual ~UniformBufferDescriptor() = default;
 
-        void write(size_t setIndex, VkWriteDescriptorSet* pWriteSet) override;
+        void write(VkWriteDescriptorSet* pWriteSet) override;
 
     private:
         UniformBuffer& m_uniformBuffer;
+        VkDescriptorBufferInfo m_bufferInfo = {};
     };
 
     class CombinedImageSamplerDescriptor : public Descriptor
     {
     public:
-        // VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-        CombinedImageSamplerDescriptor(
-            const CombinedImageSampler& combinedImageSampler,
-            const LayoutBindingConfig& layoutBindingConfig)
-            : Descriptor(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, layoutBindingConfig)
+        CombinedImageSamplerDescriptor(const CombinedImageSampler& combinedImageSampler)
+            : Descriptor(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
             , m_combinedImageSampler(combinedImageSampler)
         {
         }
 
         virtual ~CombinedImageSamplerDescriptor() = default;
 
-        void write(size_t setIndex, VkWriteDescriptorSet* pWriteSet) override;
+        void write(VkWriteDescriptorSet* pWriteSet) override;
 
     private:
         CombinedImageSampler m_combinedImageSampler;
         VkDescriptorImageInfo m_imageInfo = {};
+    };
+
+    class DescriptorSet
+    {
+    public:
+        DescriptorSet(VkDescriptorSet descSet)
+            : m_descriptorSet(descSet)
+        {
+        }
+
+        void update(Context& context, const std::map<uint32_t, std::unique_ptr<Descriptor>>& descriptors);
+
+        VkDescriptorSet getHandle() const { return m_descriptorSet; }
+    private:
+        std::vector<VkWriteDescriptorSet> m_descriptorWrites;
+        VkDescriptorSet m_descriptorSet = VK_NULL_HANDLE;
     };
 
     // Wraps a VkDescriptorPool.
@@ -112,12 +151,13 @@ namespace vgfx
         ~DescriptorPool();
 
         void allocateDescriptorSets(
-            VkDescriptorSetLayout layout,
-            std::vector<VkDescriptorSet>* pDescriptorSets);
+            const DescriptorSetLayout& layout,
+            uint32_t count,
+            std::vector<DescriptorSet>* pDescriptorSets);
     private:
         Context& m_context;
         VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
-    };
+    }; 
 
     // Represents one or more instances of a VkDescriptorSet where each
     // VkDescriptorSet has the same layout.
@@ -125,30 +165,21 @@ namespace vgfx
     {
     public:
         DescriptorSetBuffer(
-            Context& context,
-            std::vector<std::unique_ptr<Descriptor>>&& descriptors,
-            uint32_t bufferCount = 1);
-        virtual ~DescriptorSetBuffer();
+            size_t bufferCopies);
+        ~DescriptorSetBuffer() = default;
 
-        VkDescriptorSetLayout getLayout() const { return m_descriptorSetLayout; }
+        void init(
+            const DescriptorSetLayout& layout,
+            DescriptorPool& pool);
 
-        void init(DescriptorPool& pool);
-        void update();
+        virtual size_t getCopyCount() const { return m_copies.size();  }
 
-        virtual size_t getCopyCount() const { return m_descriptorSetCopies.size();  }
-        virtual const std::vector<std::unique_ptr<Descriptor>>& getDescriptors() const { return m_descriptors;  }
-
-        const std::vector<VkDescriptorSet> getDescriptorSetCopies() const {
-            return m_descriptorSetCopies;
+        const DescriptorSet& getDescriptorSet(size_t index) const {
+            return m_copies[index];
         }
-    private:
-        void writeDescriptorSet(size_t descriptorSetIndex);
 
-        Context& m_context;
-        std::vector<std::unique_ptr<Descriptor>> m_descriptors;
-        std::vector<VkWriteDescriptorSet> m_descriptorWrites;
-        std::vector<VkDescriptorSet> m_descriptorSetCopies;
-        VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
+    private:
+        std::vector<DescriptorSet> m_copies;
     };
 
     // Forward declaration.

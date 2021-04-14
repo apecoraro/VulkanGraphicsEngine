@@ -21,7 +21,7 @@
   <ItemGroup>
     <ClCompile Include="src\VulkanGraphicsFence.cpp" />
     <ClCompile Include="src\VulkanGraphicsImage.cpp" />
-    <ClCompile Include="src\VulkanGraphicsModelDatabase.cpp" />
+    <ClCompile Include="src\VulkanGraphicsModelLibrary.cpp" />
     <ClCompile Include="src\VulkanGraphicsSampler.cpp" />
     <ClCompile Include="src\VulkanGraphicsCommandBuffers.cpp" />
     <ClCompile Include="src\VulkanGraphicsDescriptors.cpp" />
@@ -54,7 +54,7 @@
     <ClInclude Include="include\VulkanGraphicsIndexBuffer.h" />
     <ClInclude Include="include\VulkanGraphicsMaterials.h" />
     <ClInclude Include="include\VulkanGraphicsMemoryAllocator.h" />
-    <ClInclude Include="include\VulkanGraphicsModelDatabase.h" />
+    <ClInclude Include="include\VulkanGraphicsModelLibrary.h" />
     <ClInclude Include="include\VulkanGraphicsObject.h" />
     <ClInclude Include="include\VulkanGraphicsPipeline.h" />
     <ClInclude Include="include\VulkanGraphicsProgram.h" />

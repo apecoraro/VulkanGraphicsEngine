@@ -1,5 +1,5 @@
-#ifndef VGFX_MODEL_DATABASE_H
-#define VGFX_MODEL_DATABASE_H
+#ifndef VGFX_MODEL_LIBRARY_H
+#define VGFX_MODEL_LIBRARY_H
 
 #include "VulkanGraphicsCommandBuffers.h"
 #include "VulkanGraphicsContext.h"
@@ -14,14 +14,14 @@
 
 namespace vgfx
 {
-    class ModelDatabase
+    class ModelLibrary
     {
     public:
         struct ModelConfig
         {
-            MaterialsDatabase::MaterialInfo materialInfo;
+            MaterialsLibrary::MaterialInfo materialInfo;
             ModelConfig(
-                const MaterialsDatabase::MaterialInfo& mi)
+                const MaterialsLibrary::MaterialInfo& mi)
                 : materialInfo(mi)
             {
             }
@@ -34,7 +34,7 @@ namespace vgfx
             ModelConfigMap modelConfigMap;
         };
 
-        ModelDatabase(Config& config) : m_modelConfigMap(config.modelConfigMap) {}
+        ModelLibrary(Config& config) : m_modelConfigMap(config.modelConfigMap) {}
 
         Drawable& getOrCreateDrawable(
             Context& context,
@@ -47,13 +47,7 @@ namespace vgfx
         static VertexBuffer::Config& GetDefaultVertexBufferConfig();
         static IndexBuffer::Config& GetDefaultIndexBufferConfig();
 
-    private:
-        static VertexBuffer::Config DefaultVertexBufferConfig;
-        static IndexBuffer::Config DefaultIndexBufferConfig;
-
-        Drawable* findDrawable(const std::string& modelPath, const Material& material);
-
-        vgfx::Image& getOrLoadImage(
+        Image& getOrLoadImage(
             const std::string& path,
             Context& context,
             CommandBufferFactory& commandBufferFactory,
@@ -62,27 +56,33 @@ namespace vgfx
         ImageView& getOrCreateImageView(
             const ImageView::Config& config,
             Context& context,
-            const vgfx::Image& image);
+            const Image& image);
 
         Sampler& getOrCreateSampler(
             const Sampler::Config& config,
             Context& context);
 
+    private:
+        static VertexBuffer::Config DefaultVertexBufferConfig;
+        static IndexBuffer::Config DefaultIndexBufferConfig;
+
+        Drawable* findDrawable(const std::string& modelPath, const Material& material);
+
         ModelConfigMap m_modelConfigMap;
 
         using FilePath = std::string;
 
-        using DrawableDatabase = std::unordered_map<FilePath, std::vector<std::unique_ptr<Drawable>>>;
-        DrawableDatabase m_drawableDatabase;
+        using DrawableLibrary = std::unordered_map<FilePath, std::vector<std::unique_ptr<Drawable>>>;
+        DrawableLibrary m_drawableLibrary;
 
-        using ImageDatabase = std::unordered_map<FilePath, std::unique_ptr<Image>>;
-        ImageDatabase m_imageDatabase;
+        using ImageLibrary = std::unordered_map<FilePath, std::unique_ptr<Image>>;
+        ImageLibrary m_imageLibrary;
 
-        using ImageViewDatabase = std::map<ImageView::Config, std::unique_ptr<ImageView>>;
-        ImageViewDatabase m_imageViewDatabase;
+        using ImageViewLibrary = std::map<ImageView::Config, std::unique_ptr<ImageView>>;
+        ImageViewLibrary m_imageViewLibrary;
 
-        using SamplerDatabase = std::map<Sampler::Config, std::unique_ptr<Sampler>>;
-        SamplerDatabase m_samplerDatabase;
+        using SamplerLibrary = std::map<Sampler::Config, std::unique_ptr<Sampler>>;
+        SamplerLibrary m_samplerLibrary;
     };
 }
 #endif

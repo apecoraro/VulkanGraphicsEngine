@@ -12,128 +12,50 @@
 
 namespace vgfx
 {
-    using MaterialId = std::pair<Program*, Program*>;
-    //  Encapsulates a vertex and fragment shader;
+    using MaterialId = std::pair<const Program*, const Program*>;
+    // Encapsulates a vertex and fragment shader; the DescriptorSetLayouts should correspond
+    // to the uniform inputs to the shaders; the imageTypes should correspond to the image
+    // inputs (these are used for loading images from disk).
     class Material
     {
     public:
+        enum class ImageType
+        {
+            DIFFUSE,
+        };
+        using DescriptorSetLayouts = std::vector<std::unique_ptr<DescriptorSetLayout>>;
         Material(
-            MaterialId materialId,
             const Program& vertexShader,
-            const Program& fragmentShader)
-            : m_vertexShader(vertexShader)
+            const Program& fragmentShader,
+            DescriptorSetLayouts&& descriptorSetLayouts,
+            const std::vector<ImageType>& imageTypes)
+            : m_materialId(MaterialId(&vertexShader, &fragmentShader))
+            , m_vertexShader(vertexShader)
             , m_fragmentShader(fragmentShader)
+            , m_descriptorSetLayouts(std::move(descriptorSetLayouts))
+            , m_imageTypes(imageTypes)
         {
         }
 
         ~Material() = default;
 
-        void attachDescriptorSets(
-            std::vector<std::unique_ptr<DescriptorSetBuffer>>&& descriptorSets)
-        {
-            m_descriptorSets = std::move(descriptorSets);
-
-            m_descriptorSetLayouts.reserve(m_descriptorSets.size());
-            for (const auto& spDescSet : m_descriptorSets) {
-                m_descriptorSetLayouts.push_back(spDescSet->getLayout());
-            }
-
-            m_areDescriptorSetsInitialized = false;
-        }
-
-        bool areDescriptorSetsInitialized() const
-        {
-            return m_areDescriptorSetsInitialized;
-        }
-
-        void initDescriptors(DescriptorPool& pool)
-        {
-            for (auto& spDescSet : m_descriptorSets) {
-                spDescSet->init(pool);
-                const auto& descSetCopies = spDescSet->getDescriptorSetCopies();
-                for (size_t i = 0; i < descSetCopies.size(); ++i) {
-                    if (i == m_descriptorSetBindings.size()) {
-                        m_descriptorSetBindings.resize(m_descriptorSetBindings.size() + 1);
-                    }
-                    m_descriptorSetBindings[i].push_back(descSetCopies[i]);
-                }
-            }
-
-            m_areDescriptorSetsInitialized = true;
-        }
-
         const MaterialId& getId() const { return m_materialId; }
         const Program& getVertexShader() const { return m_vertexShader; }
         const Program& getFragmentShader() const { return m_fragmentShader; }
-        size_t getDescriptorSetCount() const { return m_descriptorSets.size(); }
-        const DescriptorSetBuffer& getDescriptorSet(size_t index) const { return *(m_descriptorSets[index].get()); }
-        const std::vector<VkDescriptorSetLayout>& getDescriptorSetLayouts() const { return m_descriptorSetLayouts; }
 
-        size_t getDescriptorSetBindingCount() const {
-            return m_descriptorSetBindings.size();
-        }
+        const std::vector<ImageType>& getImageTypes() const { return m_imageTypes; }
+        const DescriptorSetLayouts& getDescriptorSetLayouts() const { return m_descriptorSetLayouts; }
 
-        const std::vector<VkDescriptorSet>& getDescriptorSetBinding(size_t index) const {
-            return m_descriptorSetBindings[index];
-        }
     private:
         MaterialId m_materialId;
         const Program& m_vertexShader;
         const Program& m_fragmentShader;
-        bool m_areDescriptorSetsInitialized = false;
-        std::vector<std::unique_ptr<DescriptorSetBuffer>> m_descriptorSets;
-        std::vector<std::vector<VkDescriptorSet>> m_descriptorSetBindings;
-        std::vector<VkDescriptorSetLayout> m_descriptorSetLayouts;
+        DescriptorSetLayouts m_descriptorSetLayouts;
+        std::vector<ImageType> m_imageTypes;
     };
 
-    namespace MaterialsDatabase
+    namespace MaterialsLibrary
     {
-        struct DescriptorBinding
-        {
-            // Basic is just to specify the Descriptor, but if the Descriptor is some type
-            // of image sampler, then specify config parameters to create it with
-            // CombinedImagesamplerDescriptorBinding after loading the image from disk.
-            std::unique_ptr<Descriptor> m_spDescriptor;
-            virtual VkDescriptorType getDescriptorType() const
-            {
-                return m_spDescriptor->getType();
-            }
-        };
-
-        enum class ImageType
-        {
-            DIFFUSE,
-        };
-
-        struct CombinedImageSamplerDescriptorBinding : public DescriptorBinding
-        {
-            // This type is used to determine which
-            // image from the model will be loaded for this CombinedImageSampler.
-            VkDescriptorType descriptorType;
-            Descriptor::LayoutBindingConfig descriptorConfig;
-            const ImageType imageType;
-            const vgfx::ImageView::Config imageViewConfig;
-            const vgfx::Sampler::Config samplerConfig;
-
-            CombinedImageSamplerDescriptorBinding(
-                Descriptor::LayoutBindingConfig descConfig,
-                ImageType imgType,
-                const vgfx::ImageView::Config& imgViewCfg,
-                const vgfx::Sampler::Config& smplrCfg)
-                : descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-                , descriptorConfig(descConfig)
-                , imageType(imgType)
-                , imageViewConfig(imgViewCfg)
-                , samplerConfig(smplrCfg)
-            {
-            }
-
-            VkDescriptorType getDescriptorType() const override
-            {
-                return this->descriptorType;
-            }
-        };
-
         struct MaterialInfo
         {
             std::vector<VkFormat> vertexShaderInputs; // vertex attribute input types, in location order
@@ -142,8 +64,8 @@ namespace vgfx
             std::vector<VkFormat> fragmentShaderInputs; // frag shader input types, in location order
             std::string fragmentShaderPath;
             std::string fragmentShaderEntryPointFunc;
-            using DescriptorBindings = std::vector<DescriptorBinding*>;
-            DescriptorBindings descriptorBindings; // Descriptors (uniform buffers, samplers, etc.) in location order
+            std::vector<DescriptorSetLayout::DescriptorBindings> descriptorSetLayoutBindings;
+            std::vector<Material::ImageType> imageTypes;
 
             MaterialInfo(
                 const std::vector<VkFormat>& vtxShaderInputs,
@@ -152,14 +74,16 @@ namespace vgfx
                 const std::vector<VkFormat>& fragShaderInputs,
                 std::string fragShaderPath,
                 std::string fragShaderEntryPointFunc,
-                const DescriptorBindings& descBindings)
+                const std::vector<DescriptorSetLayout::DescriptorBindings>& descSetLayoutBindings,
+                const std::vector<Material::ImageType>& imgTypes)
                 : vertexShaderInputs(vtxShaderInputs)
                 , vertexShaderPath(vtxShaderPath)
                 , vertexShaderEntryPointFunc(vtxShaderEntryPointFunc)
                 , fragmentShaderInputs(fragShaderInputs)
                 , fragmentShaderPath(fragShaderPath)
                 , fragmentShaderEntryPointFunc(fragShaderEntryPointFunc)
-                , descriptorBindings(descBindings)
+                , descriptorSetLayoutBindings(descSetLayoutBindings)
+                , imageTypes(imgTypes)
             {
             }
         };

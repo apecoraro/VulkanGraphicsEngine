@@ -79,10 +79,10 @@ namespace vgfx
             fragmentShaderEntryPointFunc);
     }
 
-    using MaterialsTable = std::map<std::pair<Program*, Program*>, std::unique_ptr<Material>>;
+    using MaterialsTable = std::map<MaterialId, std::unique_ptr<Material>>;
     static MaterialsTable s_materialsTable;
 
-    Material& MaterialsDatabase::GetOrLoadMaterial(
+    Material& MaterialsLibrary::GetOrLoadMaterial(
         Context& context,
         const MaterialInfo& materialInfo)
     {
@@ -98,23 +98,31 @@ namespace vgfx
                 materialInfo.fragmentShaderPath,
                 materialInfo.fragmentShaderEntryPointFunc);
 
-        const auto& materialId = std::make_pair(&vertexShader, &fragmentShader);
+        const auto& materialId = MaterialId(&vertexShader, &fragmentShader);
         MaterialsTable::iterator findMaterialItr = s_materialsTable.find(materialId);
         if (findMaterialItr != s_materialsTable.end()) {
             std::unique_ptr<Material>& spMaterial = findMaterialItr->second;
             return *spMaterial.get();
         }
 
+        std::vector<std::unique_ptr<DescriptorSetLayout>> descriptorSetLayouts;
+        for (const auto& descSetLayoutBinding : materialInfo.descriptorSetLayoutBindings) {
+            descriptorSetLayouts.emplace_back(
+                std::make_unique<DescriptorSetLayout>(context, descSetLayoutBinding));
+        }
+
         std::unique_ptr<Material>& spMaterial = s_materialsTable[materialId];
-        spMaterial = std::make_unique<Material>(
-            materialId,
-            vertexShader,
-            fragmentShader);
+        spMaterial =
+            std::make_unique<Material>(
+                vertexShader,
+                fragmentShader,
+                std::move(descriptorSetLayouts),
+                materialInfo.imageTypes);
 
         return *spMaterial.get();
     }
 
-    void MaterialsDatabase::Optimize()
+    void MaterialsLibrary::Optimize()
     {
         // Could probably also destroy descriptor set layouts here too.
         for (auto& itr : s_vertexShadersTable) {
@@ -126,7 +134,7 @@ namespace vgfx
         }
     }
 
-    void MaterialsDatabase::UnloadAll()
+    void MaterialsLibrary::UnloadAll()
     {
         s_vertexShadersTable.clear();
         s_fragmentShadersTable.clear();

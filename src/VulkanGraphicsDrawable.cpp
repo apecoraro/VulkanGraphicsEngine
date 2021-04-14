@@ -1,26 +1,18 @@
 #include "VulkanGraphicsDrawable.h"
 
-void vgfx::Drawable::update()
-{
-}
-
 void vgfx::Drawable::recordDrawCommands(
     size_t swapChainIndex,
     VkPipelineLayout pipelineLayout,
     VkCommandBuffer commandBuffer)
 {
-    size_t bindingIndex = swapChainIndex % m_material.getDescriptorSetBindingCount();
-    const auto& descriptorSetBinding =
-        m_material.getDescriptorSetBinding(bindingIndex);
-
     vkCmdBindDescriptorSets(
         commandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         pipelineLayout,
-        0, // Offset in descriptor array
-        static_cast<uint32_t>(descriptorSetBinding.size()), // count of descriptor sets
-        descriptorSetBinding.data(),
-        0, // dynamic sets count
+        0u, // Offset in descriptor array
+        static_cast<uint32_t>(m_descriptorSets[swapChainIndex].size()),
+        m_descriptorSets[swapChainIndex].data(),
+        0u, // dynamic sets count
         nullptr); // dynamic sets ptr
 
     VkBuffer vertexBuffers[] = { m_spVertexBuffer->getHandle() };

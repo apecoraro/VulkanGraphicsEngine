@@ -13,6 +13,8 @@ namespace vgfx
     public:
         struct Config
         {
+            Config() = default;
+
             Config(
                 VkFormat format, // format must be compatible with image's format.
                 VkImageViewType viewType,

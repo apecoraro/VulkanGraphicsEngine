@@ -1,4 +1,4 @@
-#include "VulkanGraphicsModelDatabase.h"
+#include "VulkanGraphicsModelLibrary.h"
 
 #include "VulkanGraphicsDescriptors.h"
 #include "VulkanGraphicsImageView.h"
@@ -28,11 +28,11 @@ template<> struct std::hash<vgfx::VertexXyzRgbUv> {
 
 namespace vgfx
 {
-    VertexBuffer::Config ModelDatabase::DefaultVertexBufferConfig(
+    VertexBuffer::Config ModelLibrary::DefaultVertexBufferConfig(
             sizeof(VertexXyzRgbUv),
             VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST); // TODO do all Obj models use this?
 
-    IndexBuffer::Config ModelDatabase::DefaultIndexBufferConfig(VK_INDEX_TYPE_UINT32);
+    IndexBuffer::Config ModelLibrary::DefaultIndexBufferConfig(VK_INDEX_TYPE_UINT32);
 
     static std::unique_ptr<VertexBuffer> CreateVertexBuffer(
         Context& context,
@@ -96,7 +96,7 @@ namespace vgfx
                 context,
                 commandBufferFactory,
                 commandQueue,
-                ModelDatabase::GetDefaultVertexBufferConfig(),
+                ModelLibrary::GetDefaultVertexBufferConfig(),
                 vertices);
 
         std::unique_ptr<IndexBuffer> spIndexBuffer =
@@ -104,22 +104,12 @@ namespace vgfx
                 context,
                 commandBufferFactory,
                 commandQueue,
-                ModelDatabase::GetDefaultIndexBufferConfig(),
+                ModelLibrary::GetDefaultIndexBufferConfig(),
                 indices.data(),
                 static_cast<uint32_t>(indices.size()));
     }
 
-    std::unique_ptr<UniformBufferDescriptor>
-    BuildUniformBufferDescriptorSet(
-        UniformBuffer& uniformBuffer,
-        VkShaderStageFlags shaderStageFlags)
-    {
-        Descriptor::LayoutBindingConfig bindingConfig(shaderStageFlags);
-
-        return std::make_unique<UniformBufferDescriptor>(uniformBuffer, bindingConfig);
-    }
-
-    Drawable& ModelDatabase::getOrCreateDrawable(
+    Drawable& ModelLibrary::getOrCreateDrawable(
         Context& context,
         const std::string& modelPath,
         uint32_t swapChainImageCount,
@@ -132,7 +122,7 @@ namespace vgfx
         }
 
         auto& materialInfo = modelCfgItr->second.materialInfo;
-        Material& material = MaterialsDatabase::GetOrLoadMaterial(context, materialInfo);
+        Material& material = MaterialsLibrary::GetOrLoadMaterial(context, materialInfo);
         Drawable* pDrawable = findDrawable(modelPath, material);
         if (pDrawable != nullptr) {
             return *pDrawable;
@@ -162,84 +152,34 @@ namespace vgfx
             &spIndexBuffer,
             &diffuseTexturePath);
 
-        // If this material is new then it's descriptor sets need to created and attached.
-        if (material.getDescriptorSetCount() == 0) {
-            std::vector<std::unique_ptr<Descriptor>> imageSamplerDescriptors;
-            std::vector<std::unique_ptr<Descriptor>> uboDescriptors;
+        std::map<Material::ImageType, const Image*> images;
+        if (!material.getImageTypes().empty()) {
 
-            for (size_t i = 0; i < materialInfo.descriptorBindings.size(); ++i) {
-                const auto& pDescriptorBinding = materialInfo.descriptorBindings[i];
-                if (pDescriptorBinding->m_spDescriptor == nullptr
-                    && pDescriptorBinding->getDescriptorType() == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
-                    const MaterialsDatabase::CombinedImageSamplerDescriptorBinding*
-                        pImageSamplerDescBinding =
-                            static_cast<const MaterialsDatabase::CombinedImageSamplerDescriptorBinding*>(pDescriptorBinding);
-                    assert(pImageSamplerDescBinding->imageType == MaterialsDatabase::ImageType::DIFFUSE);
-                    // Currently only support diffuse.
+            for (auto imageType : material.getImageTypes()) {
+                if (imageType == Material::ImageType::DIFFUSE) {
                     Image& image =
                         getOrLoadImage(
-                            materials.front().diffuse_texname.c_str(),
+                            materials.front().diffuse_texname,
                             context,
                             commandBufferFactory,
                             commandQueue);
-
-                    ImageView& imageView =
-                        getOrCreateImageView(pImageSamplerDescBinding->imageViewConfig.value(), context, image);
-
-                    Sampler& sampler =
-                        getOrCreateSampler(pImageSamplerDescBinding->samplerConfig.value(), context);
-
-                    CombinedImageSampler imageSampler(imageView, sampler);
-                    imageSamplerDescriptors.push_back(
-                        std::move(std::make_unique<CombinedImageSamplerDescriptor>(
-                            imageSampler, pImageSamplerDescBinding->descriptorConfig)));
-                } else if (pDescriptorBinding->descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
-                    const MaterialsDatabase::UniformBufferDescriptorBinding* pUniformBufferDescBinding =
-                            static_cast<const MaterialsDatabase::UniformBufferDescriptorBinding*>(pDescriptorBinding);
-
-                    uboDescriptors.push_back(
-                        std::move(
-                            BuildUniformBufferDescriptorSet(
-                                pUniformBufferDescBinding->uniformBuffer,
-                                pUniformBufferDescBinding->shaderStageFlags)));
+                    images[imageType] = &image;
                 }
             }
-
-            std::vector<std::unique_ptr<DescriptorSetBuffer>> descriptorSets;
-            descriptorSets.reserve(imageSamplerDescriptors.size() + uboDescriptors.size());
-
-            if (!imageSamplerDescriptors.empty()) {
-                std::unique_ptr<DescriptorSetBuffer> spDescriptorSetBuffer =
-                    std::make_unique<DescriptorSetBuffer>(
-                        context,
-                        std::move(imageSamplerDescriptors));
-                descriptorSets.push_back(std::move(spDescriptorSetBuffer));
-            }
-
-            if (!uboDescriptors.size()) {
-                std::unique_ptr<DescriptorSetBuffer> spDescriptorSetBuffer =
-                    std::make_unique<DescriptorSetBuffer>(
-                        context,
-                        std::move(uboDescriptors),
-                        swapChainImageCount);
-                descriptorSets.push_back(std::move(spDescriptorSetBuffer));
-            }
-
-            material.attachDescriptorSets(std::move(descriptorSets));
         }
-
-        auto& models = m_drawableDatabase[modelPath];
+        auto& models = m_drawableLibrary[modelPath];
         models.push_back(std::move(
             std::make_unique<Drawable>(
                 context,
                 std::move(spVertexBuffer),
                 std::move(spIndexBuffer),
-                material)));
+                material,
+                images)));
 
         return *models.back().get();
     }
 
-    VertexBuffer::Config& ModelDatabase::GetDefaultVertexBufferConfig()
+    VertexBuffer::Config& ModelLibrary::GetDefaultVertexBufferConfig()
     {
         // Initialize the vertex attribute descriptions if not already.
         if (DefaultVertexBufferConfig.vertexAttrDescriptions.empty()) {
@@ -262,15 +202,15 @@ namespace vgfx
         return DefaultVertexBufferConfig;
     }
 
-    IndexBuffer::Config& ModelDatabase::GetDefaultIndexBufferConfig()
+    IndexBuffer::Config& ModelLibrary::GetDefaultIndexBufferConfig()
     {
         return DefaultIndexBufferConfig;
     }
 
-    Drawable* ModelDatabase::findDrawable(const std::string& modelPath, const Material& material)
+    Drawable* ModelLibrary::findDrawable(const std::string& modelPath, const Material& material)
     {
-        const auto& findIt = m_drawableDatabase.find(modelPath);
-        if (findIt != m_drawableDatabase.end()) {
+        const auto& findIt = m_drawableLibrary.find(modelPath);
+        if (findIt != m_drawableLibrary.end()) {
             for (const auto& spDrawable : findIt->second) {
                 if (spDrawable->getMaterial().getId() == material.getId()) {
                     return spDrawable.get();
@@ -280,13 +220,13 @@ namespace vgfx
         return nullptr;
     }
 
-    Image& ModelDatabase::getOrLoadImage(
+    Image& ModelLibrary::getOrLoadImage(
         const std::string& path,
         Context& context,
         CommandBufferFactory& commandBufferFactory,
         CommandQueue& commandQueue)
     {
-        auto& spImage = m_imageDatabase[path];
+        auto& spImage = m_imageLibrary[path];
         if (spImage != nullptr) {
             return *spImage.get();
         }
@@ -322,9 +262,9 @@ namespace vgfx
         return *spImage.get();
     }
 
-    ImageView& ModelDatabase::getOrCreateImageView(const ImageView::Config& config, Context& context, const vgfx::Image& image)
+    ImageView& ModelLibrary::getOrCreateImageView(const ImageView::Config& config, Context& context, const vgfx::Image& image)
     {
-        auto& spImageView = m_imageViewDatabase[config];
+        auto& spImageView = m_imageViewLibrary[config];
         if (spImageView != nullptr) {
             return *spImageView.get();
         }
@@ -334,9 +274,9 @@ namespace vgfx
         return *spImageView.get();
     }
 
-    Sampler& ModelDatabase::getOrCreateSampler(const Sampler::Config& config, Context& context)
+    Sampler& ModelLibrary::getOrCreateSampler(const Sampler::Config& config, Context& context)
     {
-        auto& spSampler = m_samplerDatabase[config];
+        auto& spSampler = m_samplerLibrary[config];
         if (spSampler != nullptr) {
             return *spSampler.get();
         }

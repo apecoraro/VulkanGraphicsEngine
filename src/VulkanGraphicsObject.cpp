@@ -7,13 +7,6 @@ namespace vgfx
         m_drawables.push_back(&drawable);
     }
 
-    void Object::update()
-    {
-        for (auto& pDrawable : m_drawables) {
-            pDrawable->update();
-        }
-    }
-
     void Object::recordDrawCommands(
         size_t swapChainIndex,
         VkPipelineLayout pipelineLayout,

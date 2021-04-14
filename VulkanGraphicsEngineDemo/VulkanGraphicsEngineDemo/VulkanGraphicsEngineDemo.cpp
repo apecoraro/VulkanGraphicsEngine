@@ -3,7 +3,7 @@
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsImageView.h"
 #include "VulkanGraphicsMaterials.h"
-#include "VulkanGraphicsModelDatabase.h"
+#include "VulkanGraphicsModelLibrary.h"
 #include "VulkanGraphicsRenderer.h"
 #include "VulkanGraphicsSampler.h"
 #include "VulkanGraphicsSwapChain.h"
@@ -170,13 +170,9 @@ public:
             m_spMvpMatrixUniform->update(index, &m_mvpMatrix, sizeof(m_mvpMatrix), keepUBMapped);
         }
 
-        vgfx::MaterialsDatabase::UniformBufferDescriptorBinding ubBinding(
-            VK_SHADER_STAGE_VERTEX_BIT,
-            *m_spMvpMatrixUniform.get());
-
-        vgfx::MaterialsDatabase::CombinedImageSamplerDescriptorBinding isBinding(
+        std::unique_ptr<vgfx::CombinedImageSamplerDescriptor> 
             VK_SHADER_STAGE_FRAGMENT_BIT,
-            vgfx::MaterialsDatabase::ImageType::DIFFUSE,
+            vgfx::MaterialsLibrary::ImageType::DIFFUSE,
             vgfx::ImageView::Config(
                 VK_FORMAT_R8G8B8A8_UNORM,
                 VK_IMAGE_VIEW_TYPE_2D,
@@ -191,8 +187,10 @@ public:
                 false, 0)); // Last two parameters are for anisotropic filtering
         // Descriptors (uniform buffers, samplers, etc.) in location order
         vgfx::MaterialsDatabase::MaterialInfo::DescriptorBindings descriptorBindings = {
-           &ubBinding,
-           &isBinding,
+            std::make_unique<vgfx::UniformBufferDescriptor>(
+                *m_spMvpMatrixUniform.get(),
+                vgfx::Descriptor::LayoutBindingConfig(VK_SHADER_STAGE_VERTEX_BIT)),
+           
         };
 
         vgfx::MaterialsDatabase::MaterialInfo materialInfo(
@@ -204,7 +202,7 @@ public:
             fragmentShaderEntryPointFunc,
             descriptorBindings);
 
-        vgfx::ModelDatabase::ModelConfig modelConfig(materialInfo);
+        vgfx::ModelLibrary::ModelConfig modelConfig(materialInfo);
         vgfx::ModelDatabase::Config config;
         config.modelConfigMap = { { modelPath, modelConfig } };
         m_spModelDatabase = std::make_unique<vgfx::ModelDatabase>(config);
@@ -224,7 +222,7 @@ public:
     ModelViewProj m_mvpMatrix;
     std::unique_ptr<vgfx::UniformBuffer> m_spMvpMatrixUniform;
     std::vector<std::unique_ptr<vgfx::Object>> m_graphicsObjects;
-    std::unique_ptr<vgfx::ModelDatabase> m_spModelDatabase;
+    std::unique_ptr<vgfx::ModelLibrary> m_spModelDatabase;
     std::unique_ptr<vgfx::Pipeline> m_spGraphicsPipeline;
     std::unique_ptr<vgfx::DescriptorPool> m_spDescriptorPool;
 
@@ -379,7 +377,7 @@ public:
 
         m_spModelDatabase.reset();
 
-        vgfx::MaterialsDatabase::UnloadAll();
+        vgfx::MaterialsLibrary::UnloadAll();
 
         m_spCommandBufferFactory.reset();
 
