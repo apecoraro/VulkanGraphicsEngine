@@ -51,8 +51,7 @@ namespace vgfx
         CommandBufferFactory& commandBufferFactory,
         CommandQueue& commandQueue,
         std::unique_ptr<VertexBuffer>* pspVertexBuffer,
-        std::unique_ptr<IndexBuffer>* pspIndexBuffer,
-        std::string* pDiffuseTexturePath)
+        std::unique_ptr<IndexBuffer>* pspIndexBuffer)
     {
         std::vector<VertexXyzRgbUv> vertices;
         std::vector<uint32_t> indices;
@@ -85,7 +84,7 @@ namespace vgfx
             }
         }
 
-        std::unique_ptr<VertexBuffer> spVertexBuffer =
+        *pspVertexBuffer =
             CreateVertexBuffer(
                 context,
                 commandBufferFactory,
@@ -94,7 +93,7 @@ namespace vgfx
                 ModelLibrary::GetDefaultVertexBufferConfig(),
                 vertices);
 
-        std::unique_ptr<IndexBuffer> spIndexBuffer =
+        *pspIndexBuffer =
             std::make_unique<IndexBuffer>(
                 context,
                 commandBufferFactory,
@@ -131,7 +130,6 @@ namespace vgfx
 
         std::unique_ptr<VertexBuffer> spVertexBuffer;
         std::unique_ptr<IndexBuffer> spIndexBuffer;
-        std::string diffuseTexturePath;
         LoadVertices(
             attrib,
             shapes,
@@ -139,17 +137,19 @@ namespace vgfx
             commandBufferFactory,
             commandQueue,
             &spVertexBuffer,
-            &spIndexBuffer,
-            &diffuseTexturePath);
+            &spIndexBuffer);
 
         std::map<Material::ImageType, const Image*> images;
         if (!material.getImageTypes().empty()) {
-
             for (auto imageType : material.getImageTypes()) {
                 if (imageType == Material::ImageType::DIFFUSE) {
+                    std::string diffuseTexPath = modelPath.substr(0, modelPath.rfind('.')) + ".png";
+                    if (!materials.empty()) {
+                        diffuseTexPath = materials.front().diffuse_texname;
+                    }
                     Image& image =
                         getOrLoadImage(
-                            materials.front().diffuse_texname,
+                            diffuseTexPath,
                             context,
                             commandBufferFactory,
                             commandQueue);

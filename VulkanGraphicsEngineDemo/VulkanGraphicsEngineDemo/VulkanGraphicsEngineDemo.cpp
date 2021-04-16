@@ -161,13 +161,13 @@ public:
         vgfx::DescriptorSetLayout::DescriptorBindings combImgSamplerDescSetBindings;
         combImgSamplerDescSetBindings[bindingIndex] =
             vgfx::DescriptorSetLayout::DescriptorBinding(
-                VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                 VK_SHADER_STAGE_FRAGMENT_BIT);
 
         std::vector<vgfx::MaterialsLibrary::DescriptorSetLayoutBindingInfo> descriptorSetLayoutBindings = {
             vgfx::MaterialsLibrary::DescriptorSetLayoutBindingInfo(
                 cameraMatrixDescSetBindings,
-                m_spWindowRenderer->getSwapChain().getImageCount()),
+                m_spWindowRenderer->getSwapChain().getImageCount()), // Number of copies of this DescriptorSet
             vgfx::MaterialsLibrary::DescriptorSetLayoutBindingInfo(
                 combImgSamplerDescSetBindings)
         };
@@ -231,7 +231,11 @@ public:
         m_spDescriptorPool =
             poolBuilder.createPool(
                 graphicsContext,
-                m_spWindowRenderer->getSwapChain().getImageCount());
+                // Last parameter is the max number of sets that will be allocated from
+                // this pool, which in our case is the number of swap chain images plus
+                // one because we have a set of copies for the camera matrix uniform buffer
+                // and the one set for the image sampler.
+                m_spWindowRenderer->getSwapChain().getImageCount() + 1u);
 
         auto& drawable =
             modelLibrary.getOrCreateDrawable(
