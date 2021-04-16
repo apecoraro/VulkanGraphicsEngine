@@ -147,8 +147,8 @@ namespace vgfx
         m_fragShaderStageInfo.module = fragmentShaderProgram.getShaderModule();
         m_fragShaderStageInfo.pName = fragmentShaderProgram.getEntryPointFunction().c_str();
 
-        for (const auto& spDescSetLayout: material.getDescriptorSetLayouts()) {
-            m_descriptorSetLayouts.push_back(spDescSetLayout->getHandle());
+        for (const auto& descSetLayoutInfo: material.getDescriptorSetLayouts()) {
+            m_descriptorSetLayouts.push_back(descSetLayoutInfo.spDescriptorSetLayout->getHandle());
         }
 
         return *this;

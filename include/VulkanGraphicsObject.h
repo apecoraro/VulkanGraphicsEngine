@@ -1,12 +1,13 @@
 #ifndef VGFX_OBJECT_H
 #define VGFX_OBJECT_H
 
-#include "VulkanGraphicsDrawable.h"
+#include <vector>
 
-#include <memory>
+#include <vulkan/vulkan.h>
 
 namespace vgfx
 {
+    class Drawable;
     // Represents an Object in the scene, has a world transformation, can be composed of
     // multiple Drawables each with their own transformation relative to this.
     class Object
@@ -16,9 +17,6 @@ namespace vgfx
         ~Object() = default;
 
         void addDrawable(Drawable& pDrawable);
-
-        // Call update on each Drawable
-        void update();
 
         void recordDrawCommands(
             size_t swapChainIndex,

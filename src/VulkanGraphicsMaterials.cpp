@@ -105,10 +105,12 @@ namespace vgfx
             return *spMaterial.get();
         }
 
-        std::vector<std::unique_ptr<DescriptorSetLayout>> descriptorSetLayouts;
-        for (const auto& descSetLayoutBinding : materialInfo.descriptorSetLayoutBindings) {
-            descriptorSetLayouts.emplace_back(
-                std::make_unique<DescriptorSetLayout>(context, descSetLayoutBinding));
+        std::vector<Material::DescriptorSetLayoutInfo> descriptorSetLayouts;
+        for (const auto& descSetLayoutBindingInfo : materialInfo.descriptorSetLayoutBindings) {
+            descriptorSetLayouts.push_back(
+                Material::DescriptorSetLayoutInfo(
+                    std::make_unique<DescriptorSetLayout>(context, descSetLayoutBindingInfo.descriptorSetLayoutBindings),
+                    descSetLayoutBindingInfo.copyCount));
         }
 
         std::unique_ptr<Material>& spMaterial = s_materialsTable[materialId];

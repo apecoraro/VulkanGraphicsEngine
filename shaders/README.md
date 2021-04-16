@@ -1,7 +1,7 @@
 * Naming Scheme
 
 For each descriptor in the shader program:
-[DescriptorType]_d[BindingIndex]_
+[DescriptorType]_d[SetIndex].[BindingIndex]_
 
 Descriptor Types:
 * ub - uniform buffer

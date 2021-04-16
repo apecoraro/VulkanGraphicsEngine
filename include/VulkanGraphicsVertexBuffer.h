@@ -58,6 +58,8 @@ namespace vgfx
             destroy();
         }
 
+        // TODO rather than store these values, store a type enum that can then return these values via
+        // static function.
         uint32_t getVertexStride() const { return m_vertexStride; }
         const std::vector<AttributeDescription>& getVertexAttributes() const { return m_vertexAttrDescriptions; }
 

@@ -1,11 +1,5 @@
 #include "VulkanGraphicsModelLibrary.h"
 
-#include "VulkanGraphicsDescriptors.h"
-#include "VulkanGraphicsImageView.h"
-#include "VulkanGraphicsIndexBuffer.h"
-#include "VulkanGraphicsUniformBuffer.h"
-#include "VulkanGraphicsVertexBuffer.h"
-
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
@@ -96,6 +90,7 @@ namespace vgfx
                 context,
                 commandBufferFactory,
                 commandQueue,
+                // TODO eventually could have a way to use other vertex buffer configs
                 ModelLibrary::GetDefaultVertexBufferConfig(),
                 vertices);
 
@@ -104,6 +99,7 @@ namespace vgfx
                 context,
                 commandBufferFactory,
                 commandQueue,
+                // TODO eventually could have a way to use other vertex buffer configs
                 ModelLibrary::GetDefaultIndexBufferConfig(),
                 indices.data(),
                 static_cast<uint32_t>(indices.size()));
@@ -112,17 +108,11 @@ namespace vgfx
     Drawable& ModelLibrary::getOrCreateDrawable(
         Context& context,
         const std::string& modelPath,
-        uint32_t swapChainImageCount,
+        const Material& material,
+        DescriptorPool& descriptorPool,
         CommandBufferFactory& commandBufferFactory,
         CommandQueue commandQueue)
     {
-        ModelConfigMap::iterator modelCfgItr = m_modelConfigMap.find(modelPath);
-        if (modelCfgItr == m_modelConfigMap.end()) {
-            throw std::runtime_error("Unknown model path!");
-        }
-
-        auto& materialInfo = modelCfgItr->second.materialInfo;
-        Material& material = MaterialsLibrary::GetOrLoadMaterial(context, materialInfo);
         Drawable* pDrawable = findDrawable(modelPath, material);
         if (pDrawable != nullptr) {
             return *pDrawable;
@@ -173,6 +163,7 @@ namespace vgfx
                 context,
                 std::move(spVertexBuffer),
                 std::move(spIndexBuffer),
+                descriptorPool,
                 material,
                 images)));
 
@@ -212,7 +203,7 @@ namespace vgfx
         const auto& findIt = m_drawableLibrary.find(modelPath);
         if (findIt != m_drawableLibrary.end()) {
             for (const auto& spDrawable : findIt->second) {
-                if (spDrawable->getMaterial().getId() == material.getId()) {
+                if (spDrawable->getMaterialId() == material.getId()) {
                     return spDrawable.get();
                 }
             }

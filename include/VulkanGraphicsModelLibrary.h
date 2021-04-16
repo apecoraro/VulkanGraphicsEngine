@@ -3,10 +3,14 @@
 
 #include "VulkanGraphicsCommandBuffers.h"
 #include "VulkanGraphicsContext.h"
+#include "VulkanGraphicsDescriptors.h"
 #include "VulkanGraphicsDrawable.h"
 #include "VulkanGraphicsImage.h"
+#include "VulkanGraphicsImageView.h"
+#include "VulkanGraphicsIndexBuffer.h"
 #include "VulkanGraphicsMaterials.h"
 #include "VulkanGraphicsSampler.h"
+#include "VulkanGraphicsVertexBuffer.h"
 
 #include <unordered_map>
 #include <memory>
@@ -17,29 +21,15 @@ namespace vgfx
     class ModelLibrary
     {
     public:
-        struct ModelConfig
-        {
-            MaterialsLibrary::MaterialInfo materialInfo;
-            ModelConfig(
-                const MaterialsLibrary::MaterialInfo& mi)
-                : materialInfo(mi)
-            {
-            }
-        };
-
         using ModelPath = std::string;
-        using ModelConfigMap = std::unordered_map<ModelPath, ModelConfig>;
-        struct Config
-        {
-            ModelConfigMap modelConfigMap;
-        };
 
-        ModelLibrary(Config& config) : m_modelConfigMap(config.modelConfigMap) {}
+        ModelLibrary() = default;
 
         Drawable& getOrCreateDrawable(
             Context& context,
             const std::string& modelPath,
-            uint32_t swapChainImageCount,
+            const Material& material,
+            DescriptorPool& descriptorPool,
             CommandBufferFactory& commandBufferFactory,
             CommandQueue commandQueue);
  
@@ -67,8 +57,6 @@ namespace vgfx
         static IndexBuffer::Config DefaultIndexBufferConfig;
 
         Drawable* findDrawable(const std::string& modelPath, const Material& material);
-
-        ModelConfigMap m_modelConfigMap;
 
         using FilePath = std::string;
 

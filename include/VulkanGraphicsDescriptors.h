@@ -2,8 +2,6 @@
 #define VGFX_DESCRIPTORS_H
 
 #include "VulkanGraphicsContext.h"
-#include "VulkanGraphicsCombinedImageSampler.h"
-#include "VulkanGraphicsUniformBuffer.h"
 
 #include <map>
 #include <vector>
@@ -17,10 +15,6 @@ namespace vgfx
     public:
         struct DescriptorBinding
         {
-            // The number of copies that this descriptors needs, generally if this descriptor is
-            // going to be updated every frame then there needs to be one copy for each swap chain
-            // image. If never updated then only one copy.
-            size_t copyCount = 1u;
             VkDescriptorType descriptorType = VK_DESCRIPTOR_TYPE_MAX_ENUM;
             // Mask of stages that access this descriptor.
             VkShaderStageFlags shaderStageFlags = VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
@@ -30,18 +24,18 @@ namespace vgfx
             const VkSampler* pImmutableSamplers = nullptr;
 
             DescriptorBinding(
-                size_t copies,
                 VkDescriptorType descType,
                 VkShaderStageFlags shaderStage,
                 uint32_t arrayElemCount = 1u,
                 const VkSampler* pImmSplrs = nullptr)
-                : copyCount(copies)
-                , descriptorType(descType)
+                : descriptorType(descType)
                 , shaderStageFlags(shaderStage)
                 , arrayElementCount(arrayElemCount)
                 , pImmutableSamplers(pImmSplrs)
             {
             }
+
+            DescriptorBinding() = default;
         };
 
         using BindingIndex = uint32_t; // VkDescriptorSetLayoutBinding::binding
@@ -65,62 +59,26 @@ namespace vgfx
         VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
     };
 
-    class Descriptor
+    class DescriptorUpdater
     {
     public:
-        Descriptor(VkDescriptorType type)
+        DescriptorUpdater(VkDescriptorType type)
             : m_type(type)
         {
         }
 
-        virtual ~Descriptor() = default;
+        virtual ~DescriptorUpdater() = default;
 
         virtual void write(VkWriteDescriptorSet* pWriteSet)
         {
             VkWriteDescriptorSet& writeSet = *pWriteSet;
             writeSet.descriptorType = m_type;
+            // Subclasses that want to update more than one descriptor can override this value.
             writeSet.descriptorCount = 1;
         }
 
     protected:
         VkDescriptorType m_type = VK_DESCRIPTOR_TYPE_MAX_ENUM;
-    };
-
-    class UniformBufferDescriptor : public Descriptor
-    {
-    public:
-        // VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-        UniformBufferDescriptor(UniformBuffer& uniformBuffer)
-            : Descriptor(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-            , m_uniformBuffer(uniformBuffer)
-        {
-        }
-
-        virtual ~UniformBufferDescriptor() = default;
-
-        void write(VkWriteDescriptorSet* pWriteSet) override;
-
-    private:
-        UniformBuffer& m_uniformBuffer;
-        VkDescriptorBufferInfo m_bufferInfo = {};
-    };
-
-    class CombinedImageSamplerDescriptor : public Descriptor
-    {
-    public:
-        CombinedImageSamplerDescriptor(const CombinedImageSampler& combinedImageSampler)
-            : Descriptor(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-            , m_combinedImageSampler(combinedImageSampler)
-        {
-        }
-
-        virtual ~CombinedImageSamplerDescriptor() = default;
-
-        void write(VkWriteDescriptorSet* pWriteSet) override;
-
-    private:
-        CombinedImageSampler m_combinedImageSampler;
-        VkDescriptorImageInfo m_imageInfo = {};
     };
 
     class DescriptorSet
@@ -131,7 +89,7 @@ namespace vgfx
         {
         }
 
-        void update(Context& context, const std::map<uint32_t, std::unique_ptr<Descriptor>>& descriptors);
+        void update(Context& context, const std::map<uint32_t, DescriptorUpdater*>& descriptors);
 
         VkDescriptorSet getHandle() const { return m_descriptorSet; }
     private:
@@ -174,7 +132,7 @@ namespace vgfx
 
         virtual size_t getCopyCount() const { return m_copies.size();  }
 
-        const DescriptorSet& getDescriptorSet(size_t index) const {
+        DescriptorSet& getDescriptorSet(size_t index) {
             return m_copies[index];
         }
 

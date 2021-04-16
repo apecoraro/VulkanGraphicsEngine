@@ -1,5 +1,7 @@
 #include "VulkanGraphicsObject.h"
 
+#include "VulkanGraphicsDrawable.h"
+
 namespace vgfx
 {
     void Object::addDrawable(Drawable& drawable)

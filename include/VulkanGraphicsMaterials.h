@@ -23,7 +23,23 @@ namespace vgfx
         {
             DIFFUSE,
         };
-        using DescriptorSetLayouts = std::vector<std::unique_ptr<DescriptorSetLayout>>;
+        struct DescriptorSetLayoutInfo
+        {
+            // The number of copies that DescriptorSets created from this layout need to have,
+            // generally if it is updated every frame then there needs to be one copy for each swap chain
+            // image. If never updated then only one copy.
+            std::unique_ptr<DescriptorSetLayout> spDescriptorSetLayout;
+            size_t copyCount = 1u;
+            DescriptorSetLayoutInfo(
+                std::unique_ptr<DescriptorSetLayout> spDescSetLayout,
+                size_t copies = 1u)
+                : spDescriptorSetLayout(std::move(spDescSetLayout))
+                , copyCount(copies)
+            {
+            }
+        };
+
+        using DescriptorSetLayouts = std::vector<DescriptorSetLayoutInfo>;
         Material(
             const Program& vertexShader,
             const Program& fragmentShader,
@@ -56,6 +72,18 @@ namespace vgfx
 
     namespace MaterialsLibrary
     {
+        struct DescriptorSetLayoutBindingInfo
+        {
+            DescriptorSetLayout::DescriptorBindings descriptorSetLayoutBindings;
+            size_t copyCount = 1u;
+            DescriptorSetLayoutBindingInfo(
+                const DescriptorSetLayout::DescriptorBindings& bindings,
+                size_t copies=1u)
+                : descriptorSetLayoutBindings(bindings)
+                , copyCount(copies)
+            {
+            }
+        };
         struct MaterialInfo
         {
             std::vector<VkFormat> vertexShaderInputs; // vertex attribute input types, in location order
@@ -64,7 +92,7 @@ namespace vgfx
             std::vector<VkFormat> fragmentShaderInputs; // frag shader input types, in location order
             std::string fragmentShaderPath;
             std::string fragmentShaderEntryPointFunc;
-            std::vector<DescriptorSetLayout::DescriptorBindings> descriptorSetLayoutBindings;
+            std::vector<DescriptorSetLayoutBindingInfo> descriptorSetLayoutBindings;
             std::vector<Material::ImageType> imageTypes;
 
             MaterialInfo(
@@ -74,7 +102,7 @@ namespace vgfx
                 const std::vector<VkFormat>& fragShaderInputs,
                 std::string fragShaderPath,
                 std::string fragShaderEntryPointFunc,
-                const std::vector<DescriptorSetLayout::DescriptorBindings>& descSetLayoutBindings,
+                const std::vector<DescriptorSetLayoutBindingInfo>& descSetLayoutBindings,
                 const std::vector<Material::ImageType>& imgTypes)
                 : vertexShaderInputs(vtxShaderInputs)
                 , vertexShaderPath(vtxShaderPath)
@@ -95,7 +123,7 @@ namespace vgfx
         // Releases the VkShaderModule associated with each of the currently
         // loaded vertex and fragment shaders Programs, which free's up that memory,
         // but also means that the shader cannot be used to create new Pipelines.
-        // Only do this after all Pipelines have been created.
+        // Only do this after all Pipelines have been created. ALso free up DescriptorSetLayouts
         void Optimize();
 
         void UnloadAll();

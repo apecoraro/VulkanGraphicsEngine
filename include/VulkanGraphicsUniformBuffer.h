@@ -2,6 +2,7 @@
 #define VGFX_UNIFORM_BUFFER_H
 
 #include "VulkanGraphicsContext.h"
+#include "VulkanGraphicsDescriptors.h"
 
 #include <cassert>
 #include <cstdint>
@@ -11,20 +12,20 @@
 
 namespace vgfx
 {
-    class UniformBuffer
+    class UniformBuffer : public DescriptorUpdater
     {
     public:
         struct Config
         {
             // Size of memory required for this UniformBuffer.
-            uint32_t bufferSize = 0u;
+            size_t bufferSize = 0u;
             VmaMemoryUsage memoryUsage = VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_TO_GPU;
             VkSharingMode sharingMode = VK_SHARING_MODE_EXCLUSIVE;
             // If VK_SHARING_MODE_CONCURRENT then queueFamilyIndices is required, which
             // is list of queue families that will access this buffer.
             std::vector<uint32_t> queueFamilyIndices;
 
-            Config(uint32_t bufSize) : bufferSize(bufSize) {}
+            Config(size_t bufSize) : bufferSize(bufSize) {}
         };
         UniformBuffer(
             Context& context,
@@ -56,16 +57,28 @@ namespace vgfx
         }
 
         VkBuffer getHandle() { return m_buffer.handle;  }
-        uint32_t getSize() const { return m_bufferSize; }
+        size_t getSize() const { return m_bufferSize; }
+
+        void write(VkWriteDescriptorSet* pWriteSet) override
+        {
+            DescriptorUpdater::write(pWriteSet);
+
+            VkWriteDescriptorSet& writeSet = *pWriteSet;
+            writeSet.dstArrayElement = 0;
+
+            writeSet.pBufferInfo = &m_bufferInfo;
+        }
 
     private:
         void destroy();
 
         Context& m_context;
-        uint32_t m_bufferSize = 0u;
+        size_t m_bufferSize = 0u;
 
         MemoryAllocator::Buffer m_buffer;
         void* m_pMappedPtr = nullptr;
+
+        VkDescriptorBufferInfo m_bufferInfo = {};
     };
 }
 

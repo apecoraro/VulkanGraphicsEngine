@@ -49,4 +49,26 @@
     <ClInclude Include="include\VulkanGraphicsFence.h" />
     <ClInclude Include="include\VulkanGraphicsModelLibrary.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{8fbe0dcd-4c89-4a5f-9ebb-84325ba21f88}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\ndc_in_rgb_uv_out.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\s_d0.0_rgb_uv_in.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\s_d1.0_rgb_uv_in.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\ub_d0.0_xyz_rgb_uv_in_rgb_uv_out.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\README.md">
+      <Filter>Shaders</Filter>
+    </None>
+  </ItemGroup>
 </Project>

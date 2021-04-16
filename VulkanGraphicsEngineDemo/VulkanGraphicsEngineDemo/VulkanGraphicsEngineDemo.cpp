@@ -1,5 +1,6 @@
 #include "VulkanGraphicsEngineDemo.h"
 
+#include "VulkanGraphicsCombinedImageSampler.h"
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsImageView.h"
 #include "VulkanGraphicsMaterials.h"
@@ -7,6 +8,7 @@
 #include "VulkanGraphicsRenderer.h"
 #include "VulkanGraphicsSampler.h"
 #include "VulkanGraphicsSwapChain.h"
+#include "VulkanGraphicsUniformBuffer.h"
 
 
 #include <vulkan/vulkan.h>
@@ -149,65 +151,46 @@ public:
 
         std::string fragmentShaderEntryPointFunc = "main";
 
-        vgfx::UniformBuffer::Config uniformBufferConfig(
-            sizeof(ModelViewProj), // Size of buffer
-            m_spWindowRenderer->getSwapChain().getImageCount()); // Number of copies
-        m_spMvpMatrixUniform =
-            std::make_unique<vgfx::UniformBuffer>(m_graphicsContext, uniformBufferConfig);
-        m_mvpMatrix.model = glm::identity<glm::mat4>();
-        m_mvpMatrix.view = glm::lookAt(
-            glm::vec3(2.0f, 2.0f, 2.0f), // eye
-            glm::vec3(0.0f, 0.0f, 0.0f), // center
-            glm::vec3(0.0f, 0.0f, 1.0f)); // up
-        auto& swapChainExtent = m_spWindowRenderer->getSwapChain().getImageExtent();
-        m_mvpMatrix.proj = glm::perspective(
-            glm::radians(45.0f),
-            static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height),
-            0.1f, // near
-            10.0f); // far
-        bool keepUBMapped = true;
-        for (size_t index = 0; index < m_spMvpMatrixUniform->getCopyCount(); ++index) {
-            m_spMvpMatrixUniform->update(index, &m_mvpMatrix, sizeof(m_mvpMatrix), keepUBMapped);
-        }
+        uint32_t bindingIndex = 0;
+        vgfx::DescriptorSetLayout::DescriptorBindings cameraMatrixDescSetBindings;
+        cameraMatrixDescSetBindings[bindingIndex] =
+            vgfx::DescriptorSetLayout::DescriptorBinding(
+                VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                VK_SHADER_STAGE_VERTEX_BIT);
 
-        std::unique_ptr<vgfx::CombinedImageSamplerDescriptor> 
-            VK_SHADER_STAGE_FRAGMENT_BIT,
-            vgfx::MaterialsLibrary::ImageType::DIFFUSE,
-            vgfx::ImageView::Config(
-                VK_FORMAT_R8G8B8A8_UNORM,
-                VK_IMAGE_VIEW_TYPE_2D,
-                1), // TODO add support for mip maps
-            vgfx::Sampler::Config(
-                VK_FILTER_LINEAR,
-                VK_FILTER_LINEAR,
-                VK_SAMPLER_MIPMAP_MODE_LINEAR,
-                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                false, 0)); // Last two parameters are for anisotropic filtering
-        // Descriptors (uniform buffers, samplers, etc.) in location order
-        vgfx::MaterialsDatabase::MaterialInfo::DescriptorBindings descriptorBindings = {
-            std::make_unique<vgfx::UniformBufferDescriptor>(
-                *m_spMvpMatrixUniform.get(),
-                vgfx::Descriptor::LayoutBindingConfig(VK_SHADER_STAGE_VERTEX_BIT)),
-           
+        vgfx::DescriptorSetLayout::DescriptorBindings combImgSamplerDescSetBindings;
+        combImgSamplerDescSetBindings[bindingIndex] =
+            vgfx::DescriptorSetLayout::DescriptorBinding(
+                VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                VK_SHADER_STAGE_FRAGMENT_BIT);
+
+        std::vector<vgfx::MaterialsLibrary::DescriptorSetLayoutBindingInfo> descriptorSetLayoutBindings = {
+            vgfx::MaterialsLibrary::DescriptorSetLayoutBindingInfo(
+                cameraMatrixDescSetBindings,
+                m_spWindowRenderer->getSwapChain().getImageCount()),
+            vgfx::MaterialsLibrary::DescriptorSetLayoutBindingInfo(
+                combImgSamplerDescSetBindings)
         };
 
-        vgfx::MaterialsDatabase::MaterialInfo materialInfo(
+        std::vector<vgfx::Material::ImageType> imageTypes = { vgfx::Material::ImageType::DIFFUSE };
+
+        // Create MaterialInfo which is used to create an instance of the material for a particular
+        // model by the ModelLibrary.
+        vgfx::MaterialsLibrary::MaterialInfo materialInfo(
             vertexShaderInputs,
             vertexShaderPath,
             vertexShaderEntryPointFunc,
             fragmentShaderInputs,
             fragmentShaderPath,
             fragmentShaderEntryPointFunc,
-            descriptorBindings);
+            descriptorSetLayoutBindings,
+            imageTypes);
 
-        vgfx::ModelLibrary::ModelConfig modelConfig(materialInfo);
-        vgfx::ModelDatabase::Config config;
-        config.modelConfigMap = { { modelPath, modelConfig } };
-        m_spModelDatabase = std::make_unique<vgfx::ModelDatabase>(config);
+        vgfx::Material& material = vgfx::MaterialsLibrary::GetOrLoadMaterial(m_graphicsContext, materialInfo);
 
-        initGraphicsObject(m_graphicsContext, *m_spCommandBufferFactory, *m_spModelDatabase, modelPath);
+        m_spModelLibrary = std::make_unique<vgfx::ModelLibrary>();
+
+        initGraphicsObject(m_graphicsContext, *m_spCommandBufferFactory, modelPath, material, *m_spModelLibrary);
     }
 
 #ifdef NDEBUG
@@ -219,10 +202,10 @@ public:
     std::unique_ptr<vgfx::WindowRenderer> m_spWindowRenderer;
 
     std::unique_ptr<vgfx::CommandBufferFactory> m_spCommandBufferFactory;
-    ModelViewProj m_mvpMatrix;
-    std::unique_ptr<vgfx::UniformBuffer> m_spMvpMatrixUniform;
+    ModelViewProj m_cameraMatrix;
+    std::vector<std::unique_ptr<vgfx::UniformBuffer>> m_cameraMatrixUniformBuffers;
     std::vector<std::unique_ptr<vgfx::Object>> m_graphicsObjects;
-    std::unique_ptr<vgfx::ModelLibrary> m_spModelDatabase;
+    std::unique_ptr<vgfx::ModelLibrary> m_spModelLibrary;
     std::unique_ptr<vgfx::Pipeline> m_spGraphicsPipeline;
     std::unique_ptr<vgfx::DescriptorPool> m_spDescriptorPool;
 
@@ -238,44 +221,45 @@ public:
     void initGraphicsObject(
         vgfx::Context& graphicsContext,
         vgfx::CommandBufferFactory& commandBufferFactory,
-        vgfx::ModelDatabase& modelDatabase,
-        const std::string& modelPath)
+        const std::string& modelPath,
+        const vgfx::Material& material,
+        vgfx::ModelLibrary& modelLibrary)
     {
-        auto& model = modelDatabase.getOrCreateDrawable(
-            graphicsContext,
-            modelPath,
-            m_spWindowRenderer->getSwapChain().getImageCount(),
-            commandBufferFactory,
-            graphicsContext.getGraphicsQueue(0));
-
         vgfx::DescriptorPoolBuilder poolBuilder;
-        poolBuilder.addMaterialDescriptorSets(model.getMaterial());
+        poolBuilder.addMaterialDescriptorSets(material);
         //poolBuilder.setCreateFlags(VkDescriptorPoolCreateFlags);
         m_spDescriptorPool =
             poolBuilder.createPool(
                 graphicsContext,
                 m_spWindowRenderer->getSwapChain().getImageCount());
 
-        if (!model.getMaterial().areDescriptorSetsInitialized()) {
-            model.getMaterial().initDescriptors(*m_spDescriptorPool.get());
-        }
+        auto& drawable =
+            modelLibrary.getOrCreateDrawable(
+                graphicsContext,
+                modelPath,
+                material,
+                *m_spDescriptorPool.get(),
+                commandBufferFactory,
+                graphicsContext.getGraphicsQueue(0));
+
+        initDrawableDescriptorSets(graphicsContext, drawable, modelLibrary);
 
         std::unique_ptr<vgfx::Object> spModelObject = std::make_unique<vgfx::Object>();
-        spModelObject->addDrawable(model);
+        spModelObject->addDrawable(drawable);
 
         // GraphicsPipeline is specific to a material, vertex buffer config,
         // and input assembly config.
         vgfx::PipelineBuilder::InputAssemblyConfig inputConfig(
-            vgfx::ModelDatabase::GetDefaultVertexBufferConfig().primitiveTopology,
-            vgfx::ModelDatabase::GetDefaultIndexBufferConfig().hasPrimitiveRestartValues);
+            vgfx::ModelLibrary::GetDefaultVertexBufferConfig().primitiveTopology,
+            vgfx::ModelLibrary::GetDefaultIndexBufferConfig().hasPrimitiveRestartValues);
 
         m_spGraphicsPipeline =
             createGraphicsPipeline(
                 graphicsContext,
                 m_spWindowRenderer->getSwapChain(),
                 *m_spWindowRenderer->getRenderTarget(),
-                model.getMaterial(),
-                vgfx::ModelDatabase::GetDefaultVertexBufferConfig(),
+                material,
+                vgfx::ModelLibrary::GetDefaultVertexBufferConfig(),
                 inputConfig);
 
         m_graphicsObjects.push_back(std::move(spModelObject));
@@ -283,6 +267,59 @@ public:
             *m_spCommandBufferFactory.get(),
             *m_spGraphicsPipeline.get(),
             m_graphicsObjects);
+    }
+
+    void initDrawableDescriptorSets(
+        vgfx::Context& graphicsContext,
+        vgfx::Drawable& drawable,
+        vgfx::ModelLibrary& modelLibrary)
+    {
+        m_cameraMatrix.model = glm::identity<glm::mat4>();
+        m_cameraMatrix.view = glm::lookAt(
+            glm::vec3(2.0f, 2.0f, 2.0f), // eye
+            glm::vec3(0.0f, 0.0f, 0.0f), // center
+            glm::vec3(0.0f, 0.0f, 1.0f)); // up
+        auto& swapChainExtent = m_spWindowRenderer->getSwapChain().getImageExtent();
+        m_cameraMatrix.proj = glm::perspective(
+            glm::radians(45.0f),
+            static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height),
+            0.1f, // near
+            10.0f); // far
+        bool keepUBMapped = true;
+        vgfx::UniformBuffer::Config uniformBufferConfig(sizeof(ModelViewProj));
+        for (uint32_t index = 0; index < m_spWindowRenderer->getSwapChain().getImageCount(); ++index) {
+            m_cameraMatrixUniformBuffers.emplace_back(
+                std::make_unique<vgfx::UniformBuffer>(graphicsContext, uniformBufferConfig));
+            m_cameraMatrixUniformBuffers.back()->update(&m_cameraMatrix, sizeof(m_cameraMatrix), keepUBMapped);
+        
+            drawable.getDescriptorSetBuffers().front()->getDescriptorSet(index).update(
+                graphicsContext, {{0, m_cameraMatrixUniformBuffers.back().get()}});
+        }
+
+        vgfx::ImageView& imageView =
+            modelLibrary.getOrCreateImageView(
+                vgfx::ImageView::Config(
+                    VK_FORMAT_R8G8B8A8_UNORM,
+                    VK_IMAGE_VIEW_TYPE_2D,
+                    1u), // TODO add support for mip maps
+                graphicsContext,
+                *drawable.getImage(vgfx::Material::ImageType::DIFFUSE));
+
+        vgfx::Sampler& sampler =
+            modelLibrary.getOrCreateSampler( 
+                vgfx::Sampler::Config(
+                    VK_FILTER_LINEAR,
+                    VK_FILTER_LINEAR,
+                    VK_SAMPLER_MIPMAP_MODE_LINEAR,
+                    VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                    VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                    VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                    false, 0),
+                graphicsContext); // Last two parameters are for anisotropic filtering*/
+
+        vgfx::CombinedImageSampler imageSampler(imageView, sampler);
+        drawable.getDescriptorSetBuffers()[1]->getDescriptorSet(0).update(
+            graphicsContext, {{0, &imageSampler}});
     }
 
     std::unique_ptr<vgfx::Pipeline> createGraphicsPipeline(
@@ -375,7 +412,7 @@ public:
 
         m_spDescriptorPool.reset();
 
-        m_spModelDatabase.reset();
+        m_spModelLibrary.reset();
 
         vgfx::MaterialsLibrary::UnloadAll();
 

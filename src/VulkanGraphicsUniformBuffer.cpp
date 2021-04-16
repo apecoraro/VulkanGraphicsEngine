@@ -7,7 +7,8 @@ namespace vgfx
     UniformBuffer::UniformBuffer(
         Context& context,
         const Config& config)
-        : m_context(context)
+        : DescriptorUpdater(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+        , m_context(context)
         , m_bufferSize(config.bufferSize)
     {
         if (config.sharingMode == VK_SHARING_MODE_EXCLUSIVE) {
@@ -25,6 +26,10 @@ namespace vgfx
                     config.queueFamilyIndices,
                     config.memoryUsage);
         }
+
+        m_bufferInfo.buffer = getHandle();
+        m_bufferInfo.offset = 0;
+        m_bufferInfo.range = getSize();
     }
 
     void UniformBuffer::destroy()

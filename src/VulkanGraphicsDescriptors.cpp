@@ -54,46 +54,18 @@ namespace vgfx
         }
     }
 
-    void UniformBufferDescriptor::write(VkWriteDescriptorSet* pWriteSet)
-    {
-        Descriptor::write(pWriteSet);
-
-        VkWriteDescriptorSet& writeSet = *pWriteSet;
-        writeSet.dstArrayElement = 0;
-
-        m_bufferInfo.buffer = m_uniformBuffer.getHandle();
-        m_bufferInfo.offset = 0;
-        m_bufferInfo.range = m_uniformBuffer.getSize();
-
-        writeSet.pBufferInfo = &m_bufferInfo;
-    }
-
-    void CombinedImageSamplerDescriptor::write(VkWriteDescriptorSet* pWriteSet)
-    {
-        Descriptor::write(pWriteSet);
-
-        VkWriteDescriptorSet& writeSet = *pWriteSet;
-        // TODO should dstArrayElement not be hard coded?
-        writeSet.dstArrayElement = 0;
-
-        // TODO should imageLayout not be hard coded?
-        m_imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        m_imageInfo.imageView = m_combinedImageSampler.getImageView().getHandle();
-        m_imageInfo.sampler = m_combinedImageSampler.getSampler().getHandle();
-
-        writeSet.pImageInfo = &m_imageInfo;
-    }
-
-    void DescriptorSet::update(Context& context, const std::map<uint32_t, std::unique_ptr<Descriptor>>& descriptors)
+    void DescriptorSet::update(
+        Context& context,
+        const std::map<uint32_t, DescriptorUpdater*>& descriptors)
     {
         m_descriptorWrites.resize(descriptors.size());
         size_t dindex = 0u;
-        for (auto& [binding, spDescriptor]: descriptors) {
+        for (auto& [binding, pDescriptor]: descriptors) {
             VkWriteDescriptorSet& descriptorWrite = m_descriptorWrites[dindex];
             descriptorWrite = {};
             descriptorWrite.dstBinding = binding;
             descriptorWrite.dstSet = m_descriptorSet;
-            spDescriptor->write(&descriptorWrite);
+            pDescriptor->write(&descriptorWrite);
             ++dindex;
         }
 
@@ -179,12 +151,12 @@ namespace vgfx
     // Add to pool sizes for each Descriptor in the DescriptorSets of this Material
     DescriptorPoolBuilder& DescriptorPoolBuilder::addMaterialDescriptorSets(const Material& material)
     {
-        for (const auto& descSetLayout : material.getDescriptorSetLayouts()) {
-            for (const auto& descBindingCfg : descSetLayout->getDescriptorBindings()) {
+        for (const auto& descSetLayoutInfo : material.getDescriptorSetLayouts()) {
+            for (const auto& descBindingCfg : descSetLayoutInfo.spDescriptorSetLayout->getDescriptorBindings()) {
                 VkDescriptorPoolSize& poolSize = m_descriptorPoolSizes[descBindingCfg.second.descriptorType];
                 poolSize.type = descBindingCfg.second.descriptorType;
                 poolSize.descriptorCount +=
-                    (descBindingCfg.second.arrayElementCount * static_cast<uint32_t>(descBindingCfg.second.copyCount));
+                    (descBindingCfg.second.arrayElementCount * static_cast<uint32_t>(descSetLayoutInfo.copyCount));
             }
         }
 
