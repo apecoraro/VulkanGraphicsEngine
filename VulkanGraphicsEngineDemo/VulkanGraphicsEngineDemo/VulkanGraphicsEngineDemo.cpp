@@ -288,7 +288,7 @@ public:
         m_cameraMatrix.view = glm::lookAt(
             glm::vec3(2.0f, 2.0f, 2.0f), // eye
             glm::vec3(0.0f, 0.0f, 0.0f), // center
-            glm::vec3(0.0f, 0.0f, 1.0f)); // up
+            glm::vec3(0.0f, 0.0f, -1.0f)); // up
         auto& swapChainExtent = m_spWindowRenderer->getSwapChain().getImageExtent();
         m_cameraMatrix.proj = glm::perspective(
             glm::radians(45.0f),
@@ -346,7 +346,7 @@ public:
         vgfx::PipelineBuilder::RasterizerConfig rasterizerConfig(
             VK_POLYGON_MODE_FILL,
             VK_CULL_MODE_BACK_BIT,
-            VK_FRONT_FACE_COUNTER_CLOCKWISE);
+            VK_FRONT_FACE_CLOCKWISE);
 
         return builder.configureDrawableInput(material, vertexBufferConfig, inputConfig)
                       .configureRasterizer(rasterizerConfig)

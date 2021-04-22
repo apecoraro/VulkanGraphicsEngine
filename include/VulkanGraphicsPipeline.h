@@ -72,7 +72,7 @@ namespace vgfx
                 rasterizerInfo.polygonMode = polygonMode;
                 rasterizerInfo.lineWidth = 1.0f;
                 rasterizerInfo.cullMode = cullMode;
-                rasterizerInfo.frontFace =cullModeFrontFace;
+                rasterizerInfo.frontFace = cullModeFrontFace;
 
                 rasterizerInfo.depthBiasEnable = VK_FALSE;
                 rasterizerInfo.depthBiasConstantFactor = 0.0f; // Optional

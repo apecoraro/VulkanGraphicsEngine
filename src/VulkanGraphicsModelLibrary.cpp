@@ -80,7 +80,8 @@ namespace vgfx
                     vertices.push_back(vertex);
                 }
 
-                indices.push_back(static_cast<uint32_t>(uniqueVertices.size()));
+                indices.push_back(uniqueVertices[vertex]);
+                //indices.push_back(static_cast<uint32_t>(indices.size()));
             }
         }
 
