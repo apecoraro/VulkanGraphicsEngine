@@ -211,7 +211,7 @@ public:
     std::unique_ptr<vgfx::Pipeline> m_spGraphicsPipeline;
     std::unique_ptr<vgfx::DescriptorPool> m_spDescriptorPool;
 
-    vgfx::WindowRenderer::QueueSubmitInfo m_submitInfo;
+    std::vector<vgfx::WindowRenderer::QueueSubmitInfo> m_queueSubmits;
 
     bool m_frameBufferResized = false;
 
@@ -270,9 +270,10 @@ public:
 
         m_graphicsObjects.push_back(std::move(spModelObject));
 
+        m_queueSubmits.resize(m_spWindowRenderer->getSwapChain().getImageCount());
         for (size_t i = 0; i < m_spWindowRenderer->getSwapChain().getImageCount(); ++i) {
             VkCommandBuffer commandBuffer = m_spCommandBufferFactory->createCommandBuffer();
-            m_submitInfo.commandBuffers.push_back(commandBuffer);
+            m_queueSubmits[i].commandBuffers.push_back(commandBuffer);
             m_spWindowRenderer->recordCommandBuffer(
                 commandBuffer, i, *m_spGraphicsPipeline.get(), m_graphicsObjects);
         }
@@ -370,7 +371,7 @@ public:
                 continue;
             }
 
-            if (m_spWindowRenderer->renderFrame(curSwapChainImage, m_submitInfo) == VK_ERROR_OUT_OF_DATE_KHR) {
+            if (m_spWindowRenderer->renderFrame(curSwapChainImage, m_queueSubmits[curSwapChainImage]) == VK_ERROR_OUT_OF_DATE_KHR) {
                 recreateSwapChain();
             }
 
@@ -406,10 +407,11 @@ public:
                 m_graphicsContext,
                 m_graphicsContext.getGraphicsQueueFamilyIndex().value()));
 
-        m_submitInfo.commandBuffers.clear();
+        m_queueSubmits.clear();
+        m_queueSubmits.resize(m_spWindowRenderer->getSwapChain().getImageCount());
         for (size_t i = 0; i < m_spWindowRenderer->getSwapChain().getImageCount(); ++i) {
             VkCommandBuffer commandBuffer = m_spCommandBufferFactory->createCommandBuffer();
-            m_submitInfo.commandBuffers.push_back(commandBuffer);
+            m_queueSubmits[i].commandBuffers.push_back(commandBuffer);
             m_spWindowRenderer->recordCommandBuffer(
                 commandBuffer, i, *m_spGraphicsPipeline.get(), m_graphicsObjects);
         }

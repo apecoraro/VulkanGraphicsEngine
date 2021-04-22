@@ -122,16 +122,19 @@ namespace vgfx
         uint32_t presentQueueFamilyIndex = context.getPresentQueueFamilyIndex().value();
 
         uint32_t queueFamilyIndices[] = { graphicsQueueFamilyIndex, presentQueueFamilyIndex };
-        if (graphicsQueueFamilyIndex != presentQueueFamilyIndex) {
-            // TODO setting this to EXCLUSIVE aids performance but requires explicit ownership transfer.
-            createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-            createInfo.queueFamilyIndexCount = 2;
-            createInfo.pQueueFamilyIndices = queueFamilyIndices;
-        } else {
+        //if (graphicsQueueFamilyIndex != presentQueueFamilyIndex) {
+        //    // TODO setting this to EXCLUSIVE aids performance but requires explicit ownership transfer.
+        //    createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        //    createInfo.queueFamilyIndexCount = 2;
+        //    createInfo.pQueueFamilyIndices = queueFamilyIndices;
+        //} else {
+        // TODO should make sharing mode part of the configuration, also would need to add a check for sharing
+        // mode in the renderFrame function before it decided whether to create barrier to transfer ownership
+        // of the image from one queue to the other queue.
             createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
             createInfo.queueFamilyIndexCount = 0; // Optional
             createInfo.pQueueFamilyIndices = nullptr; // Optional
-        }
+        //}
 
         createInfo.preTransform = config.preTransform;
 

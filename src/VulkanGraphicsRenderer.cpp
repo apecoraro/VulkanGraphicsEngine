@@ -269,10 +269,6 @@ namespace vgfx
         imageSubresourceRange.baseArrayLayer = 0;
         imageSubresourceRange.layerCount = 1;
 
-        VkClearValue clearValue = {
-          { 0.0f, 1.0f, 0.0f, 1.0f },
-        };
-
         vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
         VkImage swapChainImage = m_spSwapChain->getImageHandle(swapChainImageIndex);
@@ -280,6 +276,8 @@ namespace vgfx
         bool imageBarrierNeeded =
             m_pContext->getPresentQueue(0).queue != m_pContext->getGraphicsQueue(0).queue;
         if (imageBarrierNeeded) {
+            // This barrier needed to transfer ownership of the image from the present queue to the
+            // graphics queue.
             VkImageMemoryBarrier barrierFromPresentToDraw = {};
             barrierFromPresentToDraw.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
             barrierFromPresentToDraw.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
@@ -303,6 +301,10 @@ namespace vgfx
                 1, // image memory barrier count
                 &barrierFromPresentToDraw);
         }
+
+        VkClearValue clearValue = {
+          { 0.0f, 0.0f, 0.0f, 0.0f },
+        };
 
         VkRenderPassBeginInfo renderPassBeginInfo = {};
         renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -405,7 +407,7 @@ namespace vgfx
         vkSubmitInfo.pWaitSemaphores = m_gfxQueueSubmitInfo.waitSemaphores.data();
         vkSubmitInfo.pWaitDstStageMask = m_gfxQueueSubmitInfo.waitSemaphoreStages.data();
 
-        vkSubmitInfo.commandBufferCount = 1u + static_cast<uint32_t>(submitInfo.commandBuffers.size());
+        vkSubmitInfo.commandBufferCount = static_cast<uint32_t>(submitInfo.commandBuffers.size());
         if (vkSubmitInfo.commandBufferCount > m_gfxQueueSubmitInfo.commandBuffers.capacity()) {
             m_gfxQueueSubmitInfo.commandBuffers.reserve(vkSubmitInfo.commandBufferCount);
         }

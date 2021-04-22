@@ -109,6 +109,7 @@ namespace vgfx
         // This would allow for instanced drawing.
         const InputAssemblyConfig& inputAssemblyConfig)
     {
+        m_pMaterial = &material;
         const Program& vertexShaderProgram = material.getVertexShader();
         assert(vertexShaderProgram.getShaderStage() == VK_SHADER_STAGE_VERTEX_BIT);
 
