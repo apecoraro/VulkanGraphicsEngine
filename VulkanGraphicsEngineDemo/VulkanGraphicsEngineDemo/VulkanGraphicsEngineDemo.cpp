@@ -291,15 +291,17 @@ public:
             glm::vec3(0.0f, 0.0f, 1.0f)); // up
         auto& swapChainExtent = m_spWindowRenderer->getSwapChain().getImageExtent();
         // Vulkan NDC is different than OpenGL, so use this clip matrix to correct for that.
-        const glm::mat4 clip(1.0f, 0.0f, 0.0f, 0.0f,
+        const glm::mat4 clip(
+            1.0f, 0.0f, 0.0f, 0.0f,
             0.0f, -1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 0.5f, 0.0f,
             0.0f, 0.0f, 0.5f, 1.0f);
-        m_cameraMatrix.proj = clip * glm::perspective(
-            glm::radians(45.0f),
-            static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height),
-            0.1f, // near
-            30.0f); // far
+        m_cameraMatrix.proj =
+            clip * glm::perspective(
+                    glm::radians(45.0f),
+                    static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height),
+                    0.1f, // near
+                    30.0f); // far
         bool keepUBMapped = true;
         vgfx::UniformBuffer::Config uniformBufferConfig(sizeof(ModelViewProj));
         for (uint32_t index = 0; index < m_spWindowRenderer->getSwapChain().getImageCount(); ++index) {
