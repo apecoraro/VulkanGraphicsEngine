@@ -30,7 +30,7 @@ namespace vgfx
             const std::map<Material::ImageType, const Image*>& images)
             : m_spVertexBuffer(std::move(spVertexBuffer))
             , m_spIndexBuffer(std::move(spIndexBuffer))
-            , m_materialId(material.getId())
+            , m_material(material)
             , m_images(images)
         {
             size_t maxCopyCount = 0u;
@@ -56,7 +56,6 @@ namespace vgfx
 
         void recordDrawCommands(
             size_t swapChainIndex,
-            VkPipelineLayout pipelineLayout,
             VkCommandBuffer commandBuffer);
 
         const VertexBuffer& getVertexBuffer() const { return *m_spVertexBuffer.get(); }
@@ -65,8 +64,7 @@ namespace vgfx
         const IndexBuffer& getIndexBuffer() const { return *m_spIndexBuffer.get(); }
         IndexBuffer& getIndexBuffer() { return *m_spIndexBuffer.get(); }
 
-        const MaterialId& getMaterialId() const { return m_materialId; }
-        MaterialId& getMaterialId() { return m_materialId; }
+        const MaterialId& getMaterialId() const { return m_material.getId(); }
  
         size_t getImageCount() const { return m_images.size(); }
 
@@ -89,7 +87,7 @@ namespace vgfx
     private:
         std::unique_ptr<VertexBuffer> m_spVertexBuffer;
         std::unique_ptr<IndexBuffer> m_spIndexBuffer;
-        MaterialId m_materialId;
+        const Material& m_material;
         std::map<Material::ImageType, const Image*> m_images;
         std::vector<std::unique_ptr<DescriptorSetBuffer>> m_descriptorSetBuffers;
         std::vector<std::vector<VkDescriptorSet>> m_descriptorSets;

@@ -1,14 +1,15 @@
 #include "VulkanGraphicsDrawable.h"
 
+#include "VulkanGraphicsPipeline.h"
+
 void vgfx::Drawable::recordDrawCommands(
     size_t swapChainIndex,
-    VkPipelineLayout pipelineLayout,
     VkCommandBuffer commandBuffer)
 {
     vkCmdBindDescriptorSets(
         commandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
-        pipelineLayout,
+        m_material.getPipeline().getLayout(),
         0u, // Offset in descriptor array
         static_cast<uint32_t>(m_descriptorSets[swapChainIndex].size()),
         m_descriptorSets[swapChainIndex].data(),

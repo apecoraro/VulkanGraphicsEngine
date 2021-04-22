@@ -23,6 +23,7 @@
     <ClCompile Include="src\VulkanGraphicsSemaphore.cpp" />
     <ClCompile Include="src\VulkanGraphicsFence.cpp" />
     <ClCompile Include="src\VulkanGraphicsModelLibrary.cpp" />
+    <ClCompile Include="src\VulkanGraphicsDescriptorPoolBuilder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\VulkanGraphicsContext.h" />
@@ -48,6 +49,7 @@
     <ClInclude Include="include\VulkanGraphicsSemaphore.h" />
     <ClInclude Include="include\VulkanGraphicsFence.h" />
     <ClInclude Include="include\VulkanGraphicsModelLibrary.h" />
+    <ClInclude Include="include\VulkanGraphicsDescriptorPoolBuilder.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">

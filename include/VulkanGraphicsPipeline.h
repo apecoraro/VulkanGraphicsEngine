@@ -18,8 +18,9 @@ namespace vgfx
     public:
         Pipeline(
             Context& context,
+            const Material& material,
             VkPipelineLayout pipelineLayout,
-            VkPipeline graphicsPipeline);
+            VkGraphicsPipelineCreateInfo pipelineInfo);
 
         ~Pipeline()
         {
@@ -32,7 +33,7 @@ namespace vgfx
         void destroy();
 
         Context& m_context;
-        std::vector<VkDescriptorSetLayout> m_descriptorSetLayouts;
+        const Material& m_material;
         VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
         VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;
     };
@@ -86,6 +87,7 @@ namespace vgfx
 
         std::unique_ptr<Pipeline> createPipeline(Context& context);
     private:
+        const Material* m_pMaterial = nullptr;
         VkPipelineShaderStageCreateInfo m_vertShaderStageInfo = {};
 
         VkVertexInputBindingDescription m_vertexBindingDescription;

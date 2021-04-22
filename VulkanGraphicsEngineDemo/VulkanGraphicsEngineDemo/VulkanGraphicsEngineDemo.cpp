@@ -2,6 +2,8 @@
 
 #include "VulkanGraphicsCombinedImageSampler.h"
 #include "VulkanGraphicsContext.h"
+#include "VulkanGraphicsDescriptorPoolBuilder.h"
+#include "VulkanGraphicsDescriptors.h"
 #include "VulkanGraphicsImageView.h"
 #include "VulkanGraphicsMaterials.h"
 #include "VulkanGraphicsModelLibrary.h"
@@ -209,7 +211,7 @@ public:
     std::unique_ptr<vgfx::Pipeline> m_spGraphicsPipeline;
     std::unique_ptr<vgfx::DescriptorPool> m_spDescriptorPool;
 
-    vgfx::WindowRenderer::QueueSubmitInfo m_extraSubmitInfo;
+    vgfx::WindowRenderer::QueueSubmitInfo m_submitInfo;
 
     bool m_frameBufferResized = false;
 
@@ -267,10 +269,13 @@ public:
                 inputConfig);
 
         m_graphicsObjects.push_back(std::move(spModelObject));
-        m_spWindowRenderer->recordCommandBuffers(
-            *m_spCommandBufferFactory.get(),
-            *m_spGraphicsPipeline.get(),
-            m_graphicsObjects);
+
+        for (size_t i = 0; i < m_spWindowRenderer->getSwapChain().getImageCount(); ++i) {
+            VkCommandBuffer commandBuffer = m_spCommandBufferFactory->createCommandBuffer();
+            m_submitInfo.commandBuffers.push_back(commandBuffer);
+            m_spWindowRenderer->recordCommandBuffer(
+                commandBuffer, i, *m_spGraphicsPipeline.get(), m_graphicsObjects);
+        }
     }
 
     void initDrawableDescriptorSets(
@@ -322,6 +327,7 @@ public:
                 graphicsContext); // Last two parameters are for anisotropic filtering*/
 
         vgfx::CombinedImageSampler imageSampler(imageView, sampler);
+        // Image sampler descriptor is set index == 1.
         drawable.getDescriptorSetBuffers()[1]->getDescriptorSet(0).update(
             graphicsContext, {{0, &imageSampler}});
     }
@@ -359,14 +365,12 @@ public:
         bool frameDrawn = false;
         while (true) {
             size_t syncObjIndex = m_curFrame % MAX_FRAMES_IN_FLIGHT;
-            if (m_spWindowRenderer->acquireNextSwapChainImage(&curSwapChainImage)
-                == VK_ERROR_OUT_OF_DATE_KHR) {
+            if (m_spWindowRenderer->acquireNextSwapChainImage(&curSwapChainImage) == VK_ERROR_OUT_OF_DATE_KHR) {
                 recreateSwapChain();
                 continue;
             }
 
-            if (m_spWindowRenderer->renderFrame(curSwapChainImage, m_extraSubmitInfo)
-                == VK_ERROR_OUT_OF_DATE_KHR) {
+            if (m_spWindowRenderer->renderFrame(curSwapChainImage, m_submitInfo) == VK_ERROR_OUT_OF_DATE_KHR) {
                 recreateSwapChain();
             }
 
@@ -402,10 +406,13 @@ public:
                 m_graphicsContext,
                 m_graphicsContext.getGraphicsQueueFamilyIndex().value()));
 
-        m_spWindowRenderer->recordCommandBuffers(
-            *m_spCommandBufferFactory.get(),
-            *m_spGraphicsPipeline.get(),
-            m_graphicsObjects);
+        m_submitInfo.commandBuffers.clear();
+        for (size_t i = 0; i < m_spWindowRenderer->getSwapChain().getImageCount(); ++i) {
+            VkCommandBuffer commandBuffer = m_spCommandBufferFactory->createCommandBuffer();
+            m_submitInfo.commandBuffers.push_back(commandBuffer);
+            m_spWindowRenderer->recordCommandBuffer(
+                commandBuffer, i, *m_spGraphicsPipeline.get(), m_graphicsObjects);
+        }
     }
 
     void cleanup()

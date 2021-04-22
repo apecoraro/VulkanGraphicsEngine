@@ -139,28 +139,6 @@ namespace vgfx
     private:
         std::vector<DescriptorSet> m_copies;
     };
-
-    // Forward declaration.
-    class Material;
-
-    // Builds a DescriptorPool
-    class DescriptorPoolBuilder
-    {
-    public:
-        DescriptorPoolBuilder() = default;
-
-        // Add to pool sizes for each Descriptor in the DescriptorSet
-        DescriptorPoolBuilder& addMaterialDescriptorSets(const Material& material);
-        DescriptorPoolBuilder& setCreateFlags(VkDescriptorPoolCreateFlags flags);
-
-        std::unique_ptr<DescriptorPool> createPool(
-            Context& context,
-            uint32_t maxSets);
-
-    private:
-        std::map<VkDescriptorType, VkDescriptorPoolSize> m_descriptorPoolSizes;
-        VkDescriptorPoolCreateFlags m_flags = 0;
-    };
 }
 
 #endif

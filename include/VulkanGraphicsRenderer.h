@@ -50,13 +50,6 @@ namespace vgfx
         virtual SwapChain& getSwapChain() = 0;
         virtual const SwapChain& getSwapChain() const = 0;
 
-        // Record one command buffer for each swap chain image using
-        // the provided set of objects.
-        void recordCommandBuffers(
-            CommandBufferFactory& commandBufferFactory,
-            const Pipeline& pipeline,
-            const std::vector<std::unique_ptr<Object>>& objects);
-
         // Acquire a swap chain image to render into outputs the index
         // of the image.
         virtual VkResult acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex) = 0;
@@ -88,21 +81,19 @@ namespace vgfx
         // specified swap chain image as specified by the swapChainImageIndex.
         virtual VkResult renderFrame(
             uint32_t swapChainImageIndex,
-            QueueSubmitInfo extraSubmitInfo) = 0;
+            const QueueSubmitInfo& submitInfo) = 0;
 
-    protected:
         virtual void recordCommandBuffer(
             VkCommandBuffer commandBuffer,
             size_t swapChainImageIndex,
             const Pipeline& pipeline,
             const std::vector<std::unique_ptr<Object>>& objects) = 0;
 
+    protected:
         bool m_requiresPresentQueue = false;
         Context* m_pContext = nullptr;
 
         uint32_t m_maxFramesInFlight = 0u;
-
-        std::vector<VkCommandBuffer> m_commandBuffers;
 
         QueueSubmitInfo m_gfxQueueSubmitInfo;
     };
@@ -187,15 +178,15 @@ namespace vgfx
 
         VkResult renderFrame(
             uint32_t swapChainImageIndex,
-            QueueSubmitInfo extraSubmitInfo) override;
+            const QueueSubmitInfo& submitInfo) override;
 
-    private:
         void recordCommandBuffer(
             VkCommandBuffer commandBuffer,
             size_t swapChainImageIndex,
             const Pipeline& pipeline,
             const std::vector<std::unique_ptr<Object>>& objects) override;
 
+    private:
         SwapChainConfig m_swapChainConfig;
         std::unique_ptr<WindowSwapChain> m_spSwapChain;
         std::unique_ptr<RenderTarget> m_spRenderTarget;

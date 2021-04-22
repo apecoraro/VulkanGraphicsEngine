@@ -5,25 +5,6 @@
 
 namespace vgfx
 {
-    void Renderer::recordCommandBuffers(
-        CommandBufferFactory& commandBufferFactory,
-        const Pipeline& pipeline,
-        const std::vector<std::unique_ptr<Object>>& objects)
-    {
-        m_commandBuffers.reserve(getSwapChain().getImageCount());
-        for (size_t i = 0; i < getSwapChain().getImageCount(); ++i) {
-            VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-            if (i < m_commandBuffers.size()) {
-                commandBuffer = m_commandBuffers[i];
-            } else {
-                commandBuffer = commandBufferFactory.createCommandBuffer();
-                m_commandBuffers.push_back(commandBuffer);
-            }
-
-            recordCommandBuffer(commandBuffer, i, pipeline, objects);
-        }
-    }
-
     static bool SurfaceFormatIsSupported(
         const std::vector<VkSurfaceFormatKHR>& supportedFormats,
         VkSurfaceFormatKHR desiredSurfaceFormat)
@@ -337,10 +318,7 @@ namespace vgfx
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getHandle());
 
         for (auto& spObject : objects) {
-            spObject->recordDrawCommands(
-                swapChainImageIndex,
-                pipeline.getLayout(),
-                commandBuffer);
+            spObject->recordDrawCommands(swapChainImageIndex, commandBuffer);
         }
 
         vkCmdEndRenderPass(commandBuffer);
@@ -394,70 +372,66 @@ namespace vgfx
 
     VkResult WindowRenderer::renderFrame(
         uint32_t swapChainImageIndex,
-        QueueSubmitInfo extraSubmitInfo)
+        const QueueSubmitInfo& submitInfo)
     {
-        VkSubmitInfo submitInfo = {};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        VkSubmitInfo vkSubmitInfo = {};
+        vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-        submitInfo.waitSemaphoreCount = 1u + static_cast<uint32_t>(extraSubmitInfo.waitSemaphores.size());
+        vkSubmitInfo.waitSemaphoreCount = 1u + static_cast<uint32_t>(submitInfo.waitSemaphores.size());
         // The intention is that by making these vectors persistent across multiple calls to renderFrame that
         // after just a few frames they will have settled on a good size that doesn't require reallocation.
         // We clear them at the end of the frame because vectors don't release their memory unless shrink_to_fit
         // is called, so by clearing it simplifies the process of building them on the next frame.
         m_gfxQueueSubmitInfo.clearAll();
-        if (submitInfo.waitSemaphoreCount > m_gfxQueueSubmitInfo.waitSemaphores.capacity()) {
-            m_gfxQueueSubmitInfo.waitSemaphores.reserve(submitInfo.waitSemaphoreCount);
-            m_gfxQueueSubmitInfo.waitSemaphoreStages.reserve(submitInfo.waitSemaphoreCount);
+        if (vkSubmitInfo.waitSemaphoreCount > m_gfxQueueSubmitInfo.waitSemaphores.capacity()) {
+            m_gfxQueueSubmitInfo.waitSemaphores.reserve(vkSubmitInfo.waitSemaphoreCount);
+            m_gfxQueueSubmitInfo.waitSemaphoreStages.reserve(vkSubmitInfo.waitSemaphoreCount);
         }
 
         m_gfxQueueSubmitInfo.waitSemaphores.push_back(m_spSwapChain->getImageAvailableSemaphore(m_syncObjIndex));
         m_gfxQueueSubmitInfo.waitSemaphoreStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-        if (!extraSubmitInfo.waitSemaphores.empty()) {
+        if (!submitInfo.waitSemaphores.empty()) {
             m_gfxQueueSubmitInfo.waitSemaphores.insert(
                 std::end(m_gfxQueueSubmitInfo.waitSemaphores),
-                std::begin(extraSubmitInfo.waitSemaphores),
-                std::end(extraSubmitInfo.waitSemaphores));
+                std::begin(submitInfo.waitSemaphores),
+                std::end(submitInfo.waitSemaphores));
 
             m_gfxQueueSubmitInfo.waitSemaphoreStages.insert(
                 std::end(m_gfxQueueSubmitInfo.waitSemaphoreStages),
-                std::begin(extraSubmitInfo.waitSemaphoreStages),
-                std::end(extraSubmitInfo.waitSemaphoreStages));
+                std::begin(submitInfo.waitSemaphoreStages),
+                std::end(submitInfo.waitSemaphoreStages));
         }
 
-        submitInfo.pWaitSemaphores = m_gfxQueueSubmitInfo.waitSemaphores.data();
-        submitInfo.pWaitDstStageMask = m_gfxQueueSubmitInfo.waitSemaphoreStages.data();
+        vkSubmitInfo.pWaitSemaphores = m_gfxQueueSubmitInfo.waitSemaphores.data();
+        vkSubmitInfo.pWaitDstStageMask = m_gfxQueueSubmitInfo.waitSemaphoreStages.data();
 
-        submitInfo.commandBufferCount = 1u + static_cast<uint32_t>(extraSubmitInfo.commandBuffers.size());
-        if (submitInfo.commandBufferCount > m_gfxQueueSubmitInfo.commandBuffers.capacity()) {
-            m_gfxQueueSubmitInfo.commandBuffers.reserve(submitInfo.commandBufferCount);
+        vkSubmitInfo.commandBufferCount = 1u + static_cast<uint32_t>(submitInfo.commandBuffers.size());
+        if (vkSubmitInfo.commandBufferCount > m_gfxQueueSubmitInfo.commandBuffers.capacity()) {
+            m_gfxQueueSubmitInfo.commandBuffers.reserve(vkSubmitInfo.commandBufferCount);
         }
         // See comment above about persistent vectors used for VkSubmitInfo
-        m_gfxQueueSubmitInfo.commandBuffers.push_back(m_commandBuffers[swapChainImageIndex]);
+        m_gfxQueueSubmitInfo.commandBuffers.insert(
+            std::end(m_gfxQueueSubmitInfo.commandBuffers),
+            std::begin(submitInfo.commandBuffers),
+            std::end(submitInfo.commandBuffers));
 
-        if (!extraSubmitInfo.commandBuffers.empty()) {
-            m_gfxQueueSubmitInfo.commandBuffers.insert(
-                std::end(m_gfxQueueSubmitInfo.commandBuffers),
-                std::begin(extraSubmitInfo.commandBuffers),
-                std::end(extraSubmitInfo.commandBuffers));
-        }
+        vkSubmitInfo.pCommandBuffers = m_gfxQueueSubmitInfo.commandBuffers.data();
 
-        submitInfo.pCommandBuffers = m_gfxQueueSubmitInfo.commandBuffers.data();
+        vkSubmitInfo.signalSemaphoreCount = 1u + static_cast<uint32_t>(submitInfo.signalSemaphores.size());
 
-        submitInfo.signalSemaphoreCount = 1u + static_cast<uint32_t>(extraSubmitInfo.signalSemaphores.size());
-
-        if (submitInfo.signalSemaphoreCount > m_gfxQueueSubmitInfo.signalSemaphores.capacity()) {
-            m_gfxQueueSubmitInfo.signalSemaphores.reserve(submitInfo.signalSemaphoreCount);
+        if (vkSubmitInfo.signalSemaphoreCount > m_gfxQueueSubmitInfo.signalSemaphores.capacity()) {
+            m_gfxQueueSubmitInfo.signalSemaphores.reserve(vkSubmitInfo.signalSemaphoreCount);
         }
 
         m_gfxQueueSubmitInfo.signalSemaphores.push_back(m_renderFinishedSemaphores[m_syncObjIndex]->getHandle());
 
-        if (!extraSubmitInfo.signalSemaphores.empty()) {
+        if (!submitInfo.signalSemaphores.empty()) {
             m_gfxQueueSubmitInfo.signalSemaphores.insert(
                 std::end(m_gfxQueueSubmitInfo.signalSemaphores),
-                std::begin(extraSubmitInfo.signalSemaphores),
-                std::end(extraSubmitInfo.signalSemaphores));
+                std::begin(submitInfo.signalSemaphores),
+                std::end(submitInfo.signalSemaphores));
         }
-        submitInfo.pSignalSemaphores = m_gfxQueueSubmitInfo.signalSemaphores.data();
+        vkSubmitInfo.pSignalSemaphores = m_gfxQueueSubmitInfo.signalSemaphores.data();
 
         VkDevice device = m_pContext->getLogicalDevice();
 
@@ -467,7 +441,7 @@ namespace vgfx
         vkQueueSubmit(
             m_pContext->getGraphicsQueue(0u).queue,
             1,
-            &submitInfo,
+            &vkSubmitInfo,
             fences[0]);
 
         ++m_syncObjIndex;

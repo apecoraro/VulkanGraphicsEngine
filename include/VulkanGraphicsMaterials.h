@@ -12,6 +12,8 @@
 
 namespace vgfx
 {
+    class Pipeline; // Forward declaration
+
     using MaterialId = std::pair<const Program*, const Program*>;
     // Encapsulates a vertex and fragment shader; the DescriptorSetLayouts should correspond
     // to the uniform inputs to the shaders; the imageTypes should correspond to the image
@@ -59,8 +61,10 @@ namespace vgfx
         const Program& getVertexShader() const { return m_vertexShader; }
         const Program& getFragmentShader() const { return m_fragmentShader; }
 
-        const std::vector<ImageType>& getImageTypes() const { return m_imageTypes; }
         const DescriptorSetLayouts& getDescriptorSetLayouts() const { return m_descriptorSetLayouts; }
+        const std::vector<ImageType>& getImageTypes() const { return m_imageTypes; }
+
+        const Pipeline& getPipeline() const { return *m_pPipeline; }
 
     private:
         MaterialId m_materialId;
@@ -68,6 +72,10 @@ namespace vgfx
         const Program& m_fragmentShader;
         DescriptorSetLayouts m_descriptorSetLayouts;
         std::vector<ImageType> m_imageTypes;
+        mutable const Pipeline* m_pPipeline;
+        friend class Pipeline;
+        // This function called by the Pipeline that gets created from this Material.
+        void setPipeline(const Pipeline& pipeline) const { m_pPipeline = &pipeline; }
     };
 
     namespace MaterialsLibrary

@@ -20,7 +20,6 @@ namespace vgfx
 
         void recordDrawCommands(
             size_t swapChainIndex,
-            VkPipelineLayout pipelineLayout,
             VkCommandBuffer commandBuffer);
     public:
         std::vector<Drawable*> m_drawables;

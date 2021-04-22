@@ -218,34 +218,36 @@ namespace vgfx
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
         pipelineInfo.basePipelineIndex = -1; // Optional
 
-        VkPipeline graphicsPipeline = VK_NULL_HANDLE;
-        result =
+        return std::make_unique<Pipeline>(
+            context,
+            *m_pMaterial,
+            pipelineLayout,
+            pipelineInfo);
+    }
+
+    Pipeline::Pipeline(
+        Context& context,
+        const Material& material,
+        VkPipelineLayout pipelineLayout,
+        VkGraphicsPipelineCreateInfo pipelineInfo)
+        : m_context(context)
+        , m_material(material)
+        , m_pipelineLayout(pipelineLayout)
+    {
+        VkResult result =
             vkCreateGraphicsPipelines(
                 context.getLogicalDevice(),
                 VK_NULL_HANDLE,
                 1,
                 &pipelineInfo,
                 context.getAllocationCallbacks(),
-                &graphicsPipeline);
+                &m_graphicsPipeline);
 
         if (result != VK_SUCCESS) {
             throw std::runtime_error("Failed to create graphics pipeline!");
         }
 
-        return std::make_unique<Pipeline>(
-            context,
-            pipelineLayout,
-            graphicsPipeline);
-    }
-
-    Pipeline::Pipeline(
-        Context& context,
-        VkPipelineLayout pipelineLayout,
-        VkPipeline graphicsPipeline)
-        : m_context(context)
-        , m_pipelineLayout(pipelineLayout)
-        , m_graphicsPipeline(graphicsPipeline)
-    {
+        m_material.setPipeline(*this);
     }
 
     void Pipeline::destroy()

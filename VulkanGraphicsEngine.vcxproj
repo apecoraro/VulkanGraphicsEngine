@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\VulkanGraphicsDescriptorPoolBuilder.cpp" />
     <ClCompile Include="src\VulkanGraphicsFence.cpp" />
     <ClCompile Include="src\VulkanGraphicsImage.cpp" />
     <ClCompile Include="src\VulkanGraphicsModelLibrary.cpp" />
@@ -45,6 +46,7 @@
   <ItemGroup>
     <ClInclude Include="include\VulkanGraphicsCombinedImageSampler.h" />
     <ClInclude Include="include\VulkanGraphicsCommandBuffers.h" />
+    <ClInclude Include="include\VulkanGraphicsDescriptorPoolBuilder.h" />
     <ClInclude Include="include\VulkanGraphicsDescriptors.h" />
     <ClInclude Include="include\VulkanGraphicsDrawable.h" />
     <ClInclude Include="include\VulkanGraphicsFence.h" />
