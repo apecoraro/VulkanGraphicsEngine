@@ -288,13 +288,18 @@ public:
         m_cameraMatrix.view = glm::lookAt(
             glm::vec3(2.0f, 2.0f, 2.0f), // eye
             glm::vec3(0.0f, 0.0f, 0.0f), // center
-            glm::vec3(0.0f, 0.0f, -1.0f)); // up
+            glm::vec3(0.0f, 0.0f, 1.0f)); // up
         auto& swapChainExtent = m_spWindowRenderer->getSwapChain().getImageExtent();
-        m_cameraMatrix.proj = glm::perspective(
+        // Vulkan NDC is different than OpenGL, so use this clip matrix to correct for that.
+        const glm::mat4 clip(1.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, -1.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.5f, 0.0f,
+            0.0f, 0.0f, 0.5f, 1.0f);
+        m_cameraMatrix.proj = clip * glm::perspective(
             glm::radians(45.0f),
             static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height),
             0.1f, // near
-            10.0f); // far
+            30.0f); // far
         bool keepUBMapped = true;
         vgfx::UniformBuffer::Config uniformBufferConfig(sizeof(ModelViewProj));
         for (uint32_t index = 0; index < m_spWindowRenderer->getSwapChain().getImageCount(); ++index) {
@@ -346,7 +351,7 @@ public:
         vgfx::PipelineBuilder::RasterizerConfig rasterizerConfig(
             VK_POLYGON_MODE_FILL,
             VK_CULL_MODE_BACK_BIT,
-            VK_FRONT_FACE_CLOCKWISE);
+            VK_FRONT_FACE_COUNTER_CLOCKWISE);
 
         return builder.configureDrawableInput(material, vertexBufferConfig, inputConfig)
                       .configureRasterizer(rasterizerConfig)
