@@ -72,6 +72,7 @@ namespace vgfx
         virtual void write(VkWriteDescriptorSet* pWriteSet)
         {
             VkWriteDescriptorSet& writeSet = *pWriteSet;
+            writeSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             writeSet.descriptorType = m_type;
             // Subclasses that want to update more than one descriptor can override this value.
             writeSet.descriptorCount = 1;

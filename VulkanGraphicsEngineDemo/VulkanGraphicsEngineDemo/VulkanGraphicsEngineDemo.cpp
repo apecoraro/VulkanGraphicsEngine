@@ -73,7 +73,7 @@ public:
 
         if (m_enableValidationLayers) {
             instanceConfig.requiredExtensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
-            instanceConfig.validationLayers.push_back("VK_LAYER_LUNARG_standard_validation");
+            instanceConfig.validationLayers.push_back("VK_LAYER_KHRONOS_validation");
         }
 
         vgfx::Context::DeviceConfig deviceConfig;
