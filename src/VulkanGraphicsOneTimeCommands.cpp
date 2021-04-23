@@ -103,6 +103,8 @@ namespace vgfx
     static void RecordImageMemBarrierCommand(
         VkCommandBuffer vulkanCommandBuffer,
         VkImage image,
+        uint32_t baseMipLevel,
+        uint32_t levelCount,
         VkImageLayout oldLayout,
         VkImageLayout newLayout)
     {
@@ -116,8 +118,8 @@ namespace vgfx
 
         barrier.image = image;
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseMipLevel = baseMipLevel,
+        barrier.subresourceRange.levelCount = levelCount;
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount = 1;
 
@@ -181,6 +183,40 @@ namespace vgfx
             &barrier); // const VkImageMemoryBarrier*
     }
 
+    static void RecordImageBlitCommand(
+        VkCommandBuffer vulkanCommandBuffer,
+        VkImage srcImage,
+        const VkOffset3D& srcSize,
+        uint32_t srcMipLevel,
+        VkImageLayout srcLayout,
+        VkImage dstImage,
+        const VkOffset3D& dstSize,
+        uint32_t dstMipLevel,
+        VkImageLayout dstLayout,
+        VkFilter blitFilter)
+    {
+        VkImageBlit blit = {};
+        blit.srcOffsets[0] = { 0, 0, 0 };
+        blit.srcOffsets[1] = srcSize;
+        blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.srcSubresource.mipLevel = srcMipLevel,
+        blit.srcSubresource.baseArrayLayer = 0;
+        blit.srcSubresource.layerCount = 1;
+        blit.dstOffsets[0] = { 0, 0, 0 };
+        blit.dstOffsets[1] = dstSize;
+        blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.dstSubresource.mipLevel = dstMipLevel;
+        blit.dstSubresource.baseArrayLayer = 0;
+        blit.dstSubresource.layerCount = 1;
+
+        vkCmdBlitImage(vulkanCommandBuffer,
+            srcImage, srcLayout,
+            dstImage, dstLayout,
+            1u, // blit regions count
+            &blit, // blit region
+            VK_FILTER_LINEAR);
+    }
+
     void OneTimeCommandsHelper::copyDataToImage(Image& image, const void* pData, VkDeviceSize dataSizeBytes)
     {
         auto& memoryAllocator = m_context.getMemoryAllocator();
@@ -203,6 +239,8 @@ namespace vgfx
                 RecordImageMemBarrierCommand(
                     commandBuffer,
                     image.getHandle(),
+                    0u, // base mip level
+                    image.getMipLevels(),
                     VK_IMAGE_LAYOUT_UNDEFINED,
                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
@@ -230,10 +268,51 @@ namespace vgfx
                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     1, &copyRegion);
 
+                VkOffset3D inputSize = {
+                    static_cast<int32_t>(image.getWidth()),
+                    static_cast<int32_t>(image.getHeight()),
+                    1u,
+                };
+                VkOffset3D outputSize = {
+                    std::max(inputSize.x >> 1, 1),
+                    std::max(inputSize.y >> 1, 1),
+                    1,
+                };
+                for (uint32_t mipLevel = 1; mipLevel < image.getMipLevels(); ++mipLevel) {
+                    RecordImageMemBarrierCommand(
+                        commandBuffer,
+                        image.getHandle(),
+                        mipLevel - 1u, // transfer source level to transfer src
+                        1u,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+                    RecordImageBlitCommand(
+                        commandBuffer,
+                        image.getHandle(),
+                        inputSize,
+                        mipLevel - 1u,
+                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                        image.getHandle(),
+                        outputSize,
+                        mipLevel,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        VK_FILTER_LINEAR);
+
+                    inputSize = outputSize;
+                    outputSize = {
+                        std::max(inputSize.x >> 1, 1),
+                        std::max(inputSize.y >> 1, 1),
+                        1,
+                    };
+                }
+
                 RecordImageMemBarrierCommand(
                     commandBuffer,
                     image.getHandle(),
-                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    0u, // base mip level
+                    image.getMipLevels(),
+                    VK_IMAGE_LAYOUT_UNDEFINED,
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             });
 

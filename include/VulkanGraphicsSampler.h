@@ -16,6 +16,8 @@ namespace vgfx
                 VkFilter magFilter = VK_FILTER_LINEAR,
                 VkFilter minFilter = VK_FILTER_LINEAR,
                 VkSamplerMipmapMode mipMapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+                float minLod = 0.0f,
+                float maxLod = 0.0f,
                 VkSamplerAddressMode addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
                 VkSamplerAddressMode addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
                 VkSamplerAddressMode addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
@@ -40,9 +42,9 @@ namespace vgfx
                 samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
 
                 samplerInfo.mipmapMode = mipMapMode;
+                samplerInfo.minLod = minLod;
+                samplerInfo.maxLod = maxLod;
                 samplerInfo.mipLodBias = 0.0f;
-                samplerInfo.minLod = 0.0f;
-                samplerInfo.maxLod = 0.0f;
             }
 
             bool operator<(const Sampler::Config& rhs) const

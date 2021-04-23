@@ -18,6 +18,7 @@ namespace vgfx
             Config(
                 VkFormat format, // format must be compatible with image's format.
                 VkImageViewType viewType,
+                uint32_t baseMipLevel,
                 uint32_t mipMapLevels)
             { 
                 imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -29,7 +30,7 @@ namespace vgfx
                 imageViewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
                 imageViewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
                 imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-                imageViewInfo.subresourceRange.baseMipLevel = 0;
+                imageViewInfo.subresourceRange.baseMipLevel = baseMipLevel;
                 imageViewInfo.subresourceRange.levelCount = mipMapLevels;
                 imageViewInfo.subresourceRange.baseArrayLayer = 0;
                 imageViewInfo.subresourceRange.layerCount = 1;

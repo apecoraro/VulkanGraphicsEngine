@@ -125,7 +125,8 @@ public:
                 vgfx::ImageView::Config cfg(
                         imageFormat,
                         VK_IMAGE_VIEW_TYPE_2D,
-                        1u);
+                        0u, // base mip level
+                        1u); // mip levels
                 return std::make_unique<vgfx::ImageView>(context, cfg, image);
             },
             // If only double buffering is available then one frame in flight, otherwise
@@ -313,21 +314,29 @@ public:
                 graphicsContext, {{0, m_cameraMatrixUniformBuffers.back().get()}});
         }
 
+        uint32_t mipLevels =
+            vgfx::Image::ComputeMipLevels2D(
+                drawable.getImage(vgfx::Material::ImageType::DIFFUSE)->getWidth(),
+                drawable.getImage(vgfx::Material::ImageType::DIFFUSE)->getHeight());
+
         vgfx::ImageView& imageView =
             modelLibrary.getOrCreateImageView(
                 vgfx::ImageView::Config(
                     VK_FORMAT_R8G8B8A8_UNORM,
                     VK_IMAGE_VIEW_TYPE_2D,
-                    1u), // TODO add support for mip maps
+                    0u, // base mip level
+                    mipLevels),
                 graphicsContext,
                 *drawable.getImage(vgfx::Material::ImageType::DIFFUSE));
 
         vgfx::Sampler& sampler =
-            modelLibrary.getOrCreateSampler( 
+            modelLibrary.getOrCreateSampler(
                 vgfx::Sampler::Config(
                     VK_FILTER_LINEAR,
                     VK_FILTER_LINEAR,
                     VK_SAMPLER_MIPMAP_MODE_LINEAR,
+                    0.0f, // min lod
+                    static_cast<float>(mipLevels),
                     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
                     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
                     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
@@ -401,7 +410,8 @@ public:
                 vgfx::ImageView::Config cfg(
                     imageFormat,
                     VK_IMAGE_VIEW_TYPE_2D,
-                    1u);
+                    0u, // base mip level
+                    1u); // mip levels
                 return std::make_unique<vgfx::ImageView>(context, cfg, image);
             },
             // If only double buffering is available then one frame in flight, otherwise
