@@ -10,8 +10,7 @@ namespace vgfx
         : m_renderTarget(renderTarget)
     {
         m_depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        if (swapChain.getDepthStencilBuffer() != nullptr) {
-            assert(false && "Not Implemented!");
+        if (renderTarget.getDepthStencilBuffer() != nullptr) {
             m_depthStencil.depthTestEnable = VK_TRUE;
             m_depthStencil.depthWriteEnable = VK_TRUE;
             m_depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;

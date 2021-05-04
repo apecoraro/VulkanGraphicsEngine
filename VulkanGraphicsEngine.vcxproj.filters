@@ -26,6 +26,7 @@
     <ClCompile Include="src\VulkanGraphicsImageDownsampler.cpp" />
     <ClCompile Include="src\VulkanGraphicsCompute.cpp" />
     <ClCompile Include="src\VulkanGraphicsBuffer.cpp" />
+    <ClCompile Include="src\VulkanGraphicsDepthStencilBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\VulkanGraphicsContext.h" />
@@ -60,6 +61,7 @@
     <ClInclude Include="dependencies\SinglePassDownsamplerAMD\ffx_spd.h">
       <Filter>Shaders</Filter>
     </ClInclude>
+    <ClInclude Include="include\VulkanGraphicsDepthStencilBuffer.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">

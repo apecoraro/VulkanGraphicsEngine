@@ -13,17 +13,6 @@
 
 namespace vgfx
 {
-    class DepthStencilBuffer
-    {
-    public:
-        VkFormat getFormat() const { return m_format; }
-        const std::vector<std::unique_ptr<ImageView>>& getImageViews() const { return m_imageViews; }
-
-    private:
-        VkFormat m_format = VK_FORMAT_UNDEFINED;
-        std::vector<std::unique_ptr<ImageView>> m_imageViews;
-    };
-
     class SwapChain
     {
     public:
@@ -58,12 +47,6 @@ namespace vgfx
             std::function<std::unique_ptr<ImageView>(
                 Context& context, VkImage image, VkFormat imageFormat)>;
 
-        void attachDepthStencilBuffer(std::unique_ptr<DepthStencilBuffer> spDepthStencilBuffer)
-        {
-            m_spDepthStencilBuffer = std::move(spDepthStencilBuffer);
-        }
-
-        const DepthStencilBuffer* getDepthStencilBuffer() const { return m_spDepthStencilBuffer.get(); }
         const std::vector<std::unique_ptr<ImageView>>& getImageViews() const
         {
             return m_imageViews;
@@ -74,8 +57,7 @@ namespace vgfx
         VkExtent2D m_imageExtent = { 0u, 0u };
         VkFormat m_imageFormat = VK_FORMAT_UNDEFINED;
         VkSampleCountFlagBits m_sampleCount = VK_SAMPLE_COUNT_1_BIT;
-        std::vector<std::unique_ptr<ImageView>> m_imageViews;
-        std::unique_ptr<DepthStencilBuffer> m_spDepthStencilBuffer;
+        std::vector<std::unique_ptr<ImageView>> m_imageViews; 
     };
 
     class WindowSwapChain : public SwapChain

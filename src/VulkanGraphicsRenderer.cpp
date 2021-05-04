@@ -302,8 +302,9 @@ namespace vgfx
                 &barrierFromPresentToDraw);
         }
 
-        VkClearValue clearValue = {
-          { 0.0f, 0.0f, 0.0f, 0.0f },
+        VkClearValue clearValues[] = {
+          { 0.0f, 0.0f, 0.0f, 0.0f }, // Color
+          {1.0f, 0}, // Depth/Stencil
         };
 
         VkRenderPassBeginInfo renderPassBeginInfo = {};
@@ -312,8 +313,8 @@ namespace vgfx
         renderPassBeginInfo.framebuffer = m_spRenderTarget->getFramebuffer(swapChainImageIndex);
         renderPassBeginInfo.renderArea.offset = { 0, 0 };
         renderPassBeginInfo.renderArea.extent = m_spSwapChain->getImageExtent();
-        renderPassBeginInfo.clearValueCount = 1;
-        renderPassBeginInfo.pClearValues = &clearValue;
+        renderPassBeginInfo.clearValueCount = m_spRenderTarget->getDepthStencilBuffer() == nullptr ? 1 : 2;
+        renderPassBeginInfo.pClearValues = clearValues;
 
         vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 

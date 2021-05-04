@@ -18,8 +18,8 @@ namespace vgfx
             Config(
                 VkFormat format, // format must be compatible with image's format.
                 VkImageViewType viewType,
-                uint32_t baseMipLevel,
-                uint32_t mipMapLevels)
+                uint32_t baseMipLevel = 0u,
+                uint32_t mipMapLevels = 1u)
             { 
                 imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
                 imageViewInfo.image = VK_NULL_HANDLE;
@@ -39,8 +39,8 @@ namespace vgfx
                 imageViewInfo.subresourceRange.aspectMask = formatToAspectMask(format);
                 imageViewInfo.subresourceRange.baseMipLevel = baseMipLevel;
                 imageViewInfo.subresourceRange.levelCount = mipMapLevels;
-                imageViewInfo.subresourceRange.baseArrayLayer = 0;
-                imageViewInfo.subresourceRange.layerCount = 1;
+                imageViewInfo.subresourceRange.baseArrayLayer = 0u;
+                imageViewInfo.subresourceRange.layerCount = 1u;
             }
 
             bool operator<(const ImageView::Config& rhs) const

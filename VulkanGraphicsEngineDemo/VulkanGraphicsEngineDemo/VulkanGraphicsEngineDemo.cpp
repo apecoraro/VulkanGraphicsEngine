@@ -115,8 +115,20 @@ public:
         if (m_enableValidationLayers) {
             m_graphicsContext.enableDebugReportCallback(DebugCallback);
         }
+ 
+        m_renderTargetConfig.pickDepthStencilFormat = [](const std::set<VkFormat>& formats) {
+            if (formats.find(VK_FORMAT_D32_SFLOAT) != formats.end()) {
+                return VK_FORMAT_D32_SFLOAT;
+            } else if (formats.find(VK_FORMAT_D32_SFLOAT_S8_UINT) != formats.end()) {
+                return VK_FORMAT_D32_SFLOAT_S8_UINT;
+            } else if (formats.find(VK_FORMAT_D24_UNORM_S8_UINT) != formats.end()) {
+                return VK_FORMAT_D24_UNORM_S8_UINT;
+            } else {
+                throw std::runtime_error("Failed to find suitable depth stencil format!");
+                return VK_FORMAT_MAX_ENUM;
+            }
+        };
 
-        vgfx::RenderTarget::Config defaultRenderTargetConfig;
         m_spWindowRenderer->initSwapChain(
             m_graphicsContext,
             // This callback allows for custom implementation of ImageView creation on the
@@ -133,7 +145,7 @@ public:
             // If only double buffering is available then one frame in flight, otherwise
             // 2 frames in flight (i.e. triple buffering).
             std::min(m_spWindowRenderer->getSwapChainConfig().imageCount.value() - 1u, 2u),
-            defaultRenderTargetConfig);
+            m_renderTargetConfig);
 
         m_spCommandBufferFactory =
             std::make_unique<vgfx::CommandBufferFactory>(
@@ -204,6 +216,7 @@ public:
 #endif
     vgfx::Context m_graphicsContext;
     std::unique_ptr<vgfx::WindowRenderer> m_spWindowRenderer;
+    vgfx::RenderTarget::Config m_renderTargetConfig;
 
     std::unique_ptr<vgfx::CommandBufferFactory> m_spCommandBufferFactory;
     ModelViewProj m_cameraMatrix;
@@ -408,7 +421,6 @@ public:
         m_graphicsContext.waitForDeviceToIdle();
 
         //Recreate SwapChain, Pipeline, and Command Buffers
-        vgfx::RenderTarget::Config defaultRenderTargetConfig;
         m_spWindowRenderer->initSwapChain(
             m_graphicsContext,
             [](vgfx::Context& context, VkImage image, VkFormat imageFormat)
@@ -423,7 +435,7 @@ public:
             // If only double buffering is available then one frame in flight, otherwise
             // 2 frames in flight (i.e. triple buffering).
             std::min(m_spWindowRenderer->getSwapChainConfig().imageCount.value() - 1u, 2u),
-            defaultRenderTargetConfig);
+            m_renderTargetConfig);
 
         m_spCommandBufferFactory.reset(
             new vgfx::CommandBufferFactory(

@@ -1,5 +1,6 @@
 #include "VulkanGraphicsRenderTarget.h"
 
+#include "VulkanGraphicsDepthStencilBuffer.h"
 #include "VulkanGraphicsSwapChain.h"
 
 #include <cassert>
@@ -45,11 +46,11 @@ namespace vgfx
         VkAttachmentReference depthStencilAttachmentRef = {};
 
         uint32_t attachmentCount = 1;
-        VkAttachmentDescription attachments[] = { colorAttachment, depthStencilAttachment };
 
-        const DepthStencilBuffer* pDepthStencilBuffer = swapChain.getDepthStencilBuffer();
-        if (pDepthStencilBuffer != nullptr) {
-            depthStencilAttachment.format = pDepthStencilBuffer->getFormat();
+        if (config.pickDepthStencilFormat != nullptr) {
+            m_spDepthStencilBuffer = createDepthStencilBuffer(swapChain, config);
+
+            depthStencilAttachment.format = m_spDepthStencilBuffer->getFormat();
             depthStencilAttachment.samples = swapChain.getSampleCount();
 
             depthStencilAttachment.loadOp = config.depthAttachmentLoadOp;
@@ -72,6 +73,8 @@ namespace vgfx
 
             ++attachmentCount;
         }
+
+        VkAttachmentDescription attachments[] = { colorAttachment, depthStencilAttachment };
 
         VkRenderPassCreateInfo renderPassInfo = {};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -103,16 +106,13 @@ namespace vgfx
         const auto& swapChainImageViews = swapChain.getImageViews();
         m_framebuffers.resize(swapChainImageViews.size());
 
-        VkExtent2D swapChainExtent = swapChain.getImageExtent();
+        auto& swapChainExtent = swapChain.getImageExtent();
         for (size_t i = 0; i < swapChainImageViews.size(); i++) {
             VkImageView imageViewAttachments[2] = {
                 swapChainImageViews[i]->getHandle(),
-                VK_NULL_HANDLE
+                m_spDepthStencilBuffer == nullptr ?
+                    VK_NULL_HANDLE : m_spDepthStencilBuffer->getImageView()->getHandle(),
             };
-
-            if (pDepthStencilBuffer != nullptr) {
-                imageViewAttachments[1] = pDepthStencilBuffer->getImageViews()[i]->getHandle();
-            }
 
             VkFramebufferCreateInfo framebufferInfo = {};
             framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -126,6 +126,47 @@ namespace vgfx
             if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &m_framebuffers[i]) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create framebuffer!");
             }
+        }
+    }
+
+    std::unique_ptr<DepthStencilBuffer, RenderTarget::DepthStencilDeleter>
+    RenderTarget::createDepthStencilBuffer(const SwapChain& swapChain, const Config& config)
+    {
+        VkFormat candidates[] = {
+            VK_FORMAT_D16_UNORM,
+            VK_FORMAT_X8_D24_UNORM_PACK32,
+            VK_FORMAT_D32_SFLOAT,
+            VK_FORMAT_S8_UINT,
+            VK_FORMAT_D16_UNORM_S8_UINT,
+            VK_FORMAT_D24_UNORM_S8_UINT,
+            VK_FORMAT_D32_SFLOAT_S8_UINT,
+        };
+        std::set<VkFormat> supportedDepthStencilFormats;
+        for (VkFormat format : candidates) {
+            VkFormatProperties props;
+            vkGetPhysicalDeviceFormatProperties(m_context.getPhysicalDevice(), format, &props);
+
+            if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+                supportedDepthStencilFormats.insert(format);
+            }
+        }
+
+        VkFormat selectedFormat = config.pickDepthStencilFormat(supportedDepthStencilFormats);
+
+        auto& swapChainExtent = swapChain.getImageExtent();
+        Image::Config depthImageCfg(
+            swapChainExtent.width,
+            swapChainExtent.height,
+            selectedFormat,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+        return std::unique_ptr<DepthStencilBuffer, DepthStencilDeleter>(new DepthStencilBuffer(m_context, depthImageCfg));
+    }
+
+    void RenderTarget::DepthStencilDeleter::operator()(DepthStencilBuffer* pDSBuffer)
+    {
+        if (pDSBuffer != nullptr) {
+            delete pDSBuffer;
         }
     }
 

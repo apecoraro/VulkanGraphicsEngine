@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="src\VulkanGraphicsBuffer.cpp" />
     <ClCompile Include="src\VulkanGraphicsCompute.cpp" />
+    <ClCompile Include="src\VulkanGraphicsDepthStencilBuffer.cpp" />
     <ClCompile Include="src\VulkanGraphicsDescriptorPoolBuilder.cpp" />
     <ClCompile Include="src\VulkanGraphicsFence.cpp" />
     <ClCompile Include="src\VulkanGraphicsImage.cpp" />
@@ -49,6 +50,7 @@
     <ClInclude Include="dependencies\SinglePassDownsamplerAMD\ffx_a.h" />
     <ClInclude Include="dependencies\SinglePassDownsamplerAMD\ffx_spd.h" />
     <ClInclude Include="include\VulkanGraphicsBuffer.h" />
+    <ClInclude Include="include\VulkanGraphicsDepthStencilBuffer.h" />
     <ClInclude Include="include\VulkanGraphicsImageDescriptorUpdaters.h" />
     <ClInclude Include="include\VulkanGraphicsCommandBuffers.h" />
     <ClInclude Include="include\VulkanGraphicsCompute.h" />
