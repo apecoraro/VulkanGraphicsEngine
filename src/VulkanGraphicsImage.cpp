@@ -1,5 +1,6 @@
 #include "VulkanGraphicsImage.h"
 
+#include "VulkanGraphicsImageDownsampler.h"
 #include "VulkanGraphicsOneTimeCommands.h"
 
 #include <algorithm>
@@ -28,8 +29,8 @@ vgfx::Image::Image(
 
 vgfx::Image::Image(
     Context& context,
-    vgfx::CommandBufferFactory& commandBufferFactory,
-    vgfx::CommandQueue& commandQueue,
+    CommandBufferFactory& commandBufferFactory,
+    CommandQueue& commandQueue,
     const Config& config,
     const void* pImageData,
     size_t imageDataSize)
@@ -46,7 +47,14 @@ vgfx::Image::Image(
         commandBufferFactory,
         commandQueue);
 
-    helper.copyDataToImage(*this, pImageData, imageDataSize);
+    OneTimeCommandsHelper::GenerateMips genMips =
+        context.areShaderSubgroupsSupported() && context.isDescriptorIndexingSupported() ?
+            OneTimeCommandsHelper::GenerateMips::No : OneTimeCommandsHelper::GenerateMips::Yes;
+    helper.copyDataToImage(*this, pImageData, imageDataSize, genMips);
+    if (genMips == OneTimeCommandsHelper::GenerateMips::No) {
+        ImageDownsampler& downsampler = context.getOrCreateImageDownsampler();
+        downsampler.execute(*this, helper);
+    }
 }
 
 vgfx::Image::~Image()

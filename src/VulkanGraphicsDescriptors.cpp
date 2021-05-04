@@ -12,6 +12,10 @@ namespace vgfx
     {
         std::vector<VkDescriptorSetLayoutBinding> descriptorLayoutBindings;
         descriptorLayoutBindings.reserve(m_descriptorBindings.size());
+
+        std::vector<VkDescriptorBindingFlags> bindingFlags;
+        bindingFlags.reserve(m_descriptorBindings.size());
+
         for (const auto& descBindingCfg : m_descriptorBindings) {
             VkDescriptorSetLayoutBinding binding = {};
 
@@ -23,12 +27,25 @@ namespace vgfx
             binding.pImmutableSamplers = descBindingCfg.second.pImmutableSamplers;
 
             descriptorLayoutBindings.push_back(binding);
+
+            if (descBindingCfg.second.mode == BindMode::SupportPartialBinding) {
+                bindingFlags.push_back(VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT);
+            } else {
+                bindingFlags.push_back(0);
+            }
         }
 
         VkDescriptorSetLayoutCreateInfo layoutInfo = {};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         layoutInfo.bindingCount = static_cast<uint32_t>(descriptorBindings.size());
         layoutInfo.pBindings = descriptorLayoutBindings.data();
+
+        VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo = {};
+        bindingFlagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+        bindingFlagsInfo.bindingCount = static_cast<uint32_t>(descriptorBindings.size());
+        bindingFlagsInfo.pBindingFlags = bindingFlags.data();
+
+        layoutInfo.pNext = &bindingFlagsInfo;
 
         VkResult result =
             vkCreateDescriptorSetLayout(

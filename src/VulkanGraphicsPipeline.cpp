@@ -238,7 +238,7 @@ namespace vgfx
         VkResult result =
             vkCreateGraphicsPipelines(
                 context.getLogicalDevice(),
-                VK_NULL_HANDLE,
+                VK_NULL_HANDLE, // PipelineCache TODO support this.
                 1,
                 &pipelineInfo,
                 context.getAllocationCallbacks(),

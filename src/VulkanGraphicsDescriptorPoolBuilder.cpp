@@ -6,10 +6,21 @@
 
 namespace vgfx
 {
-    // Add to pool sizes for each Descriptor in the DescriptorSets of this Material
     DescriptorPoolBuilder& DescriptorPoolBuilder::addMaterialDescriptorSets(const Material& material)
     {
-        for (const auto& descSetLayoutInfo : material.getDescriptorSetLayouts()) {
+        addDescriptorSets(material.getDescriptorSetLayouts());
+        return *this;
+    }
+
+    DescriptorPoolBuilder& DescriptorPoolBuilder::addComputeShaderDescriptorSets(const ComputeShader& computeShader)
+    {
+        addDescriptorSets(computeShader.getDescriptorSetLayouts());
+        return *this;
+    }
+
+    void DescriptorPoolBuilder::addDescriptorSets(const DescriptorSetLayouts& descriptorSetLayouts)
+    {
+        for (const auto& descSetLayoutInfo : descriptorSetLayouts) {
             for (const auto& descBindingCfg : descSetLayoutInfo.spDescriptorSetLayout->getDescriptorBindings()) {
                 VkDescriptorPoolSize& poolSize = m_descriptorPoolSizes[descBindingCfg.second.descriptorType];
                 poolSize.type = descBindingCfg.second.descriptorType;
@@ -17,8 +28,6 @@ namespace vgfx
                     (descBindingCfg.second.arrayElementCount * static_cast<uint32_t>(descSetLayoutInfo.copyCount));
             }
         }
-
-        return *this;
     }
 
     DescriptorPoolBuilder& DescriptorPoolBuilder::setCreateFlags(VkDescriptorPoolCreateFlags flags)

@@ -1,6 +1,7 @@
 #ifndef VGFX_DESCRIPTOR_POOL_BUILDER_H
 #define VGFX_DESCRIPTOR_POOL_BUILDER_H
 
+#include "VulkanGraphicsCompute.h"
 #include "VulkanGraphicsDescriptors.h"
 #include "VulkanGraphicsMaterials.h"
 
@@ -19,6 +20,7 @@ namespace vgfx
 
         // Add to pool sizes for each Descriptor in the DescriptorSet
         DescriptorPoolBuilder& addMaterialDescriptorSets(const Material& material);
+        DescriptorPoolBuilder& addComputeShaderDescriptorSets(const ComputeShader& computeShader);
         DescriptorPoolBuilder& setCreateFlags(VkDescriptorPoolCreateFlags flags);
 
         std::unique_ptr<DescriptorPool> createPool(
@@ -26,6 +28,8 @@ namespace vgfx
             uint32_t maxSets);
 
     private:
+        void addDescriptorSets(const DescriptorSetLayouts& descriptorSetLayouts);
+
         std::map<VkDescriptorType, VkDescriptorPoolSize> m_descriptorPoolSizes;
         VkDescriptorPoolCreateFlags m_flags = 0;
     };

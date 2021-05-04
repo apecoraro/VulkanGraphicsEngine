@@ -44,21 +44,23 @@ namespace vgfx
     MemoryAllocator::Buffer MemoryAllocator::createBuffer(
         VkDeviceSize sizeBytes,
         VkBufferUsageFlags usage,
-        VmaMemoryUsage bufferMemoryUsage)
+        VmaMemoryUsage bufferMemoryUsage,
+        const char* pBufferName)
     {
         VkBufferCreateInfo bufferCreateInfo = {};
         bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferCreateInfo.size = sizeBytes;
         bufferCreateInfo.usage = usage;
         bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        return createBuffer(bufferCreateInfo, bufferMemoryUsage);
+        return createBuffer(bufferCreateInfo, bufferMemoryUsage, pBufferName);
     }
 
     MemoryAllocator::Buffer MemoryAllocator::createSharedBuffer(
         VkDeviceSize sizeBytes,
         VkBufferUsageFlags usage,
         const std::vector<uint32_t>& queueFamilyIndices,
-        VmaMemoryUsage bufferMemoryUsage)
+        VmaMemoryUsage bufferMemoryUsage,
+        const char* pBufferName)
     {
         VkBufferCreateInfo bufferCreateInfo = {};
         bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -68,15 +70,20 @@ namespace vgfx
         bufferCreateInfo.pQueueFamilyIndices = queueFamilyIndices.data();
         bufferCreateInfo.queueFamilyIndexCount = static_cast<uint32_t>(queueFamilyIndices.size());
 
-        return createBuffer(bufferCreateInfo, bufferMemoryUsage);
+        return createBuffer(bufferCreateInfo, bufferMemoryUsage, pBufferName);
     }
 
     MemoryAllocator::Buffer MemoryAllocator::createBuffer(
         const VkBufferCreateInfo& bufferCreateInfo,
-        VmaMemoryUsage bufferMemoryUsage)
+        VmaMemoryUsage bufferMemoryUsage,
+        const char* pBufferName)
     {
         VmaAllocationCreateInfo allocInfo = {};
         allocInfo.usage = bufferMemoryUsage;
+        if (pBufferName != nullptr) {
+            allocInfo.flags = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
+            allocInfo.pUserData = const_cast<char*>(pBufferName);
+        }
 
         Buffer handle;
         VkResult result = vmaCreateBuffer(

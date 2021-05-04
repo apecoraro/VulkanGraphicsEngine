@@ -13,9 +13,10 @@ extern "C" {
         uint32_t platformSpecificExtensionCount,
         const char** platformSpecificExtensions,
         bool enableValidationLayers,
-        const char* pModelPath,
-        const char* pVertShaderPath,
-        const char* pFragShaderPath);
+        const char* pDataPath,
+        const char* pModelFilename,
+        const char* pVertShaderFilename,
+        const char* pFragShaderFilename);
 
     void DemoSetFramebufferResized(bool flag);
 

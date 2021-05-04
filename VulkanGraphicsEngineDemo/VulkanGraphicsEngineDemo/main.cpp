@@ -49,9 +49,10 @@ static void GetFrameBufferSizeCallback(void* window, int* pWidth, int* pHeight)
 }
 
 static GLFWwindow* AppInit(
-    const std::string& modelPath,
-    const std::string& vertShaderPath,
-    const std::string& fragShaderPath)
+    const std::string& dataDirPath,
+    const std::string& modelFilename,
+    const std::string& vertShaderFilename,
+    const std::string& fragShaderFilename)
 {
     GLFWwindow* window = InitWindow();
     if (window != nullptr)
@@ -65,9 +66,10 @@ static GLFWwindow* AppInit(
             glfwExtensionCount,
             glfwExtensions,
             enableValidationLayers,
-            modelPath.c_str(),
-            vertShaderPath.c_str(),
-            fragShaderPath.c_str()))
+            dataDirPath.c_str(),
+            modelFilename.c_str(),
+            vertShaderFilename.c_str(),
+            fragShaderFilename.c_str()))
         {
             glfwDestroyWindow(window);
             glfwTerminate();
@@ -105,7 +107,10 @@ static void ShowHelpAndExit(const char* pBadOption = nullptr)
         oss << "Error parsing \"" << pBadOption << "\"" << std::endl;
     }
     oss << "Options:" << std::endl
-        << "-m           Input model file path" << std::endl;
+        << "-d           Data directory path." << std::endl
+        << "-m           Input model filename (relative to data directory path)." << std::endl
+        << "-v           Input vertex shader filename (relative to data directory path)." << std::endl
+        << "-f           Input fragment shader (relative to data directory path)." << std::endl;
 
     if (throwError) {
         throw std::invalid_argument(oss.str());
@@ -117,9 +122,10 @@ static void ShowHelpAndExit(const char* pBadOption = nullptr)
 
 static void ParseCommandLine(
     int argc, char* argv[],
-    std::string* pModelPath,
-    std::string* pVertShaderPath,
-    std::string* pFragShaderPath)
+    std::string* pDataDirPath,
+    std::string* pModelFilename,
+    std::string* pVertShaderFilename,
+    std::string* pFragShaderFilename)
 {
     std::ostringstream oss;
     for (int i = 1; i < argc; ++i) {
@@ -129,19 +135,25 @@ static void ParseCommandLine(
             if (++i == argc) {
                 ShowHelpAndExit("-m");
             }
-            *pModelPath = argv[i];
+            *pModelFilename = argv[i];
             continue;
         } else if (_stricmp(argv[i], "-v") == 0) {
             if (++i == argc) {
                 ShowHelpAndExit("-v");
             }
-            *pVertShaderPath = argv[i];
+            *pVertShaderFilename = argv[i];
             continue;
         } else if (_stricmp(argv[i], "-f") == 0) {
             if (++i == argc) {
                 ShowHelpAndExit("-f");
             }
-            *pFragShaderPath = argv[i];
+            *pFragShaderFilename = argv[i];
+            continue;
+        } else if (_stricmp(argv[i], "-d") == 0) {
+            if (++i == argc) {
+                ShowHelpAndExit("-d");
+            }
+            *pDataDirPath = argv[i];
             continue;
         }
         ShowHelpAndExit(argv[i]);
@@ -150,21 +162,24 @@ static void ParseCommandLine(
 
 int main(int argc, char** argv)
 {
-    std::string modelPath;
-    std::string vertexShaderPath;
-    std::string fragShaderPath;
+    std::string dataDirPath = ".";
+    std::string modelFilename;
+    std::string vertexShaderFilename;
+    std::string fragShaderFilename;
 
     ParseCommandLine(
         argc, argv,
-        &modelPath,
-        &vertexShaderPath,
-        &fragShaderPath);
+        &dataDirPath,
+        &modelFilename,
+        &vertexShaderFilename,
+        &fragShaderFilename);
 
     GLFWwindow* window =
         AppInit(
-            modelPath,
-            vertexShaderPath,
-            fragShaderPath);
+            dataDirPath,
+            modelFilename,
+            vertexShaderFilename,
+            fragShaderFilename);
     if (window != nullptr)
     {
         AppRun(window);

@@ -49,8 +49,8 @@ namespace vgfx
         // then generates the mip map levels (REQUIRES VK_IMAGE_USAGE_TRANSFER_SRC_BIT).
         Image(
             Context& context,
-            vgfx::CommandBufferFactory& commandBufferFactory,
-            vgfx::CommandQueue& commandQueue,
+            CommandBufferFactory& commandBufferFactory,
+            CommandQueue& commandQueue,
             const Config& config,
             const void* pImageData,
             size_t imageDataSize);

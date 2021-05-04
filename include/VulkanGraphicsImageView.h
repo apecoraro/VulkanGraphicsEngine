@@ -29,7 +29,14 @@ namespace vgfx
                 imageViewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
                 imageViewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
                 imageViewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-                imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                auto formatToAspectMask = [](VkFormat fmt) -> VkImageAspectFlags {
+                    if (fmt >= VK_FORMAT_D16_UNORM && fmt <= VK_FORMAT_D32_SFLOAT_S8_UINT) {
+                        return VK_IMAGE_ASPECT_DEPTH_BIT;
+                    } else {
+                        return VK_IMAGE_ASPECT_COLOR_BIT;
+                    }
+                };
+                imageViewInfo.subresourceRange.aspectMask = formatToAspectMask(format);
                 imageViewInfo.subresourceRange.baseMipLevel = baseMipLevel;
                 imageViewInfo.subresourceRange.levelCount = mipMapLevels;
                 imageViewInfo.subresourceRange.baseArrayLayer = 0;

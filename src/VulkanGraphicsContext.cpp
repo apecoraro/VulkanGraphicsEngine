@@ -1,11 +1,10 @@
-#include "VulkanGraphicsContext.h"
 //
 //  Created by Alex Pecoraro on 3/5/20.
-//  Copyright � 2020 Rainway, Inc. All rights reserved.
 //
 #include "VulkanGraphicsContext.h"
 
 #include "VulkanGraphicsRenderer.h"
+#include "VulkanGraphicsImageDownsampler.h"
 
 #include <exception>
 #include <iostream>
@@ -23,6 +22,8 @@ namespace vgfx
         const DeviceConfig& deviceConfig,
         Renderer* pRenderer)
     {
+        m_appConfig = appConfig;
+
         createInstance(
             appConfig,
             instanceConfig);
@@ -75,7 +76,6 @@ namespace vgfx
         }
     }
 
-
     template<typename ContainerType> void ContainerOfStringsToCharPtrs(
         const ContainerType& input,
         std::vector<const char*>* pOutput)
@@ -83,6 +83,20 @@ namespace vgfx
         for (auto& extStr : input) {
             pOutput->push_back(extStr.c_str());
         }
+    }
+
+    ImageDownsampler& Context::getOrCreateImageDownsampler()
+    {
+        assert(m_shaderSubgroupsAreSupported && m_descriptorIndexingIsSupported);
+
+        if (m_spImageDownsampler == nullptr) {
+            m_spImageDownsampler.reset(new ImageDownsampler(
+                    *this,
+                    m_fp16IsSupported ?
+                        ImageDownsampler::Precision::FP16 :
+                        ImageDownsampler::Precision::FP32));
+        }
+        return *m_spImageDownsampler.get();
     }
 
     void Context::createInstance(
@@ -432,6 +446,130 @@ namespace vgfx
         }
     }
 
+    static bool CheckExtensionSupport(VkPhysicalDevice device, const char* findExtensions[], size_t findCount)
+    {
+        uint32_t extensionCount;
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+
+        std::vector<VkExtensionProperties> availableDeviceExtensions(extensionCount);
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableDeviceExtensions.data());
+
+        size_t foundExtCount = 0u;
+        for (size_t i = 0; i < availableDeviceExtensions.size(); ++i) {
+            for (size_t j = 0; j < findCount; ++j) {
+                if (_stricmp(availableDeviceExtensions[i].extensionName, findExtensions[j]) == 0) {
+                    ++foundExtCount;
+                    if (foundExtCount == findCount) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    static bool TryAddFp16DeviceExtensions(
+        VkPhysicalDevice device,
+        std::vector<const char*>* pExtOut)
+    {
+        VkPhysicalDeviceFeatures2 features = {};
+        features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+
+        // Query 16 bit storage
+        VkPhysicalDevice16BitStorageFeatures storage16BitFeatures = {};
+        storage16BitFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES;
+
+        features.pNext = &storage16BitFeatures;
+        vkGetPhysicalDeviceFeatures2(device, &features);
+
+        if (!storage16BitFeatures.storageBuffer16BitAccess) {
+            return false;
+        }
+
+        // Query 16 bit ops
+        VkPhysicalDeviceFloat16Int8FeaturesKHR fp16Features = {};
+        fp16Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT16_INT8_FEATURES_KHR;
+
+        features.pNext = &fp16Features;
+        vkGetPhysicalDeviceFeatures2(device, &features);
+
+        if (!fp16Features.shaderFloat16) {
+            return false;
+        }
+
+        static const char* fp16Extensions[] = { VK_KHR_16BIT_STORAGE_EXTENSION_NAME, VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME };
+        size_t extCount = sizeof(fp16Extensions) / sizeof(fp16Extensions[0]);
+        
+        if (CheckExtensionSupport(device, fp16Extensions, extCount)) {
+            pExtOut->insert(pExtOut->end(), fp16Extensions, &fp16Extensions[extCount]);
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool TryAddShaderSubgroupExtension(
+        VkPhysicalDevice device,
+        std::vector<const char*>* pExtOut)
+    {
+        VkPhysicalDeviceFeatures2 features = {};
+        features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+
+        VkPhysicalDeviceShaderSubgroupExtendedTypesFeatures shaderSubgroupFeatures = {};
+        shaderSubgroupFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES;
+
+        features.pNext = &shaderSubgroupFeatures;
+        vkGetPhysicalDeviceFeatures2(device, &features);
+
+        if (!shaderSubgroupFeatures.shaderSubgroupExtendedTypes) {
+            return false;
+        }
+
+        static const char* shaderSubgroupExt[] = {
+            VK_KHR_SHADER_SUBGROUP_EXTENDED_TYPES_EXTENSION_NAME,
+        };
+        size_t extCount = sizeof(shaderSubgroupExt) / sizeof(shaderSubgroupExt[0]);
+
+        if (CheckExtensionSupport(device, shaderSubgroupExt, extCount)) {
+            pExtOut->insert(pExtOut->end(), shaderSubgroupExt, &shaderSubgroupExt[extCount]);
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool TryAddDescriptorIndexingExtension(
+        VkPhysicalDevice device,
+        std::vector<const char*>* pExtOut)
+    {
+        VkPhysicalDeviceFeatures2 features = {};
+        features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+
+        VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures = {};
+        descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+
+        features.pNext = &descriptorIndexingFeatures;
+        vkGetPhysicalDeviceFeatures2(device, &features);
+
+        if (!descriptorIndexingFeatures.descriptorBindingPartiallyBound) {
+            return false;
+        }
+
+        static const char* extArray[] = {
+            VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+        };
+
+        size_t extCount = sizeof(extArray) / sizeof(extArray[0]);
+
+        if (CheckExtensionSupport(device, extArray, extCount)) {
+            pExtOut->insert(pExtOut->end(), extArray, &extArray[extCount]);
+            return true;
+        }
+
+        return false;
+    }
+
     void Context::createLogicalDevice(
         const Context::DeviceConfig& deviceConfig)
     {
@@ -460,18 +598,74 @@ namespace vgfx
 
         createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
+        createInfo.pEnabledFeatures = nullptr;
 
-        createInfo.pEnabledFeatures = &deviceConfig.requiredDeviceFeatures;
+        VkPhysicalDeviceFeatures2 physDevFeatures = {};
+        physDevFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        physDevFeatures.features = deviceConfig.requiredDeviceFeatures;
+
+        // Used by ImageDownsampler.
+        physDevFeatures.features.samplerAnisotropy = VK_TRUE;
+
+        createInfo.pNext = &physDevFeatures;
 
         std::vector<const char*> deviceExtensionsAsCharPtrs;
         if (!deviceConfig.requiredDeviceExtensions.empty()) {
             createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceConfig.requiredDeviceExtensions.size());
             ContainerOfStringsToCharPtrs(deviceConfig.requiredDeviceExtensions, &deviceExtensionsAsCharPtrs);
-            createInfo.ppEnabledExtensionNames = deviceExtensionsAsCharPtrs.data();
         }
-        else {
-            createInfo.enabledExtensionCount = 0;
+
+        void** ppDevFeaturesNext = &physDevFeatures.pNext;
+
+        // TODO add way for internal components to register to add extensions and/or features.
+        VkPhysicalDevice16BitStorageFeatures storage16BitFeatures = {};
+        VkPhysicalDeviceFloat16Int8FeaturesKHR fp16Features = {};
+        if (TryAddFp16DeviceExtensions(
+                m_physicalDevice,
+                &deviceExtensionsAsCharPtrs)) {
+            // Add fp16 device features.
+            m_fp16IsSupported = true;
+            storage16BitFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES;
+            storage16BitFeatures.storageBuffer16BitAccess = VK_TRUE;
+
+            fp16Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT16_INT8_FEATURES_KHR;
+            fp16Features.shaderFloat16 = VK_TRUE;
+
+            physDevFeatures.pNext = &storage16BitFeatures;
+            storage16BitFeatures.pNext = &fp16Features;
+            ppDevFeaturesNext = &fp16Features.pNext;
+        } else {
+            m_fp16IsSupported = false;
         }
+
+        VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR shaderSubgroupExtendedType = {};
+        if (TryAddShaderSubgroupExtension(
+                m_physicalDevice,
+                &deviceExtensionsAsCharPtrs)) {
+            // Add shader subgroup device feature.
+            m_shaderSubgroupsAreSupported = true;
+
+            shaderSubgroupExtendedType.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR;
+            shaderSubgroupExtendedType.shaderSubgroupExtendedTypes = VK_TRUE;
+
+            *ppDevFeaturesNext = &shaderSubgroupExtendedType;
+            ppDevFeaturesNext = &shaderSubgroupExtendedType.pNext;
+        }
+
+        VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures = {};
+        if (TryAddDescriptorIndexingExtension(
+                m_physicalDevice,
+                &deviceExtensionsAsCharPtrs)) {
+            // Add descriptor indexing feature.
+            m_descriptorIndexingIsSupported = true;
+            descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+            descriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
+
+            *ppDevFeaturesNext = &descriptorIndexingFeatures;
+            ppDevFeaturesNext = &descriptorIndexingFeatures.pNext;
+        }
+
+        createInfo.ppEnabledExtensionNames = deviceExtensionsAsCharPtrs.data();
 
         createInfo.enabledLayerCount = 0;
 
@@ -640,5 +834,12 @@ namespace vgfx
             ].queueCount;
         }
         return 0u;
+    }
+
+    void Context::ImageSamplerDeleter::operator()(ImageDownsampler* pImageDownsampler)
+    {
+        if (pImageDownsampler != nullptr) {
+            delete pImageDownsampler;
+        }
     }
 }

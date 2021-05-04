@@ -4,6 +4,7 @@
 #include "VulkanGraphicsContext.h"
 
 #include <cassert>
+#include <string>
 #include <vector>
 
 namespace vgfx
@@ -13,8 +14,9 @@ namespace vgfx
     public:
         enum class Type
         {
-            VERTEX,
-            FRAGMENT
+            Vertex = VK_SHADER_STAGE_VERTEX_BIT,
+            Fragment = VK_SHADER_STAGE_FRAGMENT_BIT,
+            Compute = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         };
 
         Program(
@@ -29,13 +31,7 @@ namespace vgfx
 
         VkShaderStageFlagBits getShaderStage() const
         {
-            if (m_type == Type::VERTEX) {
-                return VK_SHADER_STAGE_VERTEX_BIT;
-            } else if (m_type == Type::FRAGMENT) {
-                return VK_SHADER_STAGE_FRAGMENT_BIT;
-            }
-            assert(false && "Unhandled Type!");
-            return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
+            return static_cast<VkShaderStageFlagBits>(m_type);
         }
 
         const std::string& getEntryPointFunction() const { return m_entryPointerFuncName; }

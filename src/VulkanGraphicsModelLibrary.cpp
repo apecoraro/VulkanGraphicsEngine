@@ -107,12 +107,14 @@ namespace vgfx
 
     Drawable& ModelLibrary::getOrCreateDrawable(
         Context& context,
-        const std::string& modelPath,
+        const std::string& model,
         const Material& material,
         DescriptorPool& descriptorPool,
         CommandBufferFactory& commandBufferFactory,
         CommandQueue commandQueue)
     {
+        std::string modelPath = context.getAppConfig().dataDirectoryPath + "/" + model;
+
         Drawable* pDrawable = findDrawable(modelPath, material);
         if (pDrawable != nullptr) {
             return *pDrawable;
@@ -143,7 +145,7 @@ namespace vgfx
         std::map<Material::ImageType, const Image*> images;
         if (!material.getImageTypes().empty()) {
             for (auto imageType : material.getImageTypes()) {
-                if (imageType == Material::ImageType::DIFFUSE) {
+                if (imageType == Material::ImageType::Diffuse) {
                     std::string diffuseTexPath = modelPath.substr(0, modelPath.rfind('.')) + ".png";
                     if (!materials.empty()) {
                         diffuseTexPath = materials.front().diffuse_texname;
@@ -231,8 +233,9 @@ namespace vgfx
             &texWidth, &texHeight, &texChannels,
             STBI_rgb_alpha);
 
-        VkDeviceSize imageSize = texWidth * texHeight * 4;
+        VkDeviceSize imageSize = static_cast<int64_t>(texWidth) * static_cast<int64_t>(texHeight) * 4;
 
+        // TODO the image config should not be hard coded.
         Image::Config imageConfig(
             texWidth,
             texHeight,
@@ -240,7 +243,8 @@ namespace vgfx
             VK_IMAGE_TILING_OPTIMAL,
             VK_IMAGE_USAGE_TRANSFER_DST_BIT
             | VK_IMAGE_USAGE_SAMPLED_BIT
-            | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+            | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+            | VK_IMAGE_USAGE_STORAGE_BIT,
             Image::ComputeMipLevels2D(texWidth, texHeight));
 
         spImage =

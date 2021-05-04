@@ -17,13 +17,15 @@
     <ClCompile Include="src\VulkanGraphicsMaterials.cpp" />
     <ClCompile Include="src\VulkanGraphicsDrawable.cpp" />
     <ClCompile Include="src\VulkanGraphicsDescriptors.cpp" />
-    <ClCompile Include="src\VulkanGraphicsUniformBuffer.cpp" />
     <ClCompile Include="src\VulkanGraphicsSampler.cpp" />
     <ClCompile Include="src\VulkanGraphicsImage.cpp" />
     <ClCompile Include="src\VulkanGraphicsSemaphore.cpp" />
     <ClCompile Include="src\VulkanGraphicsFence.cpp" />
     <ClCompile Include="src\VulkanGraphicsModelLibrary.cpp" />
     <ClCompile Include="src\VulkanGraphicsDescriptorPoolBuilder.cpp" />
+    <ClCompile Include="src\VulkanGraphicsImageDownsampler.cpp" />
+    <ClCompile Include="src\VulkanGraphicsCompute.cpp" />
+    <ClCompile Include="src\VulkanGraphicsBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\VulkanGraphicsContext.h" />
@@ -42,14 +44,22 @@
     <ClInclude Include="include\VulkanGraphicsMaterials.h" />
     <ClInclude Include="include\VulkanGraphicsObject.h" />
     <ClInclude Include="include\VulkanGraphicsDescriptors.h" />
-    <ClInclude Include="include\VulkanGraphicsUniformBuffer.h" />
-    <ClInclude Include="include\VulkanGraphicsCombinedImageSampler.h" />
+    <ClInclude Include="include\VulkanGraphicsImageDescriptorUpdaters.h" />
     <ClInclude Include="include\VulkanGraphicsImage.h" />
     <ClInclude Include="include\VulkanGraphicsSampler.h" />
     <ClInclude Include="include\VulkanGraphicsSemaphore.h" />
     <ClInclude Include="include\VulkanGraphicsFence.h" />
     <ClInclude Include="include\VulkanGraphicsModelLibrary.h" />
     <ClInclude Include="include\VulkanGraphicsDescriptorPoolBuilder.h" />
+    <ClInclude Include="include\VulkanGraphicsImageDownsampler.h" />
+    <ClInclude Include="include\VulkanGraphicsCompute.h" />
+    <ClInclude Include="include\VulkanGraphicsBuffer.h" />
+    <ClInclude Include="dependencies\SinglePassDownsamplerAMD\ffx_a.h">
+      <Filter>Shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="dependencies\SinglePassDownsamplerAMD\ffx_spd.h">
+      <Filter>Shaders</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">
@@ -70,6 +80,15 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="shaders\README.md">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\compile.bat">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="dependencies\SinglePassDownsamplerAMD\compile_spd.bat">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="dependencies\SinglePassDownsamplerAMD\SPDIntegrationLinearSampler.glsl">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

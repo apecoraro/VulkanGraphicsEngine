@@ -26,10 +26,12 @@ namespace vgfx
     static Program& GetOrLoadShaderProgram(
         ShaderProgramsTable& shaderProgramsTable,
         Context& context,
-        const std::string& shaderPath,
+        const std::string& shader,
         Program::Type shaderType,
         const std::string& entryPointFunc)
     {
+        std::string shaderPath = context.getAppConfig().dataDirectoryPath + "/" + shader;
+
         ShaderProgramsTable::iterator findShaderItr = shaderProgramsTable.find(shaderPath);
         if (findShaderItr != shaderProgramsTable.end()) {
             std::unique_ptr<Program>& spShader = findShaderItr->second;
@@ -60,7 +62,7 @@ namespace vgfx
             s_vertexShadersTable,
             context,
             vertexShaderPath,
-            Program::Type::VERTEX,
+            Program::Type::Vertex,
             vertexShaderEntryPointFunc);
     }
 
@@ -75,7 +77,7 @@ namespace vgfx
             s_fragmentShadersTable,
             context,
             fragmentShaderPath,
-            Program::Type::FRAGMENT,
+            Program::Type::Fragment,
             fragmentShaderEntryPointFunc);
     }
 
@@ -105,10 +107,10 @@ namespace vgfx
             return *spMaterial.get();
         }
 
-        std::vector<Material::DescriptorSetLayoutInfo> descriptorSetLayouts;
+        DescriptorSetLayouts descriptorSetLayouts;
         for (const auto& descSetLayoutBindingInfo : materialInfo.descriptorSetLayoutBindings) {
             descriptorSetLayouts.push_back(
-                Material::DescriptorSetLayoutInfo(
+                DescriptorSetLayoutInfo(
                     std::make_unique<DescriptorSetLayout>(context, descSetLayoutBindingInfo.descriptorSetLayoutBindings),
                     descSetLayoutBindingInfo.copyCount));
         }

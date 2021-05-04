@@ -23,25 +23,9 @@ namespace vgfx
     public:
         enum class ImageType
         {
-            DIFFUSE,
+            Diffuse,
         };
-        struct DescriptorSetLayoutInfo
-        {
-            // The number of copies that DescriptorSets created from this layout need to have,
-            // generally if it is updated every frame then there needs to be one copy for each swap chain
-            // image. If never updated then only one copy.
-            std::unique_ptr<DescriptorSetLayout> spDescriptorSetLayout;
-            size_t copyCount = 1u;
-            DescriptorSetLayoutInfo(
-                std::unique_ptr<DescriptorSetLayout> spDescSetLayout,
-                size_t copies = 1u)
-                : spDescriptorSetLayout(std::move(spDescSetLayout))
-                , copyCount(copies)
-            {
-            }
-        };
-
-        using DescriptorSetLayouts = std::vector<DescriptorSetLayoutInfo>;
+        
         Material(
             const Program& vertexShader,
             const Program& fragmentShader,
@@ -72,26 +56,14 @@ namespace vgfx
         const Program& m_fragmentShader;
         DescriptorSetLayouts m_descriptorSetLayouts;
         std::vector<ImageType> m_imageTypes;
-        mutable const Pipeline* m_pPipeline;
+        mutable const Pipeline* m_pPipeline = nullptr;
         friend class Pipeline;
         // This function called by the Pipeline that gets created from this Material.
         void setPipeline(const Pipeline& pipeline) const { m_pPipeline = &pipeline; }
     };
 
     namespace MaterialsLibrary
-    {
-        struct DescriptorSetLayoutBindingInfo
-        {
-            DescriptorSetLayout::DescriptorBindings descriptorSetLayoutBindings;
-            size_t copyCount = 1u;
-            DescriptorSetLayoutBindingInfo(
-                const DescriptorSetLayout::DescriptorBindings& bindings,
-                size_t copies=1u)
-                : descriptorSetLayoutBindings(bindings)
-                , copyCount(copies)
-            {
-            }
-        };
+    { 
         struct MaterialInfo
         {
             std::vector<VkFormat> vertexShaderInputs; // vertex attribute input types, in location order

@@ -1,6 +1,6 @@
 #include "VulkanGraphicsEngineDemo.h"
 
-#include "VulkanGraphicsCombinedImageSampler.h"
+#include "VulkanGraphicsImageDescriptorUpdaters.h"
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsDescriptorPoolBuilder.h"
 #include "VulkanGraphicsDescriptors.h"
@@ -10,7 +10,7 @@
 #include "VulkanGraphicsRenderer.h"
 #include "VulkanGraphicsSampler.h"
 #include "VulkanGraphicsSwapChain.h"
-#include "VulkanGraphicsUniformBuffer.h"
+#include "VulkanGraphicsBuffer.h"
 
 
 #include <vulkan/vulkan.h>
@@ -38,9 +38,9 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 }
 
 struct ModelViewProj {
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 proj;
+    glm::mat4 model = glm::identity<glm::mat4>();
+    glm::mat4 view = glm::identity<glm::mat4>();
+    glm::mat4 proj = glm::identity<glm::mat4>();
 };
 
 class Demo
@@ -59,11 +59,12 @@ public:
         const std::function<void(void*, int*, int*)>& getFramebufferSize,
         uint32_t platformSpecificExtensionCount,
         const char** platformSpecificExtensions,
-        const std::string& modelPath,
-        const std::string& vertexShaderPath,
-        const std::string& fragmentShaderPath)
+        const std::string& dataPath,
+        const std::string& model,
+        const std::string& vertexShader,
+        const std::string& fragmentShader)
     {
-        vgfx::Context::AppConfig appConfig("Demo", 1, 0, 0);
+        vgfx::Context::AppConfig appConfig("Demo", 1, 0, 0, dataPath);
 
         vgfx::Context::InstanceConfig instanceConfig;
         instanceConfig.requiredExtensions.insert(
@@ -167,24 +168,24 @@ public:
                 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                 VK_SHADER_STAGE_FRAGMENT_BIT);
 
-        std::vector<vgfx::MaterialsLibrary::DescriptorSetLayoutBindingInfo> descriptorSetLayoutBindings = {
-            vgfx::MaterialsLibrary::DescriptorSetLayoutBindingInfo(
+        std::vector<vgfx::DescriptorSetLayoutBindingInfo> descriptorSetLayoutBindings = {
+            vgfx::DescriptorSetLayoutBindingInfo(
                 cameraMatrixDescSetBindings,
                 m_spWindowRenderer->getSwapChain().getImageCount()), // Number of copies of this DescriptorSet
-            vgfx::MaterialsLibrary::DescriptorSetLayoutBindingInfo(
+            vgfx::DescriptorSetLayoutBindingInfo(
                 combImgSamplerDescSetBindings)
         };
 
-        std::vector<vgfx::Material::ImageType> imageTypes = { vgfx::Material::ImageType::DIFFUSE };
+        std::vector<vgfx::Material::ImageType> imageTypes = { vgfx::Material::ImageType::Diffuse };
 
         // Create MaterialInfo which is used to create an instance of the material for a particular
         // model by the ModelLibrary.
         vgfx::MaterialsLibrary::MaterialInfo materialInfo(
             vertexShaderInputs,
-            vertexShaderPath,
+            vertexShader,
             vertexShaderEntryPointFunc,
             fragmentShaderInputs,
-            fragmentShaderPath,
+            fragmentShader,
             fragmentShaderEntryPointFunc,
             descriptorSetLayoutBindings,
             imageTypes);
@@ -193,7 +194,7 @@ public:
 
         m_spModelLibrary = std::make_unique<vgfx::ModelLibrary>();
 
-        initGraphicsObject(m_graphicsContext, *m_spCommandBufferFactory, modelPath, material, *m_spModelLibrary);
+        initGraphicsObject(m_graphicsContext, *m_spCommandBufferFactory, model, material, *m_spModelLibrary);
     }
 
 #ifdef NDEBUG
@@ -206,7 +207,7 @@ public:
 
     std::unique_ptr<vgfx::CommandBufferFactory> m_spCommandBufferFactory;
     ModelViewProj m_cameraMatrix;
-    std::vector<std::unique_ptr<vgfx::UniformBuffer>> m_cameraMatrixUniformBuffers;
+    std::vector<std::unique_ptr<vgfx::Buffer>> m_cameraMatrixBuffers;
     std::vector<std::unique_ptr<vgfx::Object>> m_graphicsObjects;
     std::unique_ptr<vgfx::ModelLibrary> m_spModelLibrary;
     std::unique_ptr<vgfx::Pipeline> m_spGraphicsPipeline;
@@ -224,7 +225,7 @@ public:
     void initGraphicsObject(
         vgfx::Context& graphicsContext,
         vgfx::CommandBufferFactory& commandBufferFactory,
-        const std::string& modelPath,
+        const std::string& model,
         const vgfx::Material& material,
         vgfx::ModelLibrary& modelLibrary)
     {
@@ -243,7 +244,7 @@ public:
         auto& drawable =
             modelLibrary.getOrCreateDrawable(
                 graphicsContext,
-                modelPath,
+                model,
                 material,
                 *m_spDescriptorPool.get(),
                 commandBufferFactory,
@@ -303,21 +304,26 @@ public:
                     static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height),
                     0.1f, // near
                     30.0f); // far
-        bool keepUBMapped = true;
-        vgfx::UniformBuffer::Config uniformBufferConfig(sizeof(ModelViewProj));
+        vgfx::Buffer::Config uniformBufferConfig(sizeof(ModelViewProj));
         for (uint32_t index = 0; index < m_spWindowRenderer->getSwapChain().getImageCount(); ++index) {
-            m_cameraMatrixUniformBuffers.emplace_back(
-                std::make_unique<vgfx::UniformBuffer>(graphicsContext, uniformBufferConfig));
-            m_cameraMatrixUniformBuffers.back()->update(&m_cameraMatrix, sizeof(m_cameraMatrix), keepUBMapped);
+            m_cameraMatrixBuffers.emplace_back(
+                std::make_unique<vgfx::Buffer>(
+                    graphicsContext,
+                    vgfx::Buffer::Type::UniformBuffer,
+                    uniformBufferConfig));
+            m_cameraMatrixBuffers.back()->update(
+                &m_cameraMatrix,
+                sizeof(m_cameraMatrix),
+                vgfx::Buffer::MemMap::LeaveMapped);
         
             drawable.getDescriptorSetBuffers().front()->getDescriptorSet(index).update(
-                graphicsContext, {{0, m_cameraMatrixUniformBuffers.back().get()}});
+                graphicsContext, {{0, m_cameraMatrixBuffers.back().get()}});
         }
 
         uint32_t mipLevels =
             vgfx::Image::ComputeMipLevels2D(
-                drawable.getImage(vgfx::Material::ImageType::DIFFUSE)->getWidth(),
-                drawable.getImage(vgfx::Material::ImageType::DIFFUSE)->getHeight());
+                drawable.getImage(vgfx::Material::ImageType::Diffuse)->getWidth(),
+                drawable.getImage(vgfx::Material::ImageType::Diffuse)->getHeight());
 
         vgfx::ImageView& imageView =
             modelLibrary.getOrCreateImageView(
@@ -327,7 +333,7 @@ public:
                     0u, // base mip level
                     mipLevels),
                 graphicsContext,
-                *drawable.getImage(vgfx::Material::ImageType::DIFFUSE));
+                *drawable.getImage(vgfx::Material::ImageType::Diffuse));
 
         vgfx::Sampler& sampler =
             modelLibrary.getOrCreateSampler(
@@ -343,10 +349,10 @@ public:
                     false, 0),
                 graphicsContext); // Last two parameters are for anisotropic filtering*/
 
-        vgfx::CombinedImageSampler imageSampler(imageView, sampler);
+        vgfx::CombinedImageSamplerDescriptorUpdater descriptorUpdater(imageView,  sampler);
         // Image sampler descriptor is set index == 1.
         drawable.getDescriptorSetBuffers()[1]->getDescriptorSet(0).update(
-            graphicsContext, {{0, &imageSampler}});
+            graphicsContext, {{0, &descriptorUpdater}});
     }
 
     std::unique_ptr<vgfx::Pipeline> createGraphicsPipeline(
@@ -466,9 +472,10 @@ bool DemoInit(
     uint32_t platformSpecificExtensionCount,
     const char** platformSpecificExtensions,
     bool enableValidationLayers,
-    const char* pModelPath,
-    const char* pVertexShaderPath,
-    const char* pFragShaderPath)
+    const char* pDataPath,
+    const char* pModelFilename,
+    const char* pVertexShaderFilename,
+    const char* pFragShaderFilename)
 {
     if (s_pDemo == nullptr) {
         try {
@@ -479,9 +486,10 @@ bool DemoInit(
 				getFramebufferSize,
 				platformSpecificExtensionCount,
 				platformSpecificExtensions,
-				pModelPath,
-				pVertexShaderPath,
-				pFragShaderPath);
+                pDataPath,
+				pModelFilename,
+				pVertexShaderFilename,
+				pFragShaderFilename);
         } catch(const std::exception& e) {
             std::cerr << e.what() << '\n';
             return false;

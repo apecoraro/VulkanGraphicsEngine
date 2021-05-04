@@ -217,7 +217,11 @@ namespace vgfx
             VK_FILTER_LINEAR);
     }
 
-    void OneTimeCommandsHelper::copyDataToImage(Image& image, const void* pData, VkDeviceSize dataSizeBytes)
+    void OneTimeCommandsHelper::copyDataToImage(
+        Image& image,
+        const void* pData,
+        VkDeviceSize dataSizeBytes,
+        GenerateMips genMips)
     {
         auto& memoryAllocator = m_context.getMemoryAllocator();
         auto stagingBuffer =
@@ -235,7 +239,7 @@ namespace vgfx
 
         OneTimeCommandsRunner runner(
             m_commandBufferFactory,
-            [&image, &dataSizeBytes, &stagingBuffer] (VkCommandBuffer commandBuffer) {
+            [&image, &dataSizeBytes, &stagingBuffer, &genMips] (VkCommandBuffer commandBuffer) {
                 RecordImageMemBarrierCommand(
                     commandBuffer,
                     image.getHandle(),
@@ -268,52 +272,54 @@ namespace vgfx
                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     1, &copyRegion);
 
-                VkOffset3D inputSize = {
-                    static_cast<int32_t>(image.getWidth()),
-                    static_cast<int32_t>(image.getHeight()),
-                    1u,
-                };
-                VkOffset3D outputSize = {
-                    std::max(inputSize.x >> 1, 1),
-                    std::max(inputSize.y >> 1, 1),
-                    1,
-                };
-                for (uint32_t mipLevel = 1; mipLevel < image.getMipLevels(); ++mipLevel) {
-                    RecordImageMemBarrierCommand(
-                        commandBuffer,
-                        image.getHandle(),
-                        mipLevel - 1u, // transfer source level to transfer src
+                if (genMips == GenerateMips::Yes) {
+                    VkOffset3D inputSize = {
+                        static_cast<int32_t>(image.getWidth()),
+                        static_cast<int32_t>(image.getHeight()),
                         1u,
-                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-
-                    RecordImageBlitCommand(
-                        commandBuffer,
-                        image.getHandle(),
-                        inputSize,
-                        mipLevel - 1u,
-                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                        image.getHandle(),
-                        outputSize,
-                        mipLevel,
-                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                        VK_FILTER_LINEAR);
-
-                    inputSize = outputSize;
-                    outputSize = {
+                    };
+                    VkOffset3D outputSize = {
                         std::max(inputSize.x >> 1, 1),
                         std::max(inputSize.y >> 1, 1),
                         1,
                     };
-                }
+                    for (uint32_t mipLevel = 1; mipLevel < image.getMipLevels(); ++mipLevel) {
+                        RecordImageMemBarrierCommand(
+                            commandBuffer,
+                            image.getHandle(),
+                            mipLevel - 1u, // transfer source level to transfer src
+                            1u,
+                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-                RecordImageMemBarrierCommand(
-                    commandBuffer,
-                    image.getHandle(),
-                    0u, // base mip level
-                    image.getMipLevels(),
-                    VK_IMAGE_LAYOUT_UNDEFINED,
-                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                        RecordImageBlitCommand(
+                            commandBuffer,
+                            image.getHandle(),
+                            inputSize,
+                            mipLevel - 1u,
+                            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                            image.getHandle(),
+                            outputSize,
+                            mipLevel,
+                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                            VK_FILTER_LINEAR);
+
+                        inputSize = outputSize;
+                        outputSize = {
+                            std::max(inputSize.x >> 1, 1),
+                            std::max(inputSize.y >> 1, 1),
+                            1,
+                        };
+                    }
+
+                    RecordImageMemBarrierCommand(
+                        commandBuffer,
+                        image.getHandle(),
+                        0u, // base mip level
+                        image.getMipLevels(),
+                        VK_IMAGE_LAYOUT_UNDEFINED,
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                }
             });
 
         runner.submit(m_commandQueue);

@@ -4,6 +4,7 @@
 #include "VulkanGraphicsContext.h"
 
 #include <map>
+#include <memory>
 #include <vector>
 
 #include <vulkan/vulkan.h>
@@ -13,6 +14,12 @@ namespace vgfx
     class DescriptorSetLayout
     {
     public:
+        enum class BindMode
+        {
+            Normal,
+            SupportPartialBinding, // https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkPhysicalDeviceDescriptorIndexingFeatures.html
+        };
+
         struct DescriptorBinding
         {
             VkDescriptorType descriptorType = VK_DESCRIPTOR_TYPE_MAX_ENUM;
@@ -21,16 +28,21 @@ namespace vgfx
             // Corresponds to the descriptorCount field of VkDescriptorSetLayoutBinding,
             // indicates this Descriptor is an array with arrayElementCount elements.
             uint32_t arrayElementCount = 1u;
+
+            BindMode mode;
+
             const VkSampler* pImmutableSamplers = nullptr;
 
             DescriptorBinding(
                 VkDescriptorType descType,
                 VkShaderStageFlags shaderStage,
                 uint32_t arrayElemCount = 1u,
+                BindMode bindMode = BindMode::Normal,
                 const VkSampler* pImmSplrs = nullptr)
                 : descriptorType(descType)
                 , shaderStageFlags(shaderStage)
                 , arrayElementCount(arrayElemCount)
+                , mode(bindMode)
                 , pImmutableSamplers(pImmSplrs)
             {
             }
@@ -57,6 +69,37 @@ namespace vgfx
         Context& m_context;
         DescriptorBindings m_descriptorBindings;
         VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
+    };
+
+    struct DescriptorSetLayoutInfo
+    {
+        // The number of copies that DescriptorSets created from this layout need to have,
+        // generally if it is updated every frame then there needs to be one copy for each swap chain
+        // image that can be "in flight" simultaneously. If never updated then only one copy.
+        std::unique_ptr<DescriptorSetLayout> spDescriptorSetLayout;
+        size_t copyCount = 1u;
+        DescriptorSetLayoutInfo(
+            std::unique_ptr<DescriptorSetLayout> spDescSetLayout,
+            size_t copies = 1u)
+            : spDescriptorSetLayout(std::move(spDescSetLayout))
+            , copyCount(copies)
+        {
+        }
+    };
+
+    using DescriptorSetLayouts = std::vector<DescriptorSetLayoutInfo>;
+
+    struct DescriptorSetLayoutBindingInfo
+    {
+        DescriptorSetLayout::DescriptorBindings descriptorSetLayoutBindings;
+        size_t copyCount = 1u;
+        DescriptorSetLayoutBindingInfo(
+            const DescriptorSetLayout::DescriptorBindings& bindings,
+            size_t copies = 1u)
+            : descriptorSetLayoutBindings(bindings)
+            , copyCount(copies)
+        {
+        }
     };
 
     class DescriptorUpdater

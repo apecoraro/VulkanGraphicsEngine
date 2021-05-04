@@ -36,17 +36,20 @@ namespace vgfx
         Buffer createBuffer(
             VkDeviceSize sizeBytes,
             VkBufferUsageFlags usage,
-            VmaMemoryUsage bufferMemoryUsage);
+            VmaMemoryUsage bufferMemoryUsage,
+            const char* pBufferName = nullptr);
 
         Buffer createSharedBuffer(
             VkDeviceSize sizeBytes,
             VkBufferUsageFlags usage,
             const std::vector<uint32_t>& queueFamilyIndices,
-            VmaMemoryUsage bufferMemoryUsage);
+            VmaMemoryUsage bufferMemoryUsage,
+            const char* pBufferName = nullptr);
 
         Buffer createBuffer(
             const VkBufferCreateInfo& bufferCreateInfo,
-            VmaMemoryUsage bufferMemoryUsage);
+            VmaMemoryUsage bufferMemoryUsage,
+            const char* pBufferName = nullptr);
 
         void destroyBuffer(Buffer& bufferAllocation);
 

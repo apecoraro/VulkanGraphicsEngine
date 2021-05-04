@@ -1,6 +1,5 @@
 //
 //  Created by Alex Pecoraro on 3/5/20.
-//  Copyright � 2020 Rainway, Inc. All rights reserved.
 //
 #ifndef VGFX_CONTEXT_H
 #define VGFX_CONTEXT_H
@@ -10,15 +9,19 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
 #include <vulkan/vulkan.h>
 
 namespace vgfx
 {
-    class Renderer; // Forward declaration
+    // Forward declarations
+    class Renderer;
+    class ImageDownsampler;
 
     class Context
     {
@@ -32,18 +35,23 @@ namespace vgfx
             uint16_t majorVersion = 1u;
             uint16_t minorVersion = 0u;
             uint16_t patchVersion = 0u;
+            std::string dataDirectoryPath = ".";
+
             AppConfig(
-                const std::string& nm,
+                const std::string& appName,
                 uint16_t major,
                 uint16_t minor,
-                uint16_t patch)
-                : name(nm)
+                uint16_t patch,
+                const std::string& shaderDirPath)
+                : name(appName)
                 , majorVersion(major)
                 , minorVersion(minor)
                 , patchVersion(patch)
+                , dataDirectoryPath(shaderDirPath)
             {
-
             }
+
+            AppConfig() = default;
         };
 
         struct InstanceConfig
@@ -107,6 +115,17 @@ namespace vgfx
 
         MemoryAllocator& getMemoryAllocator() { return m_memoryAllocator;  }
         const MemoryAllocator& getMemoryAllocator() const { return m_memoryAllocator;  }
+
+        bool isFp16Supported() const { return m_fp16IsSupported; }
+
+        bool areShaderSubgroupsSupported() const { return m_shaderSubgroupsAreSupported; }
+
+        bool isDescriptorIndexingSupported() const { return m_descriptorIndexingIsSupported;  }
+
+        ImageDownsampler& getOrCreateImageDownsampler();
+
+        const AppConfig& getAppConfig() const { return m_appConfig; }
+
     private:
         void createInstance(
             const AppConfig& appConfig,
@@ -164,6 +183,8 @@ namespace vgfx
         void createLogicalDevice(
             const DeviceConfig& deviceConfig);
 
+        AppConfig m_appConfig;
+
         VkInstance m_instance = VK_NULL_HANDLE;
         VkAllocationCallbacks* m_pAllocationCallbacks = nullptr;
         VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
@@ -172,11 +193,22 @@ namespace vgfx
         using QueueFamilyIndex = uint32_t;
         std::unordered_map<QueueFamilyIndex, VkQueueFamilyProperties> m_queueFamilyProperties;
 
+        bool m_fp16IsSupported = false;
+        bool m_shaderSubgroupsAreSupported = false;
+        bool m_descriptorIndexingIsSupported = false;
+
         VkDebugReportCallbackEXT m_debugReportCallback = VK_NULL_HANDLE;
 
         VkDevice m_device = VK_NULL_HANDLE;
 
         MemoryAllocator m_memoryAllocator;
+
+        struct ImageSamplerDeleter
+        {
+            ImageSamplerDeleter() = default;
+            void operator()(ImageDownsampler*);
+        };
+        std::unique_ptr<ImageDownsampler, ImageSamplerDeleter> m_spImageDownsampler;
     };
 }
 

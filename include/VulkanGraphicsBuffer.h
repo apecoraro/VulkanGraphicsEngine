@@ -1,5 +1,5 @@
-#ifndef VGFX_UNIFORM_BUFFER_H
-#define VGFX_UNIFORM_BUFFER_H
+#ifndef VGFX_BUFFER_H
+#define VGFX_BUFFER_H
 
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsDescriptors.h"
@@ -12,12 +12,14 @@
 
 namespace vgfx
 {
-    class UniformBuffer : public DescriptorUpdater
+    class Buffer : public DescriptorUpdater
     {
     public:
         struct Config
         {
-            // Size of memory required for this UniformBuffer.
+            // Name attached to this buffer, can be used for debugging purposes.
+            std::string bufferName;
+            // Size of memory required for this Buffer.
             size_t bufferSize = 0u;
             VmaMemoryUsage memoryUsage = VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_TO_GPU;
             VkSharingMode sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -26,19 +28,38 @@ namespace vgfx
             std::vector<uint32_t> queueFamilyIndices;
 
             Config(size_t bufSize) : bufferSize(bufSize) {}
+            Config(const std::string& bufName, size_t bufSize)
+                : bufferName(bufName)
+                , bufferSize(bufSize)
+            {}
         };
-        UniformBuffer(
+
+        enum class Type
+        {
+            UniformBuffer = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            StorageBuffer = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            DynamicUniformBuffer = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+            DynamicStorageBuffer = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
+        };
+
+        Buffer(
             Context& context,
+            Type type,
             const Config& config);
 
-        ~UniformBuffer() {
+        ~Buffer() {
             destroy();
         }
 
+        enum class MemMap
+        {
+            LeaveMapped,
+            UnMap,
+        };
         bool update(
             void* pData,
             size_t sizeOfDataBytes,
-            bool leaveMapped)
+            MemMap memMap)
         {
             assert(sizeOfDataBytes <= m_bufferSize);
             if (m_pMappedPtr == nullptr) {
@@ -49,7 +70,7 @@ namespace vgfx
 
             memcpy(m_pMappedPtr, pData, sizeOfDataBytes);
 
-            if (!leaveMapped) {
+            if (memMap != MemMap::LeaveMapped) {
                 m_context.getMemoryAllocator().unmapBuffer(m_buffer);
                 m_pMappedPtr = nullptr;
             }

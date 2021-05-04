@@ -40,6 +40,13 @@ namespace vgfx
             CommandQueue& commandQueue);
         ~OneTimeCommandsHelper();
 
+        void execute(const OneTimeCommandsRunner::RecordCommandsFunc& recordCommandsFunc) {
+            OneTimeCommandsRunner runner(
+                m_commandBufferFactory,
+                recordCommandsFunc);
+            runner.submit(m_commandQueue);
+        }
+
         // Records and submits one-time-use command buffer that copies the
         // provided data into the provided buffer.
         void copyDataToBuffer(
@@ -51,10 +58,16 @@ namespace vgfx
             const void* pData,
             VkDeviceSize dataSizeBytes);
 
+        enum class GenerateMips
+        {
+            No,
+            Yes
+        };
         void copyDataToImage(
             Image& image,
             const void* pData,
-            VkDeviceSize dataSizeBytes);
+            VkDeviceSize dataSizeBytes,
+            GenerateMips genMips);
 
     private:
         Context& m_context;
