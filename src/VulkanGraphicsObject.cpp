@@ -10,11 +10,11 @@ namespace vgfx
     }
 
     void Object::recordDrawCommands(
-        size_t swapChainIndex,
-        VkCommandBuffer commandBuffer)
+        VkCommandBuffer commandBuffer,
+        size_t swapChainIndex)
     {
         for (auto& pDrawable : m_drawables) {
-            pDrawable->recordDrawCommands(swapChainIndex, commandBuffer);
+            pDrawable->recordDrawCommands(commandBuffer, swapChainIndex);
         }
     }
 }

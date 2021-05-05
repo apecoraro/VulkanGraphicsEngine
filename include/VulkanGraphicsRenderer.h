@@ -83,19 +83,32 @@ namespace vgfx
             uint32_t swapChainImageIndex,
             const QueueSubmitInfo& submitInfo) = 0;
 
-        virtual void recordCommandBuffer(
-            VkCommandBuffer commandBuffer,
-            size_t swapChainImageIndex,
-            const Pipeline& pipeline,
-            const std::vector<std::unique_ptr<Object>>& objects) = 0;
+        // Record commands required to start a render pass that renders into the SwapChain of this Renderer.
+        virtual void beginRenderCommands(VkCommandBuffer commandBuffer, size_t swapChainImageIndex) = 0;
+
+        // Record commands required to end a render pass that renders into the SwapChain of this Renderer.
+        virtual void endRenderCommands(VkCommandBuffer commandBuffer, size_t swapChainImageIndex) = 0;
+
+        using PickDepthStencilFormatFunc = std::function<VkFormat(const std::set<VkFormat>& candidates)>;
 
     protected:
         bool m_requiresPresentQueue = false;
         Context* m_pContext = nullptr;
-
         uint32_t m_maxFramesInFlight = 0u;
-
         QueueSubmitInfo m_gfxQueueSubmitInfo;
+
+        struct DepthStencilDeleter
+        {
+            DepthStencilDeleter() = default;
+            void operator()(DepthStencilBuffer*);
+        };
+        std::unique_ptr<DepthStencilBuffer, DepthStencilDeleter> m_spDepthStencilBuffer;
+
+        void createDepthStencilBuffer(
+            Context& context,
+            uint32_t width,
+            uint32_t height,
+            PickDepthStencilFormatFunc pickFormatFunc);
     };
 
     class WindowRenderer : public Renderer
@@ -117,12 +130,14 @@ namespace vgfx
             // If not specified then defaults to VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
             std::optional<VkImageUsageFlags> imageUsage;
             // If not specified then defaults to VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR.
-            std::optional< VkCompositeAlphaFlagBitsKHR> compositeAlphaMode;
+            std::optional<VkCompositeAlphaFlagBitsKHR> compositeAlphaMode;
             // If not specified then determined by ChoosePresentModeFunc, if ChoosePresentModeFunc is null, then defaults to
             // VK_PRESENT_MODE_FIFO_KHR.
             std::optional<VkPresentModeKHR> presentMode;
             // If not specified then defaults to the current transform as returned by vkGetPhysicalDeviceSurfaceCapabilitiesKHR
             std::optional<VkSurfaceTransformFlagBitsKHR> preTransform;
+            // If null, then no depth/stencil buffer.
+            PickDepthStencilFormatFunc pickDepthStencilFormat;
         };
 
         using ChooseImageCountFunc = std::function<uint32_t(uint32_t minImageCount, uint32_t maxImageCount)>;
@@ -180,12 +195,9 @@ namespace vgfx
             uint32_t swapChainImageIndex,
             const QueueSubmitInfo& submitInfo) override;
 
-        void recordCommandBuffer(
-            VkCommandBuffer commandBuffer,
-            size_t swapChainImageIndex,
-            const Pipeline& pipeline,
-            const std::vector<std::unique_ptr<Object>>& objects) override;
+        void beginRenderCommands(VkCommandBuffer commandBuffer, size_t swapChainImageIndex) override;
 
+        void endRenderCommands(VkCommandBuffer commandBuffer, size_t swapChainImageIndex) override;
     private:
         SwapChainConfig m_swapChainConfig;
         std::unique_ptr<WindowSwapChain> m_spSwapChain;

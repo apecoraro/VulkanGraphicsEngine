@@ -3,8 +3,8 @@
 #include "VulkanGraphicsPipeline.h"
 
 void vgfx::Drawable::recordDrawCommands(
-    size_t swapChainIndex,
-    VkCommandBuffer commandBuffer)
+    VkCommandBuffer commandBuffer,
+    size_t swapChainIndex)
 {
     vkCmdBindDescriptorSets(
         commandBuffer,

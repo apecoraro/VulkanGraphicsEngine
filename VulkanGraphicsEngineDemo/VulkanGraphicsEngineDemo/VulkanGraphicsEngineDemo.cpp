@@ -102,6 +102,19 @@ public:
 			static_cast<uint32_t>(windowHeight)
 		};
 
+        swapChainConfig.pickDepthStencilFormat = [](const std::set<VkFormat>& formats) {
+            if (formats.find(VK_FORMAT_D32_SFLOAT) != formats.end()) {
+                return VK_FORMAT_D32_SFLOAT;
+            } else if (formats.find(VK_FORMAT_D32_SFLOAT_S8_UINT) != formats.end()) {
+                return VK_FORMAT_D32_SFLOAT_S8_UINT;
+            } else if (formats.find(VK_FORMAT_D24_UNORM_S8_UINT) != formats.end()) {
+                return VK_FORMAT_D24_UNORM_S8_UINT;
+            } else {
+                throw std::runtime_error("Failed to find suitable depth stencil format!");
+                return VK_FORMAT_MAX_ENUM;
+            }
+        };
+
         m_spWindowRenderer = std::make_unique<vgfx::WindowRenderer>(
             swapChainConfig,
             std::move(spWindowSwapChain));
@@ -116,19 +129,6 @@ public:
             m_graphicsContext.enableDebugReportCallback(DebugCallback);
         }
  
-        m_renderTargetConfig.pickDepthStencilFormat = [](const std::set<VkFormat>& formats) {
-            if (formats.find(VK_FORMAT_D32_SFLOAT) != formats.end()) {
-                return VK_FORMAT_D32_SFLOAT;
-            } else if (formats.find(VK_FORMAT_D32_SFLOAT_S8_UINT) != formats.end()) {
-                return VK_FORMAT_D32_SFLOAT_S8_UINT;
-            } else if (formats.find(VK_FORMAT_D24_UNORM_S8_UINT) != formats.end()) {
-                return VK_FORMAT_D24_UNORM_S8_UINT;
-            } else {
-                throw std::runtime_error("Failed to find suitable depth stencil format!");
-                return VK_FORMAT_MAX_ENUM;
-            }
-        };
-
         m_spWindowRenderer->initSwapChain(
             m_graphicsContext,
             // This callback allows for custom implementation of ImageView creation on the
@@ -285,12 +285,40 @@ public:
 
         m_graphicsObjects.push_back(std::move(spModelObject));
 
+        recordCommandBuffers();
+    }
+
+    void recordCommandBuffers()
+    {
+        m_queueSubmits.clear();
         m_queueSubmits.resize(m_spWindowRenderer->getSwapChain().getImageCount());
-        for (size_t i = 0; i < m_spWindowRenderer->getSwapChain().getImageCount(); ++i) {
+
+        for (size_t swapChainImageIndex = 0;
+                swapChainImageIndex < m_spWindowRenderer->getSwapChain().getImageCount();
+                ++swapChainImageIndex) {
             VkCommandBuffer commandBuffer = m_spCommandBufferFactory->createCommandBuffer();
-            m_queueSubmits[i].commandBuffers.push_back(commandBuffer);
-            m_spWindowRenderer->recordCommandBuffer(
-                commandBuffer, i, *m_spGraphicsPipeline.get(), m_graphicsObjects);
+
+            m_queueSubmits[swapChainImageIndex].commandBuffers.push_back(commandBuffer);
+
+            VkCommandBufferBeginInfo beginInfo = {};
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+            vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+            m_spWindowRenderer->beginRenderCommands(commandBuffer, swapChainImageIndex);
+
+            vkCmdBindPipeline(
+                commandBuffer,
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                m_spGraphicsPipeline->getHandle());
+
+            for (auto& spObject : m_graphicsObjects) {
+                spObject->recordDrawCommands(commandBuffer, swapChainImageIndex);
+            }
+
+            m_spWindowRenderer->endRenderCommands(commandBuffer, swapChainImageIndex);
+
+            vkEndCommandBuffer(commandBuffer);
         }
     }
 
@@ -442,14 +470,7 @@ public:
                 m_graphicsContext,
                 m_graphicsContext.getGraphicsQueueFamilyIndex().value()));
 
-        m_queueSubmits.clear();
-        m_queueSubmits.resize(m_spWindowRenderer->getSwapChain().getImageCount());
-        for (size_t i = 0; i < m_spWindowRenderer->getSwapChain().getImageCount(); ++i) {
-            VkCommandBuffer commandBuffer = m_spCommandBufferFactory->createCommandBuffer();
-            m_queueSubmits[i].commandBuffers.push_back(commandBuffer);
-            m_spWindowRenderer->recordCommandBuffer(
-                commandBuffer, i, *m_spGraphicsPipeline.get(), m_graphicsObjects);
-        }
+        recordCommandBuffers();
     }
 
     void cleanup()

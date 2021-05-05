@@ -168,10 +168,15 @@ namespace vgfx
         std::vector<std::unique_ptr<Semaphore>> m_imageAvailableSemaphores;
     };
 
-    class OffscreenSwapChain
+    class OffscreenSwapChain : public SwapChain
     {
     public:
-        OffscreenSwapChain() = default;
+        OffscreenSwapChain(
+            std::vector<std::unique_ptr<Image>>&& images,
+            std::vector<std::unique_ptr<ImageView>>&& imageViews);
+
+    private:
+        std::vector<std::unique_ptr<Image>> m_imagePtrs;
     };
 }
 

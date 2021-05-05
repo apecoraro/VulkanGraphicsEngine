@@ -19,8 +19,8 @@ namespace vgfx
         void addDrawable(Drawable& pDrawable);
 
         void recordDrawCommands(
-            size_t swapChainIndex,
-            VkCommandBuffer commandBuffer);
+            VkCommandBuffer commandBuffer,
+            size_t swapChainIndex);
     public:
         std::vector<Drawable*> m_drawables;
     };

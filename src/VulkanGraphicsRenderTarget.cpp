@@ -11,8 +11,10 @@ namespace vgfx
     RenderTarget::RenderTarget(
         Context& context,
         const SwapChain& swapChain,
+        const DepthStencilBuffer* pDepthStencilBuffer,
         const Config& config)
         : m_context(context)
+        , m_pDepthStencilBuffer(pDepthStencilBuffer)
     {
         VkAttachmentDescription colorAttachment = {};
         colorAttachment.format = swapChain.getImageFormat();
@@ -47,10 +49,8 @@ namespace vgfx
 
         uint32_t attachmentCount = 1;
 
-        if (config.pickDepthStencilFormat != nullptr) {
-            m_spDepthStencilBuffer = createDepthStencilBuffer(swapChain, config);
-
-            depthStencilAttachment.format = m_spDepthStencilBuffer->getFormat();
+        if (m_pDepthStencilBuffer != nullptr) {
+            depthStencilAttachment.format = m_pDepthStencilBuffer->getFormat();
             depthStencilAttachment.samples = swapChain.getSampleCount();
 
             depthStencilAttachment.loadOp = config.depthAttachmentLoadOp;
@@ -60,7 +60,7 @@ namespace vgfx
             depthStencilAttachment.initialLayout = config.depthStencilAttachmentInitialLayout;
             depthStencilAttachment.finalLayout = config.depthStencilAttachmentFinalLayout;
 
-            m_depthStencilAttachmentIndex = 1;
+            m_depthStencilAttachmentIndex = 1; 
             depthStencilAttachmentRef.attachment = m_depthStencilAttachmentIndex;
             depthStencilAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
@@ -110,8 +110,8 @@ namespace vgfx
         for (size_t i = 0; i < swapChainImageViews.size(); i++) {
             VkImageView imageViewAttachments[2] = {
                 swapChainImageViews[i]->getHandle(),
-                m_spDepthStencilBuffer == nullptr ?
-                    VK_NULL_HANDLE : m_spDepthStencilBuffer->getImageView()->getHandle(),
+                m_pDepthStencilBuffer == nullptr ?
+                    VK_NULL_HANDLE : m_pDepthStencilBuffer->getImageView()->getHandle(),
             };
 
             VkFramebufferCreateInfo framebufferInfo = {};
@@ -127,49 +127,33 @@ namespace vgfx
                 throw std::runtime_error("failed to create framebuffer!");
             }
         }
+        m_renderArea.offset = { 0, 0 };
+        m_renderArea.extent = swapChainExtent;
     }
 
-    std::unique_ptr<DepthStencilBuffer, RenderTarget::DepthStencilDeleter>
-    RenderTarget::createDepthStencilBuffer(const SwapChain& swapChain, const Config& config)
+    void RenderTarget::beginRenderPass(VkCommandBuffer commandBuffer, size_t swapChainImageIndex)
     {
-        VkFormat candidates[] = {
-            VK_FORMAT_D16_UNORM,
-            VK_FORMAT_X8_D24_UNORM_PACK32,
-            VK_FORMAT_D32_SFLOAT,
-            VK_FORMAT_S8_UINT,
-            VK_FORMAT_D16_UNORM_S8_UINT,
-            VK_FORMAT_D24_UNORM_S8_UINT,
-            VK_FORMAT_D32_SFLOAT_S8_UINT,
+        VkRenderPassBeginInfo renderPassBeginInfo = {};
+        renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassBeginInfo.renderPass = m_renderPass;
+        renderPassBeginInfo.framebuffer = m_framebuffers[swapChainImageIndex % m_framebuffers.size()];
+        renderPassBeginInfo.renderArea = m_renderArea;
+
+        VkClearValue clearValues[] = {
+          { 0.0f, 0.0f, 0.0f, 0.0f }, // Color
+          { 1.0f, 0 }, // Depth/Stencil
         };
-        std::set<VkFormat> supportedDepthStencilFormats;
-        for (VkFormat format : candidates) {
-            VkFormatProperties props;
-            vkGetPhysicalDeviceFormatProperties(m_context.getPhysicalDevice(), format, &props);
+        renderPassBeginInfo.pClearValues = clearValues;
+        renderPassBeginInfo.clearValueCount = m_pDepthStencilBuffer == nullptr ? 1 : 2;
 
-            if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-                supportedDepthStencilFormats.insert(format);
-            }
-        }
-
-        VkFormat selectedFormat = config.pickDepthStencilFormat(supportedDepthStencilFormats);
-
-        auto& swapChainExtent = swapChain.getImageExtent();
-        Image::Config depthImageCfg(
-            swapChainExtent.width,
-            swapChainExtent.height,
-            selectedFormat,
-            VK_IMAGE_TILING_OPTIMAL,
-            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
-        return std::unique_ptr<DepthStencilBuffer, DepthStencilDeleter>(new DepthStencilBuffer(m_context, depthImageCfg));
+        vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE); 
     }
 
-    void RenderTarget::DepthStencilDeleter::operator()(DepthStencilBuffer* pDSBuffer)
+    void RenderTarget::endRenderPass(VkCommandBuffer commandBuffer)
     {
-        if (pDSBuffer != nullptr) {
-            delete pDSBuffer;
-        }
+        vkCmdEndRenderPass(commandBuffer);
     }
-
+ 
     void RenderTarget::destroy()
     {
         VkDevice device = m_context.getLogicalDevice();

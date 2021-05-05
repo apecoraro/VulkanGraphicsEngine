@@ -55,8 +55,8 @@ namespace vgfx
         }
 
         void recordDrawCommands(
-            size_t swapChainIndex,
-            VkCommandBuffer commandBuffer);
+            VkCommandBuffer commandBuffer,
+            size_t swapChainIndex);
 
         const VertexBuffer& getVertexBuffer() const { return *m_spVertexBuffer.get(); }
         VertexBuffer& getVertexBuffer() { return *m_spVertexBuffer.get(); }

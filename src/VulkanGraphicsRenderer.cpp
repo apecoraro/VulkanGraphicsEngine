@@ -1,5 +1,7 @@
 #include "VulkanGraphicsRenderer.h"
 
+#include "VulkanGraphicsDepthStencilBuffer.h"
+
 #include <algorithm>
 #include <stdexcept>
 
@@ -246,38 +248,40 @@ namespace vgfx
                 std::make_unique<Fence>(context));
         }
 
+        if (m_swapChainConfig.pickDepthStencilFormat != nullptr) {
+            const auto& swapChainExtent = m_spSwapChain->getImageExtent();
+            createDepthStencilBuffer(
+                context,
+                swapChainExtent.width,
+                swapChainExtent.height,
+                m_swapChainConfig.pickDepthStencilFormat);
+        }
+
         m_spRenderTarget =
-            std::make_unique<RenderTarget>(context, *m_spSwapChain.get(), renderTargetConfig);
+            std::make_unique<RenderTarget>(
+                context,
+                *m_spSwapChain.get(),
+                m_spDepthStencilBuffer.get(),
+                renderTargetConfig);
 
         m_pContext = &context;
     }
 
-    void WindowRenderer::recordCommandBuffer(
-        VkCommandBuffer commandBuffer,
-        size_t swapChainImageIndex,
-        const Pipeline& pipeline,
-        const std::vector<std::unique_ptr<Object>>& objects)
+    void WindowRenderer::beginRenderCommands(VkCommandBuffer commandBuffer, size_t swapChainImageIndex)
     {
-        VkCommandBufferBeginInfo beginInfo = {};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-
-        VkImageSubresourceRange imageSubresourceRange = {};
-        imageSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        imageSubresourceRange.baseMipLevel = 0;
-        imageSubresourceRange.levelCount = 1;
-        imageSubresourceRange.baseArrayLayer = 0;
-        imageSubresourceRange.layerCount = 1;
-
-        vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-        VkImage swapChainImage = m_spSwapChain->getImageHandle(swapChainImageIndex);
 
         bool imageBarrierNeeded =
             m_pContext->getPresentQueue(0).queue != m_pContext->getGraphicsQueue(0).queue;
         if (imageBarrierNeeded) {
             // This barrier needed to transfer ownership of the image from the present queue to the
             // graphics queue.
+            VkImageSubresourceRange imageSubresourceRange = {};
+            imageSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            imageSubresourceRange.baseMipLevel = 0u;
+            imageSubresourceRange.levelCount = 1u;
+            imageSubresourceRange.baseArrayLayer = 0u;
+            imageSubresourceRange.layerCount = 1u;
+
             VkImageMemoryBarrier barrierFromPresentToDraw = {};
             barrierFromPresentToDraw.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
             barrierFromPresentToDraw.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
@@ -286,6 +290,8 @@ namespace vgfx
             barrierFromPresentToDraw.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
             barrierFromPresentToDraw.srcQueueFamilyIndex = m_pContext->getPresentQueueFamilyIndex().value();
             barrierFromPresentToDraw.dstQueueFamilyIndex = m_pContext->getGraphicsQueueFamilyIndex().value();
+
+            VkImage swapChainImage = m_spSwapChain->getImageHandle(swapChainImageIndex);
             barrierFromPresentToDraw.image = swapChainImage;
             barrierFromPresentToDraw.subresourceRange = imageSubresourceRange;
 
@@ -302,31 +308,23 @@ namespace vgfx
                 &barrierFromPresentToDraw);
         }
 
-        VkClearValue clearValues[] = {
-          { 0.0f, 0.0f, 0.0f, 0.0f }, // Color
-          {1.0f, 0}, // Depth/Stencil
-        };
+        m_spRenderTarget->beginRenderPass(commandBuffer, swapChainImageIndex);
+    }
 
-        VkRenderPassBeginInfo renderPassBeginInfo = {};
-        renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        renderPassBeginInfo.renderPass = m_spRenderTarget->getRenderPass();
-        renderPassBeginInfo.framebuffer = m_spRenderTarget->getFramebuffer(swapChainImageIndex);
-        renderPassBeginInfo.renderArea.offset = { 0, 0 };
-        renderPassBeginInfo.renderArea.extent = m_spSwapChain->getImageExtent();
-        renderPassBeginInfo.clearValueCount = m_spRenderTarget->getDepthStencilBuffer() == nullptr ? 1 : 2;
-        renderPassBeginInfo.pClearValues = clearValues;
+    void WindowRenderer::endRenderCommands(VkCommandBuffer commandBuffer, size_t swapChainImageIndex)
+    {
+        m_spRenderTarget->endRenderPass(commandBuffer);
 
-        vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getHandle());
-
-        for (auto& spObject : objects) {
-            spObject->recordDrawCommands(swapChainImageIndex, commandBuffer);
-        }
-
-        vkCmdEndRenderPass(commandBuffer);
-
+        bool imageBarrierNeeded =
+            m_pContext->getPresentQueue(0).queue != m_pContext->getGraphicsQueue(0).queue;
         if (imageBarrierNeeded) {
+            VkImageSubresourceRange imageSubresourceRange = {};
+            imageSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            imageSubresourceRange.baseMipLevel = 0u;
+            imageSubresourceRange.levelCount = 1u;
+            imageSubresourceRange.baseArrayLayer = 0u;
+            imageSubresourceRange.layerCount = 1u;
+
             VkImageMemoryBarrier barrierFromDrawToPresent = {};
             barrierFromDrawToPresent.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
             barrierFromDrawToPresent.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -335,6 +333,8 @@ namespace vgfx
             barrierFromDrawToPresent.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
             barrierFromDrawToPresent.srcQueueFamilyIndex = m_pContext->getGraphicsQueueFamilyIndex().value();
             barrierFromDrawToPresent.dstQueueFamilyIndex = m_pContext->getPresentQueueFamilyIndex().value();
+
+            VkImage swapChainImage = m_spSwapChain->getImageHandle(swapChainImageIndex);
             barrierFromDrawToPresent.image = swapChainImage;
             barrierFromDrawToPresent.subresourceRange = imageSubresourceRange;
             vkCmdPipelineBarrier(
@@ -350,7 +350,6 @@ namespace vgfx
                 &barrierFromDrawToPresent);
         }
 
-        vkEndCommandBuffer(commandBuffer);
     }
 
     VkResult WindowRenderer::acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex)
@@ -466,5 +465,49 @@ namespace vgfx
         presentInfo.pResults = nullptr; // Optional
 
         return vkQueuePresentKHR(m_pContext->getPresentQueue(0u).queue, &presentInfo);
+    }
+
+    void Renderer::createDepthStencilBuffer(
+        Context& context,
+        uint32_t width,
+        uint32_t height,
+        PickDepthStencilFormatFunc pickFormatFunc)
+    {
+        VkFormat candidates[] = {
+            VK_FORMAT_D16_UNORM,
+            VK_FORMAT_X8_D24_UNORM_PACK32,
+            VK_FORMAT_D32_SFLOAT,
+            VK_FORMAT_S8_UINT,
+            VK_FORMAT_D16_UNORM_S8_UINT,
+            VK_FORMAT_D24_UNORM_S8_UINT,
+            VK_FORMAT_D32_SFLOAT_S8_UINT,
+        };
+        std::set<VkFormat> supportedDepthStencilFormats;
+        for (VkFormat format : candidates) {
+            VkFormatProperties props;
+            vkGetPhysicalDeviceFormatProperties(context.getPhysicalDevice(), format, &props);
+
+            if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+                supportedDepthStencilFormats.insert(format);
+            }
+        }
+
+        VkFormat selectedFormat = pickFormatFunc(supportedDepthStencilFormats);
+
+        Image::Config depthImageCfg(
+            width,
+            height,
+            selectedFormat,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+
+        m_spDepthStencilBuffer.reset(new DepthStencilBuffer(context, depthImageCfg));
+    }
+
+    void Renderer::DepthStencilDeleter::operator()(DepthStencilBuffer * pDSBuffer)
+    {
+        if (pDSBuffer != nullptr) {
+            delete pDSBuffer;
+        }
     }
 }

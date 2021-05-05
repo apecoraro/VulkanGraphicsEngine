@@ -201,4 +201,25 @@ namespace vgfx
             m_pContext = nullptr;
         }
     }
+
+    OffscreenSwapChain::OffscreenSwapChain(
+        std::vector<std::unique_ptr<Image>>&& images,
+        std::vector<std::unique_ptr<ImageView>>&& imageViews)
+        : m_imagePtrs(std::move(images))
+    {
+        m_imageViews = std::move(imageViews);
+        assert(m_imagePtrs.size() == m_imageViews.size());
+        assert(m_imagePtrs.size() > 0u);
+
+        m_imageExtent = { m_imagePtrs[0]->getWidth(), m_imagePtrs[0]->getHeight() };
+        m_imageFormat = m_imagePtrs[0]->getFormat();
+
+        for (const auto& spImage : m_imagePtrs) {
+            m_images.push_back(spImage->getHandle());
+    
+            assert(spImage->getWidth() == m_imageExtent.width);
+            assert(spImage->getHeight() == m_imageExtent.height);
+            assert(spImage->getFormat() == m_imageFormat);
+        }
+    }
 }
