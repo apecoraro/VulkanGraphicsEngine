@@ -23,15 +23,14 @@ namespace vgfx
         DescriptorPoolBuilder& addComputeShaderDescriptorSets(const ComputeShader& computeShader);
         DescriptorPoolBuilder& setCreateFlags(VkDescriptorPoolCreateFlags flags);
 
-        std::unique_ptr<DescriptorPool> createPool(
-            Context& context,
-            uint32_t maxSets);
+        std::unique_ptr<DescriptorPool> createPool(Context& context);
 
     private:
         void addDescriptorSets(const DescriptorSetLayouts& descriptorSetLayouts);
 
         std::map<VkDescriptorType, VkDescriptorPoolSize> m_descriptorPoolSizes;
         VkDescriptorPoolCreateFlags m_flags = 0;
+        uint32_t m_maxSets = 0u;
     };
 }
 

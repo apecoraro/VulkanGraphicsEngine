@@ -1,26 +1,9 @@
 #include "VulkanGraphicsMaterials.h"
 
-#include <fstream>
 #include <map>
 
 namespace vgfx
 {
-    static void ReadFile(const std::string& filename, std::vector<char>* pBuffer)
-    {
-        std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-        if (!file.is_open()) {
-            throw std::runtime_error("Failed to open shader file!");
-        }
-
-        auto fileSize = file.tellg();
-        pBuffer->resize(fileSize);
-        file.seekg(0);
-
-        file.read(pBuffer->data(), fileSize);
-        file.close();
-    }
-
     using ShaderProgramsTable = std::map<std::string, std::unique_ptr<Program>>;
 
     static Program& GetOrLoadShaderProgram(
@@ -38,17 +21,9 @@ namespace vgfx
             return *spShader.get();
         }
 
-        std::vector<char> shaderCode;
-        ReadFile(shaderPath, &shaderCode);
+        shaderProgramsTable[shaderPath] = Program::CreateFromFile(shaderPath, context, shaderType, entryPointFunc);
 
-        std::unique_ptr<Program>& spShader = shaderProgramsTable[shaderPath];
-        spShader =
-            std::make_unique<Program>(
-                context,
-                shaderType,
-                entryPointFunc,
-                shaderCode);
-        return *spShader.get();
+        return *shaderProgramsTable[shaderPath];
     }
 
     static ShaderProgramsTable s_vertexShadersTable;

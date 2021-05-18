@@ -36,6 +36,17 @@ namespace vgfx
         return false;
     }
 
+    bool SurfaceUsageIsSupported(
+        VkPhysicalDevice device,
+        VkImageUsageFlags usage,
+        VkFormat format)
+    {
+        VkImageFormatProperties props = {};
+        vkGetPhysicalDeviceImageFormatProperties(device, format, VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL, usage, 0, &props);
+
+        return props.maxResourceSize > 0u;
+    }
+
     void WindowRenderer::checkIsDeviceSuitable(VkPhysicalDevice device) const
     {
         uint32_t minImageCount = 0u;
@@ -106,6 +117,13 @@ namespace vgfx
         } else if (m_swapChainConfig.imageFormat.has_value()) {
             if(!SurfaceFormatIsSupported(supportedFormats, m_swapChainConfig.imageFormat.value())) {
                 throw std::runtime_error("Swap chain does not support specified image format.");
+            }
+            if (m_swapChainConfig.imageUsage.has_value()
+                && !SurfaceUsageIsSupported(
+                        device,
+                        m_swapChainConfig.imageUsage.value(),
+                        m_swapChainConfig.imageFormat.value().format)) {
+                throw std::runtime_error("Default swap chain format does not support custom usage!");
             }
         }
         
@@ -201,6 +219,12 @@ namespace vgfx
                 if (!SurfaceFormatIsSupported(supportedFormats, m_swapChainConfig.imageFormat.value())) {
                     m_swapChainConfig.imageFormat = supportedFormats[0];
                 }
+                if (!SurfaceUsageIsSupported(
+                        device,
+                        m_swapChainConfig.imageUsage.value(),
+                        m_swapChainConfig.imageFormat.value().format)) {
+                    throw std::runtime_error("Default swap chain format does not support custom usage!");
+                }
             }
         }
 
@@ -220,8 +244,7 @@ namespace vgfx
     void WindowRenderer::initSwapChain(
         Context& context,
         const SwapChain::CreateImageViewFunc& createImageViewFunc,
-        uint32_t maxFramesInFlight,
-        const vgfx::RenderTarget::Config& renderTargetConfig)
+        uint32_t maxFramesInFlight)
     {
         WindowSwapChain::Config swapChainConfig(
             m_swapChainConfig.imageCount.value(),
@@ -257,19 +280,11 @@ namespace vgfx
                 m_swapChainConfig.pickDepthStencilFormat);
         }
 
-        m_spRenderTarget =
-            std::make_unique<RenderTarget>(
-                context,
-                *m_spSwapChain.get(),
-                m_spDepthStencilBuffer.get(),
-                renderTargetConfig);
-
         m_pContext = &context;
     }
 
-    void WindowRenderer::beginRenderCommands(VkCommandBuffer commandBuffer, size_t swapChainImageIndex)
+    void WindowRenderer::startFrame(VkCommandBuffer commandBuffer, size_t swapChainImageIndex)
     {
-
         bool imageBarrierNeeded =
             m_pContext->getPresentQueue(0).queue != m_pContext->getGraphicsQueue(0).queue;
         if (imageBarrierNeeded) {
@@ -291,7 +306,7 @@ namespace vgfx
             barrierFromPresentToDraw.srcQueueFamilyIndex = m_pContext->getPresentQueueFamilyIndex().value();
             barrierFromPresentToDraw.dstQueueFamilyIndex = m_pContext->getGraphicsQueueFamilyIndex().value();
 
-            VkImage swapChainImage = m_spSwapChain->getImageHandle(swapChainImageIndex);
+            VkImage swapChainImage = m_spSwapChain->getImage(swapChainImageIndex).getHandle();
             barrierFromPresentToDraw.image = swapChainImage;
             barrierFromPresentToDraw.subresourceRange = imageSubresourceRange;
 
@@ -307,14 +322,10 @@ namespace vgfx
                 1, // image memory barrier count
                 &barrierFromPresentToDraw);
         }
-
-        m_spRenderTarget->beginRenderPass(commandBuffer, swapChainImageIndex);
     }
 
-    void WindowRenderer::endRenderCommands(VkCommandBuffer commandBuffer, size_t swapChainImageIndex)
+    void WindowRenderer::endFrame(VkCommandBuffer commandBuffer, size_t swapChainImageIndex)
     {
-        m_spRenderTarget->endRenderPass(commandBuffer);
-
         bool imageBarrierNeeded =
             m_pContext->getPresentQueue(0).queue != m_pContext->getGraphicsQueue(0).queue;
         if (imageBarrierNeeded) {
@@ -334,7 +345,7 @@ namespace vgfx
             barrierFromDrawToPresent.srcQueueFamilyIndex = m_pContext->getGraphicsQueueFamilyIndex().value();
             barrierFromDrawToPresent.dstQueueFamilyIndex = m_pContext->getPresentQueueFamilyIndex().value();
 
-            VkImage swapChainImage = m_spSwapChain->getImageHandle(swapChainImageIndex);
+            VkImage swapChainImage = m_spSwapChain->getImage(swapChainImageIndex).getHandle();
             barrierFromDrawToPresent.image = swapChainImage;
             barrierFromDrawToPresent.subresourceRange = imageSubresourceRange;
             vkCmdPipelineBarrier(

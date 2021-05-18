@@ -13,7 +13,7 @@ namespace vgfx
     {
     public:
         ImageDescriptorUpdater(
-            ImageView& imageView,
+            const ImageView& imageView,
             VkDescriptorType descriptorType,
             VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
             : DescriptorUpdater(descriptorType)
@@ -80,8 +80,8 @@ namespace vgfx
     {
     public:
         CombinedImageSamplerDescriptorUpdater(
-            ImageView& imageView,
-            Sampler& sampler,
+            const ImageView& imageView,
+            const Sampler& sampler,
             VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
             : DescriptorUpdater(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
         {
@@ -110,7 +110,7 @@ namespace vgfx
     class SamplerDescriptorUpdater : public DescriptorUpdater
     {
     public:
-        SamplerDescriptorUpdater(Sampler& sampler)
+        SamplerDescriptorUpdater(const Sampler& sampler)
             : DescriptorUpdater(VK_DESCRIPTOR_TYPE_SAMPLER)
         {
             m_imageInfo.sampler = sampler.getHandle();

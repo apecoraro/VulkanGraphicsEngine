@@ -25,7 +25,9 @@
     <ClCompile Include="src\VulkanGraphicsDescriptorPoolBuilder.cpp" />
     <ClCompile Include="src\VulkanGraphicsFence.cpp" />
     <ClCompile Include="src\VulkanGraphicsImage.cpp" />
+    <ClCompile Include="src\VulkanGraphicsImageSharpener.cpp" />
     <ClCompile Include="src\VulkanGraphicsModelLibrary.cpp" />
+    <ClCompile Include="src\VulkanGraphicsRenderPass.cpp" />
     <ClCompile Include="src\VulkanGraphicsSampler.cpp" />
     <ClCompile Include="src\VulkanGraphicsCommandBuffers.cpp" />
     <ClCompile Include="src\VulkanGraphicsDescriptors.cpp" />
@@ -47,8 +49,9 @@
     <ClCompile Include="src\VulkanGraphicsVertexBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="dependencies\SinglePassDownsamplerAMD\ffx_a.h" />
-    <ClInclude Include="dependencies\SinglePassDownsamplerAMD\ffx_spd.h" />
+    <ClInclude Include="dependencies\AMD_FidelityEffects\ffx_a.h" />
+    <ClInclude Include="dependencies\AMD_FidelityEffects\ffx_cas.h" />
+    <ClInclude Include="dependencies\AMD_FidelityEffects\ffx_spd.h" />
     <ClInclude Include="include\VulkanGraphicsBuffer.h" />
     <ClInclude Include="include\VulkanGraphicsDepthStencilBuffer.h" />
     <ClInclude Include="include\VulkanGraphicsImageDescriptorUpdaters.h" />
@@ -59,6 +62,7 @@
     <ClInclude Include="include\VulkanGraphicsDrawable.h" />
     <ClInclude Include="include\VulkanGraphicsFence.h" />
     <ClInclude Include="include\VulkanGraphicsImage.h" />
+    <ClInclude Include="include\VulkanGraphicsImageSharpener.h" />
     <ClInclude Include="include\VulkanGraphicsImageView.h" />
     <ClInclude Include="include\VulkanGraphicsContext.h" />
     <ClInclude Include="include\VulkanGraphicsIndexBuffer.h" />
@@ -68,6 +72,7 @@
     <ClInclude Include="include\VulkanGraphicsObject.h" />
     <ClInclude Include="include\VulkanGraphicsPipeline.h" />
     <ClInclude Include="include\VulkanGraphicsProgram.h" />
+    <ClInclude Include="include\VulkanGraphicsRenderPass.h" />
     <ClInclude Include="include\VulkanGraphicsRenderTarget.h" />
     <ClInclude Include="include\VulkanGraphicsSampler.h" />
     <ClInclude Include="include\VulkanGraphicsSemaphore.h" />
@@ -78,8 +83,9 @@
     <ClInclude Include="include\VulkanGraphicsVertexBuffer.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="dependencies\SinglePassDownsamplerAMD\compile_spd.bat" />
-    <None Include="dependencies\SinglePassDownsamplerAMD\SPDIntegrationLinearSampler.glsl" />
+    <None Include="dependencies\AMD_FidelityEffects\CAS_Shader.glsl" />
+    <None Include="dependencies\AMD_FidelityEffects\compile_fidelity_effects.bat" />
+    <None Include="dependencies\AMD_FidelityEffects\SPDIntegrationLinearSampler.glsl" />
     <None Include="shaders\compile.bat" />
     <None Include="shaders\ndc_in_rgb_uv_out.vert" />
     <None Include="shaders\README.md" />
@@ -160,7 +166,7 @@
       <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)dependencies\SinglePassDownsamplerAMD;$(ProjectDir)dependencies\glm;$(ProjectDir)dependencies\stb;$(ProjectDir)dependencies\tinyobjloader;$(ProjectDir)dependencies\VulkanMemoryAllocator\src;$(VULKAN_SDK)\Include;$(ProjectDir)include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)dependencies\AMD_FidelityEffects;$(ProjectDir)dependencies\glm;$(ProjectDir)dependencies\stb;$(ProjectDir)dependencies\tinyobjloader;$(ProjectDir)dependencies\VulkanMemoryAllocator\src;$(VULKAN_SDK)\Include;$(ProjectDir)include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -212,7 +218,7 @@
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)dependencies\SinglePassDownsamplerAMD;$(ProjectDir)dependencies\glm;$(ProjectDir)dependencies\stb;$(ProjectDir)dependencies\tinyobjloader;$(ProjectDir)dependencies\VulkanMemoryAllocator\src;$(VULKAN_SDK)\Include;$(ProjectDir)include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)dependencies\AMD_FidelityEffects;$(ProjectDir)dependencies\glm;$(ProjectDir)dependencies\stb;$(ProjectDir)dependencies\tinyobjloader;$(ProjectDir)dependencies\VulkanMemoryAllocator\src;$(VULKAN_SDK)\Include;$(ProjectDir)include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>

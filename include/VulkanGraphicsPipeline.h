@@ -3,8 +3,7 @@
 
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsMaterials.h"
-#include "VulkanGraphicsRenderTarget.h"
-#include "VulkanGraphicsSwapChain.h"
+#include "VulkanGraphicsRenderPass.h"
 #include "VulkanGraphicsVertexBuffer.h"
 
 #include <vector>
@@ -41,7 +40,10 @@ namespace vgfx
     class PipelineBuilder
     {
     public:
-        PipelineBuilder(const SwapChain& swapChain, const RenderTarget& renderTarget);
+        PipelineBuilder(
+            const VkViewport& viewport,
+            const RenderPass& renderPass,
+            const DepthStencilBuffer* pDepthStencilBuffer = nullptr);
 
         struct InputAssemblyConfig
         {
@@ -83,9 +85,38 @@ namespace vgfx
             VkPipelineRasterizationStateCreateInfo rasterizerInfo = {};
         };
 
+        // DynamicState allows certain settings to be changed "on the fly" (e.g. viewport & scissor).
+        PipelineBuilder& configureDynamicStates(const std::vector<VkDynamicState>& dynamicStateEnables);
+
+        // Override the Viewport specified at construction to create new pipeline with similar
+        // settings. Note that viewport and scissor can also be changed dynamically without need
+        // for a whole new pipeline if the pipeline is configured with configureDynamicStates.
+        PipelineBuilder& configureViewport(const VkViewport& viewport)
+        {
+            m_viewport = viewport;
+
+            return *this;
+        }
+        // Override default scissor. Default scissor is "no scissor".
+        // Note that viewport and scissor can also be changed dynamically without need
+        // for a whole new pipeline if the pipeline is configured with configureDynamicStates.
+        PipelineBuilder& configureScissor(const VkRect2D& scissor)
+        {
+            m_scissor = scissor;
+
+            return *this;
+        }
+
+        // Override the RenderPass specified at construction to create new pipeline with similar settings
+        PipelineBuilder& configureRenderPass(const RenderPass& renderPass, uint32_t subpass = 0u);
+
+        // Create a pipeline from a specific subpass of the current RenderPass.
+        PipelineBuilder& configureRenderPassSubpass(uint32_t subpass = 0u);
+        
         PipelineBuilder& configureRasterizer(const RasterizerConfig& config);
 
         std::unique_ptr<Pipeline> createPipeline(Context& context);
+
     private:
         const Material* m_pMaterial = nullptr;
         VkPipelineShaderStageCreateInfo m_vertShaderStageInfo = {};
@@ -103,12 +134,16 @@ namespace vgfx
         VkViewport m_viewport = {};
         VkRect2D m_scissor = {};
 
-        VkPipelineRasterizationStateCreateInfo m_rasterizer = {};
         VkPipelineMultisampleStateCreateInfo m_multisampling = {};
         VkPipelineColorBlendAttachmentState m_colorBlendAttachment = {};
         VkPipelineColorBlendStateCreateInfo m_colorBlending = {};
 
-        const RenderTarget& m_renderTarget;
+        VkPipelineRasterizationStateCreateInfo m_rasterizer = {};
+
+        std::vector<VkDynamicState> m_dynamicStateEnables;
+
+        const RenderPass* m_pRenderPass = nullptr;
+        uint32_t m_subpass = 0u;
     }; 
 }
 

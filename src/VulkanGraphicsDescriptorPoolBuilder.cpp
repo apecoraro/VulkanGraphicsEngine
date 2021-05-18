@@ -21,6 +21,7 @@ namespace vgfx
     void DescriptorPoolBuilder::addDescriptorSets(const DescriptorSetLayouts& descriptorSetLayouts)
     {
         for (const auto& descSetLayoutInfo : descriptorSetLayouts) {
+            m_maxSets += descSetLayoutInfo.copyCount;
             for (const auto& descBindingCfg : descSetLayoutInfo.spDescriptorSetLayout->getDescriptorBindings()) {
                 VkDescriptorPoolSize& poolSize = m_descriptorPoolSizes[descBindingCfg.second.descriptorType];
                 poolSize.type = descBindingCfg.second.descriptorType;
@@ -36,15 +37,13 @@ namespace vgfx
         return *this;
     }
 
-    std::unique_ptr<DescriptorPool> DescriptorPoolBuilder::createPool(
-        Context& context,
-        uint32_t maxSets)
+    std::unique_ptr<DescriptorPool> DescriptorPoolBuilder::createPool(Context& context)
     {
         std::vector<VkDescriptorPoolSize> descriptorPoolSizes;
         for (const auto& itr : m_descriptorPoolSizes) {
             descriptorPoolSizes.push_back(itr.second);
         }
 
-        return std::make_unique<DescriptorPool>(context, descriptorPoolSizes, maxSets, m_flags);
+        return std::make_unique<DescriptorPool>(context, descriptorPoolSizes, m_maxSets, m_flags);
     }
 }

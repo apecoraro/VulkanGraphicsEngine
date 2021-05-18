@@ -444,6 +444,14 @@ namespace vgfx
             ++pCurRequiredFeature;
             ++pCurSupportedFeature;
         }
+        // Used by ImageDownsampler.
+        if (!supportedFeatures.samplerAnisotropy) {
+            throw std::runtime_error("Device does not support sampler anisotropy.");
+        }
+        // Used by ImageSharpener.
+        if (!supportedFeatures.shaderInt16) {
+            throw std::runtime_error("Device does not support shader int16.");
+        }
     }
 
     static bool CheckExtensionSupport(VkPhysicalDevice device, const char* findExtensions[], size_t findCount)
@@ -606,6 +614,8 @@ namespace vgfx
 
         // Used by ImageDownsampler.
         physDevFeatures.features.samplerAnisotropy = VK_TRUE;
+        // Used by ImageSharpener.
+        physDevFeatures.features.shaderInt16 = VK_TRUE;
 
         createInfo.pNext = &physDevFeatures;
 

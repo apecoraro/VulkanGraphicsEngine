@@ -162,8 +162,18 @@ namespace vgfx
         uint32_t actualImageCount = 0u;
         vkGetSwapchainImagesKHR(device, m_swapChain, &actualImageCount, nullptr);
 
-        m_images.resize(actualImageCount);
-        vkGetSwapchainImagesKHR(device, m_swapChain, &actualImageCount, m_images.data());
+        std::vector<VkImage> imageHandles(actualImageCount);
+        vkGetSwapchainImagesKHR(device, m_swapChain, &actualImageCount, imageHandles.data());
+
+        for (VkImage imageHandle : imageHandles) {
+            Image::Config metadata(
+                config.imageExtent.width,
+                config.imageExtent.height,
+                config.imageFormat.format,
+                VK_IMAGE_TILING_OPTIMAL,
+                config.imageUsage);
+            m_images.push_back(Image(context, imageHandle, metadata));
+        }
 
         m_imageExtent = config.imageExtent;
 
@@ -175,7 +185,7 @@ namespace vgfx
             m_imageViews[imageViewIndex] =
                 createImageViewFunc(
                     context,
-                    m_images[imageViewIndex],
+                    m_images[imageViewIndex].getHandle(),
                     createInfo.imageFormat);
         }
 
@@ -215,7 +225,7 @@ namespace vgfx
         m_imageFormat = m_imagePtrs[0]->getFormat();
 
         for (const auto& spImage : m_imagePtrs) {
-            m_images.push_back(spImage->getHandle());
+            m_images.push_back(*spImage.get());
     
             assert(spImage->getWidth() == m_imageExtent.width);
             assert(spImage->getHeight() == m_imageExtent.height);

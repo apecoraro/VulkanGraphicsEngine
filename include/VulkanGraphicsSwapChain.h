@@ -2,6 +2,7 @@
 #define VGFX_SWAP_CHAIN_H
 
 #include "VulkanGraphicsContext.h"
+#include "VulkanGraphicsImage.h"
 #include "VulkanGraphicsImageView.h"
 #include "VulkanGraphicsSemaphore.h"
 #include "VulkanGraphicsRenderTarget.h"
@@ -23,11 +24,11 @@ namespace vgfx
             return static_cast<uint32_t>(m_images.size());
         }
 
-        VkImage getImageHandle(size_t index) {
+        Image& getImage(size_t index) {
             return m_images[index];
         }
 
-        VkImage getImageHandle(size_t index) const {
+        const Image& getImage(size_t index) const {
             return m_images[index];
         }
 
@@ -47,13 +48,18 @@ namespace vgfx
             std::function<std::unique_ptr<ImageView>(
                 Context& context, VkImage image, VkFormat imageFormat)>;
 
-        const std::vector<std::unique_ptr<ImageView>>& getImageViews() const
+        const ImageView& getImageView(size_t index) const
         {
-            return m_imageViews;
+            return *m_imageViews[index].get();
+        }
+
+        ImageView& getImageView(size_t index)
+        {
+            return *m_imageViews[index].get();
         }
 
     protected:
-        std::vector<VkImage> m_images;
+        std::vector<Image> m_images;
         VkExtent2D m_imageExtent = { 0u, 0u };
         VkFormat m_imageFormat = VK_FORMAT_UNDEFINED;
         VkSampleCountFlagBits m_sampleCount = VK_SAMPLE_COUNT_1_BIT;
@@ -153,7 +159,7 @@ namespace vgfx
             return m_imageAvailableSemaphores[index]->getHandle();
         }
 
-        VkSwapchainKHR getHandle() { return m_swapChain; }
+        VkSwapchainKHR getHandle() const { return m_swapChain; }
     private:
         void* m_pWindow = nullptr;
         uint32_t m_initWindowWidth = 0u;

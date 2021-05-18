@@ -19,6 +19,12 @@ namespace vgfx
             Compute = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         };
 
+        static std::unique_ptr<Program> CreateFromFile(
+            const std::string& spvFilePath,
+            Context& context,
+            Program::Type type,
+            const std::string& entryPointFuncName);
+
         Program(
             Context& context,
             Program::Type type,

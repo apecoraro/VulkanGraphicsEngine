@@ -15,6 +15,9 @@ namespace vgfx
     public:
         ComputeShader(
             const Program& computeProgram,
+            DescriptorSetLayouts&& descriptorSetLayouts);
+        ComputeShader(
+            const Program& computeProgram,
             const std::vector<VkPushConstantRange>& pushConstantRanges,
             DescriptorSetLayouts&& descriptorSetLayouts);
         ~ComputeShader() = default;

@@ -4,36 +4,17 @@
 #include "VulkanGraphicsDescriptorPoolBuilder.h"
 #include "VulkanGraphicsImageDescriptorUpdaters.h"
 
-#include <fstream>
-
 #define A_CPU
 #include "ffx_a.h"
 #include "ffx_spd.h"
 
 namespace vgfx
 {
-    static void ReadFile(const std::string& filename, std::vector<char>* pBuffer)
-    {
-        std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-        if (!file.is_open()) {
-            throw std::runtime_error("Failed to open shader file!");
-        }
-
-        auto fileSize = file.tellg();
-        pBuffer->resize(fileSize);
-        file.seekg(0);
-
-        file.read(pBuffer->data(), fileSize);
-        file.close();
-    }
-
     ImageDownsampler::ImageDownsampler(
         Context& context,
         Precision precision)
         : m_context(context)
     {
-        std::vector<char> spirvCode;
         std::string computeShaderPath = context.getAppConfig().dataDirectoryPath;
         computeShaderPath += "/";
         if (precision == Precision::FP16) {
@@ -41,14 +22,12 @@ namespace vgfx
         } else { // DownsamplePrecision::FP32
             computeShaderPath += "SPDIntegrationLinearSamplerFloat32.spv";
         }
-        ReadFile(computeShaderPath, &spirvCode);
-
         m_spComputeProgram =
-            std::make_unique<Program>(
+            Program::CreateFromFile(
+                computeShaderPath,
                 context,
                 Program::Type::Compute,
-                "main",
-                spirvCode);
+                "main");
 
         VkPushConstantRange pushConstantRange = {};
         pushConstantRange.offset = 0;
@@ -63,8 +42,7 @@ namespace vgfx
                 VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                 VK_SHADER_STAGE_COMPUTE_BIT,
                 VGFX_DOWNSAMPLER_MAX_MIP_LEVELS + 1,
-                DescriptorSetLayout::BindMode::SupportPartialBinding,
-                nullptr); // immutable samplers
+                DescriptorSetLayout::BindMode::SupportPartialBinding);
 
         layoutBindings[1] =
             DescriptorSetLayout::DescriptorBinding(
@@ -101,7 +79,7 @@ namespace vgfx
 
         DescriptorPoolBuilder descriptorPoolBuilder;
         descriptorPoolBuilder.addComputeShaderDescriptorSets(*m_spComputeShader.get());
-        m_spDescriptorPool = descriptorPoolBuilder.createPool(context, 1u);
+        m_spDescriptorPool = descriptorPoolBuilder.createPool(context);
 
         std::vector<DescriptorSet> descriptorSets;
         m_spDescriptorPool->allocateDescriptorSets(
@@ -278,7 +256,7 @@ namespace vgfx
                 VK_SHADER_STAGE_COMPUTE_BIT,
                 0,
                 sizeof(LinearSamplerConstants),
-                (void*)&data);
+                static_cast<void*>(&data));
 
             vkCmdDispatch(commandBuffer, dispatchX, dispatchY, dispatchZ);
 

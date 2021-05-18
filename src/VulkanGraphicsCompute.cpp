@@ -4,6 +4,12 @@
 
 namespace vgfx
 {
+    ComputeShader::ComputeShader(const Program& computeProgram, DescriptorSetLayouts&& descriptorSetLayouts)
+        : m_computeProgram(computeProgram)
+        , m_descriptorSetLayouts(std::move(descriptorSetLayouts))
+    {
+    }
+
     ComputeShader::ComputeShader(
         const Program& computeProgram,
         const std::vector<VkPushConstantRange>& pushConstantRanges,

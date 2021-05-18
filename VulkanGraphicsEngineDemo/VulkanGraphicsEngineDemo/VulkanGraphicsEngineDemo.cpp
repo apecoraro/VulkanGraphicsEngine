@@ -1,13 +1,16 @@
 #include "VulkanGraphicsEngineDemo.h"
 
-#include "VulkanGraphicsImageDescriptorUpdaters.h"
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsDescriptorPoolBuilder.h"
 #include "VulkanGraphicsDescriptors.h"
+#include "VulkanGraphicsImageDescriptorUpdaters.h"
+#include "VulkanGraphicsImageSharpener.h"
 #include "VulkanGraphicsImageView.h"
 #include "VulkanGraphicsMaterials.h"
 #include "VulkanGraphicsModelLibrary.h"
 #include "VulkanGraphicsRenderer.h"
+#include "VulkanGraphicsRenderPass.h"
+#include "VulkanGraphicsRenderTarget.h"
 #include "VulkanGraphicsSampler.h"
 #include "VulkanGraphicsSwapChain.h"
 #include "VulkanGraphicsBuffer.h"
@@ -102,6 +105,10 @@ public:
 			static_cast<uint32_t>(windowHeight)
 		};
 
+        swapChainConfig.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+
+        swapChainConfig.imageFormat = { VK_FORMAT_R16G16B16A16_SFLOAT, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
+
         swapChainConfig.pickDepthStencilFormat = [](const std::set<VkFormat>& formats) {
             if (formats.find(VK_FORMAT_D32_SFLOAT) != formats.end()) {
                 return VK_FORMAT_D32_SFLOAT;
@@ -115,9 +122,10 @@ public:
             }
         };
 
-        m_spWindowRenderer = std::make_unique<vgfx::WindowRenderer>(
-            swapChainConfig,
-            std::move(spWindowSwapChain));
+        m_spWindowRenderer =
+            std::make_unique<vgfx::WindowRenderer>(
+                swapChainConfig,
+                std::move(spWindowSwapChain));
 
         m_graphicsContext.init(
             appConfig,
@@ -128,24 +136,83 @@ public:
         if (m_enableValidationLayers) {
             m_graphicsContext.enableDebugReportCallback(DebugCallback);
         }
- 
+
         m_spWindowRenderer->initSwapChain(
             m_graphicsContext,
             // This callback allows for custom implementation of ImageView creation on the
             // SwapChain images.
-            [] (vgfx::Context& context, VkImage image, VkFormat imageFormat)
+            [](vgfx::Context& context, VkImage image, VkFormat imageFormat)
             {
                 vgfx::ImageView::Config cfg(
-                        imageFormat,
-                        VK_IMAGE_VIEW_TYPE_2D,
-                        0u, // base mip level
-                        1u); // mip levels
+                    imageFormat,
+                    VK_IMAGE_VIEW_TYPE_2D,
+                    0u, // base mip level
+                    1u); // mip levels
                 return std::make_unique<vgfx::ImageView>(context, cfg, image);
             },
             // If only double buffering is available then one frame in flight, otherwise
             // 2 frames in flight (i.e. triple buffering).
-            std::min(m_spWindowRenderer->getSwapChainConfig().imageCount.value() - 1u, 2u),
-            m_renderTargetConfig);
+            std::min(m_spWindowRenderer->getSwapChainConfig().imageCount.value() - 1u, 2u));
+
+        // Render to half size offscreen image then use image sharpener to upscale
+        vgfx::Image::Config offscreenImageCfg(
+            windowWidth >> 1,
+            windowHeight >> 1,
+            VK_FORMAT_R16G16B16A16_SFLOAT,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+            | VK_IMAGE_USAGE_STORAGE_BIT
+            | VK_IMAGE_USAGE_SAMPLED_BIT);
+
+        std::vector<std::unique_ptr<vgfx::Image>> offscreenImages;
+        offscreenImages.push_back(std::make_unique<vgfx::Image>(m_graphicsContext, offscreenImageCfg));
+        offscreenImages.push_back(std::make_unique<vgfx::Image>(m_graphicsContext, offscreenImageCfg));
+        offscreenImages.push_back(std::make_unique<vgfx::Image>(m_graphicsContext, offscreenImageCfg));
+
+        vgfx::ImageView::Config offscreenImageViewCfg(
+            VK_FORMAT_R16G16B16A16_SFLOAT,
+            VK_IMAGE_VIEW_TYPE_2D);
+
+        std::vector<std::unique_ptr<vgfx::ImageView>> offscreenImageViews;
+        offscreenImageViews.push_back(
+            std::make_unique<vgfx::ImageView>(
+                m_graphicsContext, offscreenImageViewCfg, *offscreenImages[0].get()));
+        offscreenImageViews.push_back(
+            std::make_unique<vgfx::ImageView>(
+                m_graphicsContext, offscreenImageViewCfg, *offscreenImages[1].get()));
+        offscreenImageViews.push_back(
+            std::make_unique<vgfx::ImageView>(
+                m_graphicsContext, offscreenImageViewCfg, *offscreenImages[2].get()));
+
+        m_spOffscreenSwapChain =
+            std::make_unique<vgfx::OffscreenSwapChain>(
+                std::move(offscreenImages),
+                std::move(offscreenImageViews));
+
+        vgfx::RenderPassBuilder renderPassBuilder;
+
+        vgfx::RenderTarget::Config offscreenRenderTargetConfig(
+            *m_spOffscreenSwapChain.get(),
+            m_spWindowRenderer->getDepthStencilBuffer());
+
+        renderPassBuilder.addPass(offscreenRenderTargetConfig)
+            // The compute shader expects the image to be in general layout.
+            // TODO figure out if possible to create a COMPUTE render pass?
+            .attachments[0].finalLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+        m_spOffscreenRenderPass = renderPassBuilder.createPass(m_graphicsContext);
+            
+        m_spOffscreenRenderTarget =
+            std::make_unique<vgfx::RenderTarget>(
+                m_graphicsContext,
+                offscreenRenderTargetConfig,
+                *m_spOffscreenRenderPass.get());
+
+        m_spImageSharpener =
+            std::make_unique<vgfx::ImageSharpener>(
+                m_graphicsContext,
+                m_spWindowRenderer->getSwapChain().getImageCount(),
+                1.0f); // sharpening value
 
         m_spCommandBufferFactory =
             std::make_unique<vgfx::CommandBufferFactory>(
@@ -204,9 +271,26 @@ public:
 
         vgfx::Material& material = vgfx::MaterialsLibrary::GetOrLoadMaterial(m_graphicsContext, materialInfo);
 
-        m_spModelLibrary = std::make_unique<vgfx::ModelLibrary>();
+        vgfx::DescriptorPoolBuilder poolBuilder;
+        poolBuilder.addMaterialDescriptorSets(material);
+        poolBuilder.addComputeShaderDescriptorSets(m_spImageSharpener->getComputeShader());
+        //poolBuilder.setCreateFlags(VkDescriptorPoolCreateFlags);
+        m_spDescriptorPool = poolBuilder.createPool(m_graphicsContext);
 
-        initGraphicsObject(m_graphicsContext, *m_spCommandBufferFactory, model, material, *m_spModelLibrary);
+        m_spModelLibrary = std::make_unique<vgfx::ModelLibrary>();
+        // Rendering to offscreen image at half the resolution requires dynamic viewport and scissor in the
+        // graphics pipeline.
+        initGraphicsObject(
+            m_graphicsContext,
+            *m_spDescriptorPool.get(),
+            *m_spCommandBufferFactory,
+            model,
+            material,
+            *m_spModelLibrary);
+
+        m_spImageSharpener->createRenderingResources(*m_spDescriptorPool.get());
+
+        recordCommandBuffers();
     }
 
 #ifdef NDEBUG
@@ -216,7 +300,12 @@ public:
 #endif
     vgfx::Context m_graphicsContext;
     std::unique_ptr<vgfx::WindowRenderer> m_spWindowRenderer;
-    vgfx::RenderTarget::Config m_renderTargetConfig;
+
+    std::unique_ptr<vgfx::OffscreenSwapChain> m_spOffscreenSwapChain;
+    std::unique_ptr<vgfx::RenderPass> m_spOffscreenRenderPass;
+    std::unique_ptr<vgfx::RenderTarget> m_spOffscreenRenderTarget;
+
+    std::unique_ptr<vgfx::ImageSharpener> m_spImageSharpener;
 
     std::unique_ptr<vgfx::CommandBufferFactory> m_spCommandBufferFactory;
     ModelViewProj m_cameraMatrix;
@@ -237,23 +326,12 @@ public:
 
     void initGraphicsObject(
         vgfx::Context& graphicsContext,
+        vgfx::DescriptorPool& descriptorPool,
         vgfx::CommandBufferFactory& commandBufferFactory,
         const std::string& model,
         const vgfx::Material& material,
         vgfx::ModelLibrary& modelLibrary)
     {
-        vgfx::DescriptorPoolBuilder poolBuilder;
-        poolBuilder.addMaterialDescriptorSets(material);
-        //poolBuilder.setCreateFlags(VkDescriptorPoolCreateFlags);
-        m_spDescriptorPool =
-            poolBuilder.createPool(
-                graphicsContext,
-                // Last parameter is the max number of sets that will be allocated from
-                // this pool, which in our case is the number of swap chain images plus
-                // one because we have a set of copies for the camera matrix uniform buffer
-                // and the one set for the image sampler.
-                m_spWindowRenderer->getSwapChain().getImageCount() + 1u);
-
         auto& drawable =
             modelLibrary.getOrCreateDrawable(
                 graphicsContext,
@@ -277,51 +355,16 @@ public:
         m_spGraphicsPipeline =
             createGraphicsPipeline(
                 graphicsContext,
-                m_spWindowRenderer->getSwapChain(),
-                *m_spWindowRenderer->getRenderTarget(),
+                *m_spOffscreenSwapChain.get(),
+                m_spWindowRenderer->getDepthStencilBuffer(),
+                *m_spOffscreenRenderPass.get(),
                 material,
                 vgfx::ModelLibrary::GetDefaultVertexBufferConfig(),
                 inputConfig);
 
         m_graphicsObjects.push_back(std::move(spModelObject));
-
-        recordCommandBuffers();
     }
-
-    void recordCommandBuffers()
-    {
-        m_queueSubmits.clear();
-        m_queueSubmits.resize(m_spWindowRenderer->getSwapChain().getImageCount());
-
-        for (size_t swapChainImageIndex = 0;
-                swapChainImageIndex < m_spWindowRenderer->getSwapChain().getImageCount();
-                ++swapChainImageIndex) {
-            VkCommandBuffer commandBuffer = m_spCommandBufferFactory->createCommandBuffer();
-
-            m_queueSubmits[swapChainImageIndex].commandBuffers.push_back(commandBuffer);
-
-            VkCommandBufferBeginInfo beginInfo = {};
-            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-            vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-            m_spWindowRenderer->beginRenderCommands(commandBuffer, swapChainImageIndex);
-
-            vkCmdBindPipeline(
-                commandBuffer,
-                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                m_spGraphicsPipeline->getHandle());
-
-            for (auto& spObject : m_graphicsObjects) {
-                spObject->recordDrawCommands(commandBuffer, swapChainImageIndex);
-            }
-
-            m_spWindowRenderer->endRenderCommands(commandBuffer, swapChainImageIndex);
-
-            vkEndCommandBuffer(commandBuffer);
-        }
-    }
-
+ 
     void initDrawableDescriptorSets(
         vgfx::Context& graphicsContext,
         vgfx::Drawable& drawable,
@@ -399,21 +442,96 @@ public:
     std::unique_ptr<vgfx::Pipeline> createGraphicsPipeline(
         vgfx::Context& context,
         const vgfx::SwapChain& swapChain,
-        const vgfx::RenderTarget& renderTarget,
+        const vgfx::DepthStencilBuffer* pDepthStencilBuffer,
+        const vgfx::RenderPass& renderPass,
         const vgfx::Material& material,
         const vgfx::VertexBuffer::Config& vertexBufferConfig,
         const vgfx::PipelineBuilder::InputAssemblyConfig& inputConfig)
     {
-        vgfx::PipelineBuilder builder(swapChain, renderTarget);
+        VkViewport viewport = {
+            0.0f, 0.0f,
+            static_cast<float>(swapChain.getImageExtent().width),
+            static_cast<float>(swapChain.getImageExtent().height),
+            0.0f,
+            1.0f
+        };
+        vgfx::PipelineBuilder builder(viewport, renderPass, pDepthStencilBuffer);
 
         vgfx::PipelineBuilder::RasterizerConfig rasterizerConfig(
             VK_POLYGON_MODE_FILL,
             VK_CULL_MODE_BACK_BIT,
             VK_FRONT_FACE_COUNTER_CLOCKWISE);
 
+        //std::vector<VkDynamicState> dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+
         return builder.configureDrawableInput(material, vertexBufferConfig, inputConfig)
                       .configureRasterizer(rasterizerConfig)
+                      //.configureDynamicStates(dynamicStates)
                       .createPipeline(context); 
+    }
+
+    void recordCommandBuffers()
+    {
+        m_queueSubmits.clear();
+        m_queueSubmits.resize(m_spWindowRenderer->getSwapChain().getImageCount());
+
+        for (size_t swapChainImageIndex = 0;
+                swapChainImageIndex < m_spWindowRenderer->getSwapChain().getImageCount();
+                ++swapChainImageIndex) {
+            VkCommandBuffer commandBuffer = m_spCommandBufferFactory->createCommandBuffer();
+
+            VkCommandBufferBeginInfo beginInfo = {};
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+            vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+            m_spOffscreenRenderPass->begin(commandBuffer, swapChainImageIndex, *m_spOffscreenRenderTarget.get());
+
+            vkCmdBindPipeline(
+                commandBuffer,
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                m_spGraphicsPipeline->getHandle());
+
+            for (auto& spObject : m_graphicsObjects) {
+                spObject->recordDrawCommands(commandBuffer, swapChainImageIndex);
+            }
+
+            m_spOffscreenRenderPass->end(commandBuffer);
+
+            m_spWindowRenderer->startFrame(commandBuffer, swapChainImageIndex);
+
+            m_spImageSharpener->recordCommandBuffer(
+                commandBuffer,
+                swapChainImageIndex,
+                m_spOffscreenSwapChain->getImage(swapChainImageIndex),
+                m_spOffscreenSwapChain->getImageView(swapChainImageIndex),
+                m_spWindowRenderer->getSwapChain().getImage(swapChainImageIndex),
+                m_spWindowRenderer->getSwapChain().getImageView(swapChainImageIndex));
+
+            m_spWindowRenderer->endFrame(commandBuffer, swapChainImageIndex);
+
+            vkEndCommandBuffer(commandBuffer);
+
+            m_queueSubmits[swapChainImageIndex].commandBuffers.push_back(commandBuffer);
+        }
+    }
+
+    void setViewportAndScissor(VkCommandBuffer commandBuffer, const VkExtent2D& extent)
+    {
+        VkViewport viewport = {};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = static_cast<float>(extent.width);
+        viewport.height = static_cast<float>(extent.height);
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+
+        vkCmdSetViewport(commandBuffer, 0u, 1u, &viewport);
+
+        VkRect2D scissor = {};
+        scissor.offset = { 0, 0 };
+        scissor.extent = extent;
+        vkCmdSetScissor(commandBuffer, 0u, 1u, &scissor);
     }
 
     static constexpr float MILLISECS_IN_SEC = 1000.0f;
@@ -462,8 +580,7 @@ public:
             },
             // If only double buffering is available then one frame in flight, otherwise
             // 2 frames in flight (i.e. triple buffering).
-            std::min(m_spWindowRenderer->getSwapChainConfig().imageCount.value() - 1u, 2u),
-            m_renderTargetConfig);
+            std::min(m_spWindowRenderer->getSwapChainConfig().imageCount.value() - 1u, 2u));
 
         m_spCommandBufferFactory.reset(
             new vgfx::CommandBufferFactory(

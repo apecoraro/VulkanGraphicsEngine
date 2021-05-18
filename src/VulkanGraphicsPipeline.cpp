@@ -5,12 +5,14 @@
 namespace vgfx
 {
     PipelineBuilder::PipelineBuilder(
-        const SwapChain& swapChain,
-        const RenderTarget& renderTarget)
-        : m_renderTarget(renderTarget)
+        const VkViewport& viewport,
+        const RenderPass& renderPass,
+        const DepthStencilBuffer* pDepthStencilBuffer)
+        : m_viewport(viewport)
+        , m_pRenderPass(&renderPass)
     {
         m_depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        if (renderTarget.getDepthStencilBuffer() != nullptr) {
+        if (pDepthStencilBuffer != nullptr) {
             m_depthStencil.depthTestEnable = VK_TRUE;
             m_depthStencil.depthWriteEnable = VK_TRUE;
             m_depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
@@ -22,17 +24,11 @@ namespace vgfx
             m_depthStencil.back = {}; // Optional
         }
 
-        VkExtent2D swapChainExtent = swapChain.getImageExtent();
-
-        m_viewport.x = 0.0f;
-        m_viewport.y = 0.0f;
-        m_viewport.width = static_cast<float>(swapChainExtent.width);
-        m_viewport.height = static_cast<float>(swapChainExtent.height);
-        m_viewport.minDepth = 0.0f;
-        m_viewport.maxDepth = 1.0f;
-
         m_scissor.offset = { 0, 0 };
-        m_scissor.extent = swapChainExtent;
+        m_scissor.extent = { 
+            static_cast<uint32_t>(viewport.width),
+            static_cast<uint32_t>(viewport.height)
+        };
 
         RasterizerConfig defaultRasterizerConfig;
         configureRasterizer(defaultRasterizerConfig);
@@ -161,6 +157,28 @@ namespace vgfx
         return *this;
     }
 
+    PipelineBuilder& PipelineBuilder::configureDynamicStates(const std::vector<VkDynamicState>& dynamicStateEnables)
+    {
+        m_dynamicStateEnables = dynamicStateEnables;
+
+        return *this;
+    }
+
+    PipelineBuilder& PipelineBuilder::configureRenderPass(const RenderPass& renderPass, uint32_t subpass)
+    {
+        m_pRenderPass = &renderPass;
+        m_subpass = subpass;
+
+        return *this;
+    }
+
+    PipelineBuilder& PipelineBuilder::configureRenderPassSubpass(uint32_t subpass)
+    {
+        m_subpass = subpass;
+
+        return *this;
+    }
+
     std::unique_ptr<Pipeline> PipelineBuilder::createPipeline(Context& context)
     {
         VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
@@ -204,16 +222,26 @@ namespace vgfx
         viewportState.pScissors = &m_scissor;
 
         pipelineInfo.pViewportState = &viewportState;
-        pipelineInfo.pRasterizationState = &m_rasterizer;
         pipelineInfo.pMultisampleState = &m_multisampling;
         pipelineInfo.pDepthStencilState = &m_depthStencil;
         pipelineInfo.pColorBlendState = &m_colorBlending;
-        pipelineInfo.pDynamicState = nullptr; // Optional
+        pipelineInfo.pRasterizationState = &m_rasterizer;
+
+        VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {};
+        if (m_dynamicStateEnables.empty()) {
+            pipelineInfo.pDynamicState = nullptr;
+        } else {
+            dynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+            dynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(m_dynamicStateEnables.size());
+            dynamicStateCreateInfo.pDynamicStates = m_dynamicStateEnables.data();
+            pipelineInfo.pDynamicState = &dynamicStateCreateInfo;
+        }
 
         pipelineInfo.layout = pipelineLayout;
 
-        pipelineInfo.renderPass = m_renderTarget.getRenderPass();
-        pipelineInfo.subpass = 0;
+        assert(m_pRenderPass != VK_NULL_HANDLE);
+        pipelineInfo.renderPass = m_pRenderPass->getHandle();
+        pipelineInfo.subpass = m_subpass;
 
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
         pipelineInfo.basePipelineIndex = -1; // Optional

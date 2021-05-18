@@ -27,6 +27,8 @@
     <ClCompile Include="src\VulkanGraphicsCompute.cpp" />
     <ClCompile Include="src\VulkanGraphicsBuffer.cpp" />
     <ClCompile Include="src\VulkanGraphicsDepthStencilBuffer.cpp" />
+    <ClCompile Include="src\VulkanGraphicsImageSharpener.cpp" />
+    <ClCompile Include="src\VulkanGraphicsRenderPass.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\VulkanGraphicsContext.h" />
@@ -55,13 +57,18 @@
     <ClInclude Include="include\VulkanGraphicsImageDownsampler.h" />
     <ClInclude Include="include\VulkanGraphicsCompute.h" />
     <ClInclude Include="include\VulkanGraphicsBuffer.h" />
-    <ClInclude Include="dependencies\SinglePassDownsamplerAMD\ffx_a.h">
-      <Filter>Shaders</Filter>
-    </ClInclude>
-    <ClInclude Include="dependencies\SinglePassDownsamplerAMD\ffx_spd.h">
-      <Filter>Shaders</Filter>
-    </ClInclude>
     <ClInclude Include="include\VulkanGraphicsDepthStencilBuffer.h" />
+    <ClInclude Include="include\VulkanGraphicsImageSharpener.h" />
+    <ClInclude Include="dependencies\AMD_FidelityEffects\ffx_a.h">
+      <Filter>Shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="dependencies\AMD_FidelityEffects\ffx_cas.h">
+      <Filter>Shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="dependencies\AMD_FidelityEffects\ffx_spd.h">
+      <Filter>Shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="include\VulkanGraphicsRenderPass.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">
@@ -87,10 +94,13 @@
     <None Include="shaders\compile.bat">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="dependencies\SinglePassDownsamplerAMD\compile_spd.bat">
+    <None Include="dependencies\AMD_FidelityEffects\CAS_Shader.glsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="dependencies\SinglePassDownsamplerAMD\SPDIntegrationLinearSampler.glsl">
+    <None Include="dependencies\AMD_FidelityEffects\compile_fidelity_effects.bat">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="dependencies\AMD_FidelityEffects\SPDIntegrationLinearSampler.glsl">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

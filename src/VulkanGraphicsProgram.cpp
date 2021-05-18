@@ -1,5 +1,7 @@
 #include "VulkanGraphicsProgram.h"
 
+#include <fstream>
+#include <memory>
 #include <stdexcept>
 
 namespace vgfx
@@ -20,6 +22,34 @@ namespace vgfx
         }
 
         return shaderModule;
+    }
+
+    static void ReadFile(const std::string& filename, std::vector<char>* pBuffer)
+    {
+        std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+        if (!file.is_open()) {
+            throw std::runtime_error("Failed to open shader file!");
+        }
+
+        auto fileSize = file.tellg();
+        pBuffer->resize(fileSize);
+        file.seekg(0);
+
+        file.read(pBuffer->data(), fileSize);
+        file.close();
+    }
+
+    std::unique_ptr<Program> Program::CreateFromFile(
+        const std::string& spvFilePath,
+        Context& context,
+        Program::Type type,
+        const std::string& entryPointFuncName)
+    {
+        std::vector<char> spirvCode;
+        ReadFile(spvFilePath, &spirvCode);
+
+        return std::make_unique<Program>(context, type, entryPointFuncName, spirvCode);
     }
 
     Program::Program(

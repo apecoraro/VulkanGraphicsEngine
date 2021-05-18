@@ -19,6 +19,7 @@ vgfx::Image::Image(
     , m_extent(config.imageInfo.extent)
     , m_format(config.imageInfo.format)
     , m_mipLevels(config.imageInfo.mipLevels)
+    , m_sampleCount(config.imageInfo.samples)
 {
     auto& memoryAllocator = context.getMemoryAllocator();
 
