@@ -20,12 +20,18 @@ template<> struct std::hash<vgfx::VertexXyzRgbUv> {
     }
 };
 
+template<> struct std::hash<vgfx::VertexXyzRgbUvN> {
+    size_t operator()(vgfx::VertexXyzRgbUvN const& vertex) const {
+        return ((
+            (hash<glm::vec3>()(vertex.pos) ^
+            (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
+            (hash<glm::vec2>()(vertex.texCoord) << 1) >> 1) ^
+            (hash<glm::vec3>()(vertex.normal) << 1);
+    }
+};
+
 namespace vgfx
 {
-    VertexBuffer::Config ModelLibrary::DefaultVertexBufferConfig(
-            sizeof(VertexXyzRgbUv),
-            VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST); // TODO do all Obj models use this?
-
     IndexBuffer::Config ModelLibrary::DefaultIndexBufferConfig(VK_INDEX_TYPE_UINT32);
 
     static std::unique_ptr<VertexBuffer> CreateVertexBuffer(
@@ -33,7 +39,7 @@ namespace vgfx
         CommandBufferFactory& commandBufferFactory,
         CommandQueue& commandQueue,
         const VertexBuffer::Config& config,
-        const std::vector<VertexXyzRgbUv>& vertices)
+        const std::vector<uint8_t>& vertices)
     {
         return std::make_unique<VertexBuffer>(
             context,
@@ -41,47 +47,84 @@ namespace vgfx
             commandQueue,
             config,
             vertices.data(),
-            vertices.size() * sizeof(VertexXyzRgbUv));
+            vertices.size());
     }
 
-    static void LoadVertices(
+    static VertexXyzRgbUv CreateXyzRgbUv(const tinyobj::attrib_t& attrib, const tinyobj::index_t& index)
+    {
+        VertexXyzRgbUv vertex = {
+            {
+                attrib.vertices[3 * index.vertex_index + 0],
+                attrib.vertices[3 * index.vertex_index + 1],
+                attrib.vertices[3 * index.vertex_index + 2]
+            },
+            {
+                1.0f, 1.0f, 1.0f
+            },
+            {
+                attrib.texcoords[2 * index.texcoord_index + 0],
+                // tinyobjloader uses bottom of image as origin, so switch it to top for our case.
+                1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+            },
+        };
+
+        return vertex;
+    }
+
+    static VertexXyzRgbUvN CreateXyzRgbUvN(const tinyobj::attrib_t& attrib, const tinyobj::index_t& index)
+    {
+        VertexXyzRgbUvN vertex = {
+            {
+                attrib.vertices[3 * index.vertex_index + 0],
+                attrib.vertices[3 * index.vertex_index + 1],
+                attrib.vertices[3 * index.vertex_index + 2]
+            },
+            {
+                1.0f, 1.0f, 1.0f
+            },
+            {
+                attrib.texcoords[2 * index.texcoord_index + 0],
+                // tinyobjloader uses bottom of image as origin, so switch it to top for our case.
+                1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+            },
+            {
+                attrib.normals[3 * index.normal_index + 0],
+                attrib.normals[3 * index.normal_index + 1],
+                attrib.normals[3 * index.normal_index + 2]
+            },
+        };
+
+        return vertex;
+    }
+
+    template<class VertexType>
+    void LoadVertices(
         const tinyobj::attrib_t& attrib,
         const std::vector<tinyobj::shape_t>& shapes,
+        const std::function<VertexType(const tinyobj::attrib_t&, const tinyobj::index_t&)>& createVertexFunc,
+        const VertexBuffer::Config& vtxBufferCfg,
         Context& context,
         CommandBufferFactory& commandBufferFactory,
         CommandQueue& commandQueue,
         std::unique_ptr<VertexBuffer>* pspVertexBuffer,
         std::unique_ptr<IndexBuffer>* pspIndexBuffer)
     {
-        std::vector<VertexXyzRgbUv> vertices;
+        std::vector<uint8_t> vertices;
         std::vector<uint32_t> indices;
-        std::unordered_map<VertexXyzRgbUv, uint32_t> uniqueVertices;
+        std::unordered_map<VertexType, uint32_t> uniqueVertices;
 
         for (const auto& shape : shapes) {
             for (const auto& index : shape.mesh.indices) {
-                VertexXyzRgbUv vertex = {
-                    {
-                        attrib.vertices[3 * index.vertex_index + 0],
-                        attrib.vertices[3 * index.vertex_index + 1],
-                        attrib.vertices[3 * index.vertex_index + 2]
-                    },
-                    {
-                        1.0f, 1.0f, 1.0f
-                    },
-                    {
-                        attrib.texcoords[2 * index.texcoord_index + 0],
-                        // tinyobjloader uses bottom of image as origin, so switch it to top for our case.
-                        1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-                    },
-                };
+                VertexType vertex = createVertexFunc(attrib, index);
 
                 if (uniqueVertices.count(vertex) == 0) {
-                    uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-                    vertices.push_back(vertex);
+                    //uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+                    uint8_t* pVertex = reinterpret_cast<uint8_t*>(&vertex);
+                    vertices.insert(vertices.end(), pVertex, pVertex + sizeof(VertexType));
                 }
 
-                indices.push_back(uniqueVertices[vertex]);
-                //indices.push_back(static_cast<uint32_t>(indices.size()));
+                //indices.push_back(uniqueVertices[vertex]);
+                indices.push_back(static_cast<uint32_t>(indices.size()));
             }
         }
 
@@ -90,8 +133,7 @@ namespace vgfx
                 context,
                 commandBufferFactory,
                 commandQueue,
-                // TODO eventually could have a way to use other vertex buffer configs
-                ModelLibrary::GetDefaultVertexBufferConfig(),
+                vtxBufferCfg,
                 vertices);
 
         *pspIndexBuffer =
@@ -133,14 +175,35 @@ namespace vgfx
 
         std::unique_ptr<VertexBuffer> spVertexBuffer;
         std::unique_ptr<IndexBuffer> spIndexBuffer;
-        LoadVertices(
-            attrib,
-            shapes,
-            context,
-            commandBufferFactory,
-            commandQueue,
-            &spVertexBuffer,
-            &spIndexBuffer);
+
+        // This is kind of crappy way to do this.
+        if (VertexBuffer::ComputeVertexStride(material.getVertexShaderInputs()) ==
+                VertexBuffer::ComputeVertexStride(VertexXyzRgbUv::GetConfig().vertexAttrDescriptions)) {
+            LoadVertices<VertexXyzRgbUv>(
+                attrib,
+                shapes,
+                CreateXyzRgbUv,
+                VertexXyzRgbUv::GetConfig(),
+                context,
+                commandBufferFactory,
+                commandQueue,
+                &spVertexBuffer,
+                &spIndexBuffer);
+        } else if (VertexBuffer::ComputeVertexStride(material.getVertexShaderInputs()) ==
+                   VertexBuffer::ComputeVertexStride(VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions)) {
+            LoadVertices<VertexXyzRgbUvN>(
+                attrib,
+                shapes,
+                CreateXyzRgbUvN,
+                VertexXyzRgbUvN::GetConfig(),
+                context,
+                commandBufferFactory,
+                commandQueue,
+                &spVertexBuffer,
+                &spIndexBuffer);
+        } else {
+            assert(false && "Unkown vertex config.");
+        }
 
         std::map<Material::ImageType, const Image*> images;
         if (!material.getImageTypes().empty()) {
@@ -171,29 +234,6 @@ namespace vgfx
                 images)));
 
         return *models.back().get();
-    }
-
-    VertexBuffer::Config& ModelLibrary::GetDefaultVertexBufferConfig()
-    {
-        // Initialize the vertex attribute descriptions if not already.
-        if (DefaultVertexBufferConfig.vertexAttrDescriptions.empty()) {
-            DefaultVertexBufferConfig.vertexAttrDescriptions.push_back(
-                VertexBuffer::AttributeDescription(
-                    VK_FORMAT_R32G32B32_SFLOAT,
-                    offsetof(VertexXyzRgbUv, pos)));
-
-            DefaultVertexBufferConfig.vertexAttrDescriptions.push_back(
-                VertexBuffer::AttributeDescription(
-                    VK_FORMAT_R32G32B32_SFLOAT,
-                    offsetof(VertexXyzRgbUv, color)));
-
-            DefaultVertexBufferConfig.vertexAttrDescriptions.push_back(
-                VertexBuffer::AttributeDescription(
-                    VK_FORMAT_R32G32_SFLOAT,
-                    offsetof(VertexXyzRgbUv, texCoord)));
-        }
-
-        return DefaultVertexBufferConfig;
     }
 
     IndexBuffer::Config& ModelLibrary::GetDefaultIndexBufferConfig()

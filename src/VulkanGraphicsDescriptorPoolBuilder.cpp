@@ -21,7 +21,7 @@ namespace vgfx
     void DescriptorPoolBuilder::addDescriptorSets(const DescriptorSetLayouts& descriptorSetLayouts)
     {
         for (const auto& descSetLayoutInfo : descriptorSetLayouts) {
-            m_maxSets += descSetLayoutInfo.copyCount;
+            m_maxSets += static_cast<uint32_t>(descSetLayoutInfo.copyCount);
             for (const auto& descBindingCfg : descSetLayoutInfo.spDescriptorSetLayout->getDescriptorBindings()) {
                 VkDescriptorPoolSize& poolSize = m_descriptorPoolSizes[descBindingCfg.second.descriptorType];
                 poolSize.type = descBindingCfg.second.descriptorType;

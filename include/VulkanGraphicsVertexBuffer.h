@@ -25,6 +25,8 @@ namespace vgfx
             AttributeDescription(VkFormat fmt, uint32_t ofs) : format(fmt), offset(ofs) {}
         };
 
+        static uint32_t ComputeVertexStride(const std::vector<AttributeDescription>& vtxAttrs);
+
         struct Config
         {
             uint32_t vertexStride = 0u; 
@@ -40,6 +42,15 @@ namespace vgfx
                 VkPrimitiveTopology primTopo)
                 : vertexStride(vtxStride)
                 , primitiveTopology(primTopo)
+            {
+            }
+
+            Config(
+                VkPrimitiveTopology primTopo,
+                const std::vector<AttributeDescription>& vtxAttrs)
+                : vertexStride(ComputeVertexStride(vtxAttrs))
+                , primitiveTopology(primTopo)
+                , vertexAttrDescriptions(vtxAttrs)
             {
             }
         };
@@ -58,10 +69,7 @@ namespace vgfx
             destroy();
         }
 
-        // TODO rather than store these values, store a type enum that can then return these values via
-        // static function.
-        uint32_t getVertexStride() const { return m_vertexStride; }
-        const std::vector<AttributeDescription>& getVertexAttributes() const { return m_vertexAttrDescriptions; }
+        const Config& getConfig() const { return m_config; }
 
         VkBuffer getHandle() { return m_buffer.handle; }
 
@@ -70,13 +78,11 @@ namespace vgfx
 
         Context& m_context;
 
-        uint32_t m_vertexStride;
-        std::vector<AttributeDescription> m_vertexAttrDescriptions;
+        Config m_config;
 
         MemoryAllocator::Buffer m_buffer;
     };
 
-    // TODO add some other options for Vertex format.
     struct VertexXyzRgbUv
     {
         glm::vec3 pos;
@@ -86,6 +92,25 @@ namespace vgfx
         {
             return pos == other.pos && color == other.color && texCoord == other.texCoord;
         }
+
+        static const VertexBuffer::Config& GetConfig();
+    };
+
+    struct VertexXyzRgbUvN
+    {
+        glm::vec3 pos;
+        glm::vec3 color;
+        glm::vec2 texCoord;
+        glm::vec3 normal;
+        bool operator==(const VertexXyzRgbUvN& other) const
+        {
+            return pos == other.pos
+                && color == other.color
+                && texCoord == other.texCoord
+                && normal == other.normal;
+        }
+
+        static const VertexBuffer::Config& GetConfig();
     };
 }
 

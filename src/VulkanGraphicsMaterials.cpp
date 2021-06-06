@@ -94,6 +94,7 @@ namespace vgfx
         spMaterial =
             std::make_unique<Material>(
                 vertexShader,
+                materialInfo.vertexShaderInputs,
                 fragmentShader,
                 std::move(descriptorSetLayouts),
                 materialInfo.imageTypes);

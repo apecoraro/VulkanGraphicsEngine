@@ -59,7 +59,7 @@ namespace vgfx
         bool update(
             void* pData,
             size_t sizeOfDataBytes,
-            MemMap memMap)
+            MemMap memMap = MemMap::UnMap)
         {
             assert(sizeOfDataBytes <= m_bufferSize);
             if (m_pMappedPtr == nullptr) {

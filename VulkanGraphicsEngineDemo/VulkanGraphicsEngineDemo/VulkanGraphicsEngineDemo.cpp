@@ -46,6 +46,18 @@ struct ModelViewProj {
     glm::mat4 proj = glm::identity<glm::mat4>();
 };
 
+struct Light
+{
+    glm::vec4 position;
+    glm::vec3 color;
+    float radius;
+};
+
+struct LightingUniforms {
+    Light lights[2];
+    glm::vec4 viewPos;
+};
+
 class Demo
 {
 public:
@@ -156,8 +168,8 @@ public:
 
         // Render to half size offscreen image then use image sharpener to upscale
         vgfx::Image::Config offscreenImageCfg(
-            windowWidth >> 1,
-            windowHeight >> 1,
+            windowWidth,
+            windowHeight,
             VK_FORMAT_R16G16B16A16_SFLOAT,
             VK_IMAGE_TILING_OPTIMAL,
             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
@@ -219,40 +231,34 @@ public:
                 m_graphicsContext,
                 m_graphicsContext.getGraphicsQueueFamilyIndex().value());
 
-        // Vertex shader input types, in location order
-        std::vector<VkFormat> vertexShaderInputs = {
-            VK_FORMAT_R32G32B32_SFLOAT, // position
-            VK_FORMAT_R32G32B32_SFLOAT, // color
-            VK_FORMAT_R32G32_SFLOAT // uv
-        };
         std::string vertexShaderEntryPointFunc = "main";
-        // Frag shader input types, in location order
-        std::vector<VkFormat> fragmentShaderInputs = {
-            VK_FORMAT_R32G32B32_SFLOAT, // color
-            VK_FORMAT_R32G32_SFLOAT // uv
-        };
-
         std::string fragmentShaderEntryPointFunc = "main";
 
         uint32_t bindingIndex = 0;
-        vgfx::DescriptorSetLayout::DescriptorBindings cameraMatrixDescSetBindings;
-        cameraMatrixDescSetBindings[bindingIndex] =
+        vgfx::DescriptorSetLayout::DescriptorBindings vertShaderBindings;
+        vertShaderBindings[bindingIndex] =
             vgfx::DescriptorSetLayout::DescriptorBinding(
                 VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                 VK_SHADER_STAGE_VERTEX_BIT);
 
-        vgfx::DescriptorSetLayout::DescriptorBindings combImgSamplerDescSetBindings;
-        combImgSamplerDescSetBindings[bindingIndex] =
+        vgfx::DescriptorSetLayout::DescriptorBindings fragShaderBindings;
+        fragShaderBindings[bindingIndex] =
             vgfx::DescriptorSetLayout::DescriptorBinding(
                 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                 VK_SHADER_STAGE_FRAGMENT_BIT);
 
+        ++bindingIndex;
+        fragShaderBindings[bindingIndex] =
+            vgfx::DescriptorSetLayout::DescriptorBinding(
+                VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                VK_SHADER_STAGE_FRAGMENT_BIT);
+
         std::vector<vgfx::DescriptorSetLayoutBindingInfo> descriptorSetLayoutBindings = {
             vgfx::DescriptorSetLayoutBindingInfo(
-                cameraMatrixDescSetBindings,
+                vertShaderBindings,
                 m_spWindowRenderer->getSwapChain().getImageCount()), // Number of copies of this DescriptorSet
             vgfx::DescriptorSetLayoutBindingInfo(
-                combImgSamplerDescSetBindings)
+                fragShaderBindings)
         };
 
         std::vector<vgfx::Material::ImageType> imageTypes = { vgfx::Material::ImageType::Diffuse };
@@ -260,10 +266,9 @@ public:
         // Create MaterialInfo which is used to create an instance of the material for a particular
         // model by the ModelLibrary.
         vgfx::MaterialsLibrary::MaterialInfo materialInfo(
-            vertexShaderInputs,
             vertexShader,
             vertexShaderEntryPointFunc,
-            fragmentShaderInputs,
+            vgfx::VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions,
             fragmentShader,
             fragmentShaderEntryPointFunc,
             descriptorSetLayoutBindings,
@@ -308,8 +313,12 @@ public:
     std::unique_ptr<vgfx::ImageSharpener> m_spImageSharpener;
 
     std::unique_ptr<vgfx::CommandBufferFactory> m_spCommandBufferFactory;
+
     ModelViewProj m_cameraMatrix;
     std::vector<std::unique_ptr<vgfx::Buffer>> m_cameraMatrixBuffers;
+
+    std::unique_ptr<vgfx::Buffer> m_spLightingUniformsBuffer;
+
     std::vector<std::unique_ptr<vgfx::Object>> m_graphicsObjects;
     std::unique_ptr<vgfx::ModelLibrary> m_spModelLibrary;
     std::unique_ptr<vgfx::Pipeline> m_spGraphicsPipeline;
@@ -349,7 +358,7 @@ public:
         // GraphicsPipeline is specific to a material, vertex buffer config,
         // and input assembly config.
         vgfx::PipelineBuilder::InputAssemblyConfig inputConfig(
-            vgfx::ModelLibrary::GetDefaultVertexBufferConfig().primitiveTopology,
+            drawable.getVertexBuffer().getConfig().primitiveTopology,
             vgfx::ModelLibrary::GetDefaultIndexBufferConfig().hasPrimitiveRestartValues);
 
         m_spGraphicsPipeline =
@@ -359,7 +368,7 @@ public:
                 m_spWindowRenderer->getDepthStencilBuffer(),
                 *m_spOffscreenRenderPass.get(),
                 material,
-                vgfx::ModelLibrary::GetDefaultVertexBufferConfig(),
+                drawable.getVertexBuffer().getConfig(),
                 inputConfig);
 
         m_graphicsObjects.push_back(std::move(spModelObject));
@@ -371,8 +380,9 @@ public:
         vgfx::ModelLibrary& modelLibrary)
     {
         m_cameraMatrix.model = glm::identity<glm::mat4>();
+        glm::vec3 viewPos(2.0f, 2.0f, 2.0f);
         m_cameraMatrix.view = glm::lookAt(
-            glm::vec3(2.0f, 2.0f, 2.0f), // eye
+            viewPos,
             glm::vec3(0.0f, 0.0f, 0.0f), // center
             glm::vec3(0.0f, 0.0f, 1.0f)); // up
         auto& swapChainExtent = m_spWindowRenderer->getSwapChain().getImageExtent();
@@ -388,13 +398,13 @@ public:
                     static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height),
                     0.1f, // near
                     30.0f); // far
-        vgfx::Buffer::Config uniformBufferConfig(sizeof(ModelViewProj));
+        vgfx::Buffer::Config cameraMatrixBufferCfg(sizeof(ModelViewProj));
         for (uint32_t index = 0; index < m_spWindowRenderer->getSwapChain().getImageCount(); ++index) {
             m_cameraMatrixBuffers.emplace_back(
                 std::make_unique<vgfx::Buffer>(
                     graphicsContext,
                     vgfx::Buffer::Type::UniformBuffer,
-                    uniformBufferConfig));
+                    cameraMatrixBufferCfg));
             m_cameraMatrixBuffers.back()->update(
                 &m_cameraMatrix,
                 sizeof(m_cameraMatrix),
@@ -430,13 +440,32 @@ public:
                     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
                     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
                     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                    false, 0),
-                graphicsContext); // Last two parameters are for anisotropic filtering*/
+                    false, 0), // Last two parameters are for anisotropic filtering*/
+                graphicsContext); 
+
+        LightingUniforms lightingUniforms;
+        lightingUniforms.viewPos = glm::vec4(viewPos, 1.0f);
+        lightingUniforms.lights[0] = {
+            glm::vec4(2.0f, 10.0f, 10.0f, 1.0f), //position
+            glm::vec3(1.0f, 1.0f, 0.0f), // color
+            300.0f, // radius
+        };
+        lightingUniforms.lights[1] = {
+            glm::vec4(10.0f, 0.0f, 3.0f, 1.0f), //position
+            glm::vec3(0.0f, 0.0f, 1.0f), // color
+            200.0f, // radius
+        };
+
+        vgfx::Buffer::Config lightingBufferCfg(sizeof(lightingUniforms));
+        m_spLightingUniformsBuffer =
+            std::make_unique<vgfx::Buffer>(
+                graphicsContext, vgfx::Buffer::Type::UniformBuffer, lightingBufferCfg);
+        m_spLightingUniformsBuffer->update(&lightingUniforms, sizeof(lightingUniforms));
 
         vgfx::CombinedImageSamplerDescriptorUpdater descriptorUpdater(imageView,  sampler);
-        // Image sampler descriptor is set index == 1.
+        // frag shader descriptor set is set index == 1.
         drawable.getDescriptorSetBuffers()[1]->getDescriptorSet(0).update(
-            graphicsContext, {{0, &descriptorUpdater}});
+            graphicsContext, { {0, &descriptorUpdater}, {1, m_spLightingUniformsBuffer.get()} });
     }
 
     std::unique_ptr<vgfx::Pipeline> createGraphicsPipeline(

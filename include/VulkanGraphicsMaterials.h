@@ -4,6 +4,7 @@
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsDescriptors.h"
 #include "VulkanGraphicsProgram.h"
+#include "VulkanGraphicsVertexBuffer.h"
 
 #include <cassert>
 #include <vector>
@@ -28,11 +29,13 @@ namespace vgfx
         
         Material(
             const Program& vertexShader,
+            const std::vector<VertexBuffer::AttributeDescription>& vtxShaderInputs,
             const Program& fragmentShader,
             DescriptorSetLayouts&& descriptorSetLayouts,
             const std::vector<ImageType>& imageTypes)
             : m_materialId(MaterialId(&vertexShader, &fragmentShader))
             , m_vertexShader(vertexShader)
+            , m_vertexShaderInputs(vtxShaderInputs)
             , m_fragmentShader(fragmentShader)
             , m_descriptorSetLayouts(std::move(descriptorSetLayouts))
             , m_imageTypes(imageTypes)
@@ -45,6 +48,7 @@ namespace vgfx
         const Program& getVertexShader() const { return m_vertexShader; }
         const Program& getFragmentShader() const { return m_fragmentShader; }
 
+        const std::vector<VertexBuffer::AttributeDescription>& getVertexShaderInputs() const { return m_vertexShaderInputs; }
         const DescriptorSetLayouts& getDescriptorSetLayouts() const { return m_descriptorSetLayouts; }
         const std::vector<ImageType>& getImageTypes() const { return m_imageTypes; }
 
@@ -53,6 +57,7 @@ namespace vgfx
     private:
         MaterialId m_materialId;
         const Program& m_vertexShader;
+        std::vector<VertexBuffer::AttributeDescription> m_vertexShaderInputs;
         const Program& m_fragmentShader;
         DescriptorSetLayouts m_descriptorSetLayouts;
         std::vector<ImageType> m_imageTypes;
@@ -66,28 +71,25 @@ namespace vgfx
     { 
         struct MaterialInfo
         {
-            std::vector<VkFormat> vertexShaderInputs; // vertex attribute input types, in location order
             std::string vertexShaderPath;
             std::string vertexShaderEntryPointFunc;
-            std::vector<VkFormat> fragmentShaderInputs; // frag shader input types, in location order
+            std::vector<VertexBuffer::AttributeDescription> vertexShaderInputs;
             std::string fragmentShaderPath;
             std::string fragmentShaderEntryPointFunc;
             std::vector<DescriptorSetLayoutBindingInfo> descriptorSetLayoutBindings;
             std::vector<Material::ImageType> imageTypes;
 
             MaterialInfo(
-                const std::vector<VkFormat>& vtxShaderInputs,
-                std::string vtxShaderPath,
-                std::string vtxShaderEntryPointFunc,
-                const std::vector<VkFormat>& fragShaderInputs,
-                std::string fragShaderPath,
-                std::string fragShaderEntryPointFunc,
+                const std::string& vtxShaderPath,
+                const std::string& vtxShaderEntryPointFunc,
+                const std::vector<VertexBuffer::AttributeDescription>& vtxShaderInputs,
+                const std::string& fragShaderPath,
+                const std::string& fragShaderEntryPointFunc,
                 const std::vector<DescriptorSetLayoutBindingInfo>& descSetLayoutBindings,
                 const std::vector<Material::ImageType>& imgTypes)
-                : vertexShaderInputs(vtxShaderInputs)
-                , vertexShaderPath(vtxShaderPath)
+                : vertexShaderPath(vtxShaderPath)
                 , vertexShaderEntryPointFunc(vtxShaderEntryPointFunc)
-                , fragmentShaderInputs(fragShaderInputs)
+                , vertexShaderInputs(vtxShaderInputs)
                 , fragmentShaderPath(fragShaderPath)
                 , fragmentShaderEntryPointFunc(fragShaderEntryPointFunc)
                 , descriptorSetLayoutBindings(descSetLayoutBindings)

@@ -76,22 +76,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\ndc_in_rgb_uv_out.vert">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="shaders\s_d0.0_rgb_uv_in.frag">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="shaders\s_d1.0_rgb_uv_in.frag">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="shaders\ub_d0.0_xyz_rgb_uv_in_rgb_uv_out.vert">
-      <Filter>Shaders</Filter>
-    </None>
     <None Include="shaders\README.md">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="shaders\compile.bat">
       <Filter>Shaders</Filter>
     </None>
     <None Include="dependencies\AMD_FidelityEffects\CAS_Shader.glsl">
@@ -101,6 +86,27 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="dependencies\AMD_FidelityEffects\SPDIntegrationLinearSampler.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\NoTransform_RgbUv_out.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\MvpTransform_XyzRgbUvNormal_Out.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\MvpTransform_RgbUv_Out.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\compile.sh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\TexturedBlinnPhong.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\TextureColorPassThru_Sampler[1.0].frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\TextureColorPassThru.frag">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

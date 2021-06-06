@@ -33,8 +33,7 @@ namespace vgfx
             CommandBufferFactory& commandBufferFactory,
             CommandQueue commandQueue);
  
-        // Default vertex and index buffer config for all models/drawables created by this.
-        static VertexBuffer::Config& GetDefaultVertexBufferConfig();
+        // Default index buffer config for all models/drawables created by this.
         static IndexBuffer::Config& GetDefaultIndexBufferConfig();
 
         Image& getOrLoadImage(
