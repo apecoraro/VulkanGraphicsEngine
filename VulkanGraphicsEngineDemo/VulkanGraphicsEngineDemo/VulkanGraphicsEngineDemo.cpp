@@ -40,8 +40,11 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
     return VK_FALSE;
 }
 
-struct ModelViewProj {
-    glm::mat4 model = glm::identity<glm::mat4>();
+struct ModelParams {
+    glm::mat4 world = glm::identity<glm::mat4>();
+};
+
+struct CameraParams {
     glm::mat4 view = glm::identity<glm::mat4>();
     glm::mat4 proj = glm::identity<glm::mat4>();
 };
@@ -75,7 +78,8 @@ public:
         uint32_t platformSpecificExtensionCount,
         const char** platformSpecificExtensions,
         const std::string& dataPath,
-        const std::string& model,
+        const std::string& modelPath,
+        const std::string& modelDiffuseTexName,
         const std::string& vertexShader,
         const std::string& fragmentShader)
     {
@@ -263,6 +267,13 @@ public:
 
         std::vector<vgfx::Material::ImageType> imageTypes = { vgfx::Material::ImageType::Diffuse };
 
+        VkPushConstantRange pushConstantRange = {};
+        pushConstantRange.offset = 0;
+        pushConstantRange.size = sizeof(ModelParams);
+        pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+        std::vector<VkPushConstantRange> pushConstantRanges = { pushConstantRange };
+
         // Create MaterialInfo which is used to create an instance of the material for a particular
         // model by the ModelLibrary.
         vgfx::MaterialsLibrary::MaterialInfo materialInfo(
@@ -271,6 +282,7 @@ public:
             vgfx::VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions,
             fragmentShader,
             fragmentShaderEntryPointFunc,
+            pushConstantRanges,
             descriptorSetLayoutBindings,
             imageTypes);
 
@@ -283,6 +295,14 @@ public:
         m_spDescriptorPool = poolBuilder.createPool(m_graphicsContext);
 
         m_spModelLibrary = std::make_unique<vgfx::ModelLibrary>();
+
+        vgfx::ModelLibrary::Model model;
+        model.modelPathOrShapeName = modelPath;
+        if (!modelDiffuseTexName.empty()) {
+            model.imageOverrides[vgfx::Material::ImageType::Diffuse] = modelDiffuseTexName;
+        }
+
+        glm::mat4 modelWorldTransform = glm::identity<glm::mat4>();
         // Rendering to offscreen image at half the resolution requires dynamic viewport and scissor in the
         // graphics pipeline.
         initGraphicsObject(
@@ -291,6 +311,7 @@ public:
             *m_spCommandBufferFactory,
             model,
             material,
+            modelWorldTransform,
             *m_spModelLibrary);
 
         m_spImageSharpener->createRenderingResources(*m_spDescriptorPool.get());
@@ -314,7 +335,7 @@ public:
 
     std::unique_ptr<vgfx::CommandBufferFactory> m_spCommandBufferFactory;
 
-    ModelViewProj m_cameraMatrix;
+    CameraParams m_cameraMatrix;
     std::vector<std::unique_ptr<vgfx::Buffer>> m_cameraMatrixBuffers;
 
     std::unique_ptr<vgfx::Buffer> m_spLightingUniformsBuffer;
@@ -337,8 +358,9 @@ public:
         vgfx::Context& graphicsContext,
         vgfx::DescriptorPool& descriptorPool,
         vgfx::CommandBufferFactory& commandBufferFactory,
-        const std::string& model,
+        const vgfx::ModelLibrary::Model& model,
         const vgfx::Material& material,
+        const glm::mat4& modelWorldTransform,
         vgfx::ModelLibrary& modelLibrary)
     {
         auto& drawable =
@@ -349,6 +371,8 @@ public:
                 *m_spDescriptorPool.get(),
                 commandBufferFactory,
                 graphicsContext.getGraphicsQueue(0));
+
+        drawable.setWorldTransform(modelWorldTransform);
 
         initDrawableDescriptorSets(graphicsContext, drawable, modelLibrary);
 
@@ -379,7 +403,6 @@ public:
         vgfx::Drawable& drawable,
         vgfx::ModelLibrary& modelLibrary)
     {
-        m_cameraMatrix.model = glm::identity<glm::mat4>();
         glm::vec3 viewPos(2.0f, 2.0f, 2.0f);
         m_cameraMatrix.view = glm::lookAt(
             viewPos,
@@ -398,7 +421,7 @@ public:
                     static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height),
                     0.1f, // near
                     30.0f); // far
-        vgfx::Buffer::Config cameraMatrixBufferCfg(sizeof(ModelViewProj));
+        vgfx::Buffer::Config cameraMatrixBufferCfg(sizeof(CameraParams));
         for (uint32_t index = 0; index < m_spWindowRenderer->getSwapChain().getImageCount(); ++index) {
             m_cameraMatrixBuffers.emplace_back(
                 std::make_unique<vgfx::Buffer>(
@@ -440,7 +463,7 @@ public:
                     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
                     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
                     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                    false, 0), // Last two parameters are for anisotropic filtering*/
+                    false, 0), // Last two parameters are for anisotropic filtering
                 graphicsContext); 
 
         LightingUniforms lightingUniforms;
@@ -653,6 +676,7 @@ bool DemoInit(
     bool enableValidationLayers,
     const char* pDataPath,
     const char* pModelFilename,
+    const char* pModelDiffuseTexName,
     const char* pVertexShaderFilename,
     const char* pFragShaderFilename)
 {
@@ -667,6 +691,7 @@ bool DemoInit(
 				platformSpecificExtensions,
                 pDataPath,
 				pModelFilename,
+                pModelDiffuseTexName,
 				pVertexShaderFilename,
 				pFragShaderFilename);
         } catch(const std::exception& e) {

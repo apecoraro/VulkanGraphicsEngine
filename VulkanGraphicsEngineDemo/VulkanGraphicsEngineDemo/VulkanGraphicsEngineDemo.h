@@ -15,6 +15,7 @@ extern "C" {
         bool enableValidationLayers,
         const char* pDataPath,
         const char* pModelFilename,
+        const char* pModelDiffuseTexName,
         const char* pVertShaderFilename,
         const char* pFragShaderFilename);
 

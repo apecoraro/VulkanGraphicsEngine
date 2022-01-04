@@ -16,6 +16,14 @@ void vgfx::Drawable::recordDrawCommands(
         0u, // dynamic sets count
         nullptr); // dynamic sets ptr
 
+    vkCmdPushConstants(
+        commandBuffer,
+        m_material.getPipeline().getLayout(),
+        VK_SHADER_STAGE_VERTEX_BIT,
+        0,
+        sizeof(glm::mat4),
+        static_cast<void*>(&m_worldTransform));
+
     VkBuffer vertexBuffers[] = { m_spVertexBuffer->getHandle() };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(

@@ -109,5 +109,11 @@
     <None Include="shaders\TextureColorPassThru.frag">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="shaders\PBR.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\TexturedBlinnPhongDebug.frag">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

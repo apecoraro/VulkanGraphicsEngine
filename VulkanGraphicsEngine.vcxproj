@@ -90,10 +90,12 @@
     <None Include="shaders\MvpTransform_RgbUv_Out.vert" />
     <None Include="shaders\MvpTransform_XyzRgbUvNormal_Out.vert" />
     <None Include="shaders\NoTransform_RgbUv_out.vert" />
+    <None Include="shaders\PBR.frag" />
     <None Include="shaders\README.md" />
     <None Include="shaders\TextureColorPassThru.frag" />
     <None Include="shaders\TextureColorPassThru_Sampler[1.0].frag" />
     <None Include="shaders\TexturedBlinnPhong.frag" />
+    <None Include="shaders\TexturedBlinnPhongDebug.frag" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -178,7 +180,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -193,7 +195,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>

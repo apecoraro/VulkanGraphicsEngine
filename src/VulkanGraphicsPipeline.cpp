@@ -143,6 +143,8 @@ namespace vgfx
         m_fragShaderStageInfo.module = fragmentShaderProgram.getShaderModule();
         m_fragShaderStageInfo.pName = fragmentShaderProgram.getEntryPointFunction().c_str();
 
+        m_pushConstantRanges = material.getPushConstantRanges();
+
         for (const auto& descSetLayoutInfo: material.getDescriptorSetLayouts()) {
             m_descriptorSetLayouts.push_back(descSetLayoutInfo.spDescriptorSetLayout->getHandle());
         }
@@ -185,8 +187,8 @@ namespace vgfx
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(m_descriptorSetLayouts.size());
         pipelineLayoutInfo.pSetLayouts = m_descriptorSetLayouts.data();
-        pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
-        pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
+        pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(m_pushConstantRanges.size());
+        pipelineLayoutInfo.pPushConstantRanges = m_pushConstantRanges.data();
 
         VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
         VkResult result =

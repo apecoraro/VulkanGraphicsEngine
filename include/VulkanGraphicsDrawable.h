@@ -84,11 +84,15 @@ namespace vgfx
 
         std::vector<std::unique_ptr<DescriptorSetBuffer>>& getDescriptorSetBuffers() { return m_descriptorSetBuffers; }
 
+        const glm::mat4& getWorldTransform() const { return m_worldTransform; }
+        void setWorldTransform(const glm::mat4& worldTransform) { m_worldTransform = worldTransform; }
+
     private:
         std::unique_ptr<VertexBuffer> m_spVertexBuffer;
         std::unique_ptr<IndexBuffer> m_spIndexBuffer;
         const Material& m_material;
         std::map<Material::ImageType, const Image*> m_images;
+        glm::mat4 m_worldTransform;
         std::vector<std::unique_ptr<DescriptorSetBuffer>> m_descriptorSetBuffers;
         std::vector<std::vector<VkDescriptorSet>> m_descriptorSets;
     };

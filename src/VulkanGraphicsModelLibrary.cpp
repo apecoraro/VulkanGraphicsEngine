@@ -98,19 +98,15 @@ namespace vgfx
     }
 
     template<class VertexType>
-    void LoadVertices(
+    void CreateVertsFromShapes(
         const tinyobj::attrib_t& attrib,
         const std::vector<tinyobj::shape_t>& shapes,
         const std::function<VertexType(const tinyobj::attrib_t&, const tinyobj::index_t&)>& createVertexFunc,
-        const VertexBuffer::Config& vtxBufferCfg,
-        Context& context,
-        CommandBufferFactory& commandBufferFactory,
-        CommandQueue& commandQueue,
-        std::unique_ptr<VertexBuffer>* pspVertexBuffer,
-        std::unique_ptr<IndexBuffer>* pspIndexBuffer)
+        std::vector<uint8_t>* pVerticesOut,
+        std::vector<uint32_t>* pIndicesOut)
     {
-        std::vector<uint8_t> vertices;
-        std::vector<uint32_t> indices;
+        std::vector<uint8_t>& vertices = *pVerticesOut;
+        std::vector<uint32_t>& indices = *pIndicesOut;
         std::unordered_map<VertexType, uint32_t> uniqueVertices;
 
         for (const auto& shape : shapes) {
@@ -127,7 +123,18 @@ namespace vgfx
                 indices.push_back(static_cast<uint32_t>(indices.size()));
             }
         }
+    }
 
+    void CreateVertexBuffers(
+        const std::vector<uint8_t>& vertices,
+        const std::vector<uint32_t>& indices,
+        const VertexBuffer::Config& vtxBufferCfg,
+        Context& context,
+        CommandBufferFactory& commandBufferFactory,
+        CommandQueue& commandQueue,
+        std::unique_ptr<VertexBuffer>* pspVertexBuffer,
+        std::unique_ptr<IndexBuffer>* pspIndexBuffer)
+    {
         *pspVertexBuffer =
             CreateVertexBuffer(
                 context,
@@ -141,86 +148,207 @@ namespace vgfx
                 context,
                 commandBufferFactory,
                 commandQueue,
-                // TODO eventually could have a way to use other vertex buffer configs
+                // TODO eventually could have a way to use other index buffer configs
                 ModelLibrary::GetDefaultIndexBufferConfig(),
                 indices.data(),
                 static_cast<uint32_t>(indices.size()));
     }
 
+    enum class ShapeType
+    {
+        NONE,
+        SPHERE
+    };
+
+    static bool ModelIsShape(const std::string& modelName, ShapeType* pShapeType)
+    {
+        static const std::string shapePrefix = "SHAPE_";
+        if (modelName.find(shapePrefix) == 0) {
+            std::string shapeTypeName = modelName.substr(shapePrefix.size());
+            if (shapeTypeName == "SPHERE") {
+                *pShapeType = ShapeType::SPHERE;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    static VertexBuffer::Config CreateSphereModel(
+        std::vector<uint8_t>* pVerticesOut,
+        std::vector<uint32_t>* pIndicesOut)
+    {
+        std::vector<glm::vec3> positions;
+        std::vector<glm::vec2> uv;
+        std::vector<glm::vec3> normals;
+
+        const unsigned int X_SEGMENTS = 64;
+        const unsigned int Y_SEGMENTS = 64;
+        const float PI = 3.14159265359f;
+        for (unsigned int x = 0; x <= X_SEGMENTS; ++x)
+        {
+            for (unsigned int y = 0; y <= Y_SEGMENTS; ++y)
+            {
+                float xSegment = (float)x / (float)X_SEGMENTS;
+                float ySegment = (float)y / (float)Y_SEGMENTS;
+                float xPos = std::cos(xSegment * 2.0f * PI) * std::sin(ySegment * PI);
+                float yPos = std::cos(ySegment * PI);
+                float zPos = std::sin(xSegment * 2.0f * PI) * std::sin(ySegment * PI);
+
+                positions.push_back(glm::vec3(xPos, yPos, zPos));
+                uv.push_back(glm::vec2(xSegment, ySegment));
+                normals.push_back(glm::vec3(xPos, yPos, zPos));
+            }
+        }
+
+        std::vector<uint32_t>& indices = *pIndicesOut;
+        bool oddRow = false;
+        for (unsigned int y = 0; y < Y_SEGMENTS; ++y) {
+            if (!oddRow) { // even rows: y == 0, y == 2; and so on
+                for (unsigned int x = 0; x <= X_SEGMENTS; ++x) {
+                    indices.push_back(y * (X_SEGMENTS + 1) + x);
+                    indices.push_back((y + 1) * (X_SEGMENTS + 1) + x);
+                }
+            } else {
+                for (int x = X_SEGMENTS; x >= 0; --x) {
+                    indices.push_back((y + 1) * (X_SEGMENTS + 1) + x);
+                    indices.push_back(y * (X_SEGMENTS + 1) + x);
+                }
+            }
+            oddRow = !oddRow;
+        }
+ 
+        for (unsigned int i = 0; i < positions.size(); ++i) {
+            VertexXyzRgbUvN vertex = {
+                {
+                    positions[i].x,
+                    positions[i].y,
+                    positions[i].z
+                },
+                {
+                    1.0f, 1.0f, 1.0f
+                },
+                {
+                    uv[i].x,
+                    uv[i].y
+                },
+                {
+                    normals[i].x,
+                    normals[i].y,
+                    normals[i].z
+                },
+            };
+            uint8_t* pVertex = reinterpret_cast<uint8_t*>(&vertex);
+            pVerticesOut->insert(pVerticesOut->end(), pVertex, pVertex + sizeof(vertex));
+        }
+        VertexBuffer::Config config = VertexXyzRgbUvN::GetConfig();
+        config.primitiveTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+        return config;
+    }
+
+    static bool LoadShapeModel(
+        ShapeType shapeType,
+        std::vector<uint8_t>* pVerticesOut,
+        std::vector<uint32_t>* pIndicesOut,
+        VertexBuffer::Config* pVtxBufCfg)
+    {
+        if (shapeType == ShapeType::SPHERE) {
+            *pVtxBufCfg = CreateSphereModel(pVerticesOut, pIndicesOut);
+            return true;
+        }
+        return false;
+    }
+
     Drawable& ModelLibrary::getOrCreateDrawable(
         Context& context,
-        const std::string& model,
+        const Model& model,
         const Material& material,
         DescriptorPool& descriptorPool,
         CommandBufferFactory& commandBufferFactory,
         CommandQueue commandQueue)
     {
-        std::string modelPath = context.getAppConfig().dataDirectoryPath + "/" + model;
+        std::string modelPath = context.getAppConfig().dataDirectoryPath + "/" + model.modelPathOrShapeName;
 
         Drawable* pDrawable = findDrawable(modelPath, material);
         if (pDrawable != nullptr) {
             return *pDrawable;
         }
 
-        tinyobj::attrib_t attrib;
-        std::vector<tinyobj::shape_t> shapes;
-        std::vector<tinyobj::material_t> materials;
-        std::string warn, err;
+        // make a copy of the override paths (if any) so that we can add the model file's images if there are some.
+        Model::Images modelImages = model.imageOverrides;
+       
+        std::vector<uint8_t> vertices;
+        std::vector<uint32_t> indices;
+        ShapeType shapeType = ShapeType::NONE;
+        VertexBuffer::Config vertexBufferCfg;
+        if (ModelIsShape(model.modelPathOrShapeName, &shapeType)) {
+            if (!LoadShapeModel(shapeType, &vertices, &indices, &vertexBufferCfg)) {
+                std::string error = "Unknown shape type: " + model.modelPathOrShapeName;
+                throw std::runtime_error(error);
+            }
+        } else {
+            tinyobj::attrib_t attrib;
+            std::vector<tinyobj::shape_t> shapes;
+            std::vector<tinyobj::material_t> materials;
+            std::string warn, err;
 
-        if (!tinyobj::LoadObj(
-                &attrib, &shapes, &materials, &warn, &err,
-                modelPath.c_str())) {
-            throw std::runtime_error(warn + err);
+            if (!tinyobj::LoadObj(
+                    &attrib, &shapes, &materials, &warn, &err,
+                    modelPath.c_str())) {
+                throw std::runtime_error(warn + err);
+            }
+
+            // This is kind of crappy way to do this.
+            if (VertexBuffer::ComputeVertexStride(material.getVertexShaderInputs()) ==
+                    VertexBuffer::ComputeVertexStride(VertexXyzRgbUv::GetConfig().vertexAttrDescriptions)) {
+                CreateVertsFromShapes<VertexXyzRgbUv>(
+                    attrib,
+                    shapes,
+                    CreateXyzRgbUv,
+                    &vertices,
+                    &indices);
+
+                vertexBufferCfg = VertexXyzRgbUv::GetConfig();
+            } else if (VertexBuffer::ComputeVertexStride(material.getVertexShaderInputs()) ==
+                       VertexBuffer::ComputeVertexStride(VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions)) {
+                CreateVertsFromShapes<VertexXyzRgbUvN>(
+                    attrib,
+                    shapes,
+                    CreateXyzRgbUvN,
+                    &vertices,
+                    &indices);
+
+                vertexBufferCfg = VertexXyzRgbUvN::GetConfig();
+            } else {
+                assert(false && "Unkown vertex config.");
+            }
+
+            if (!materials.empty()) {
+                if (model.imageOverrides.find(Material::ImageType::Diffuse) == model.imageOverrides.end()) {
+                    modelImages[Material::ImageType::Diffuse] = materials.front().diffuse_texname;
+                }
+                // TODO support other types of images.
+            }
         }
 
         std::unique_ptr<VertexBuffer> spVertexBuffer;
         std::unique_ptr<IndexBuffer> spIndexBuffer;
 
-        // This is kind of crappy way to do this.
-        if (VertexBuffer::ComputeVertexStride(material.getVertexShaderInputs()) ==
-                VertexBuffer::ComputeVertexStride(VertexXyzRgbUv::GetConfig().vertexAttrDescriptions)) {
-            LoadVertices<VertexXyzRgbUv>(
-                attrib,
-                shapes,
-                CreateXyzRgbUv,
-                VertexXyzRgbUv::GetConfig(),
-                context,
-                commandBufferFactory,
-                commandQueue,
-                &spVertexBuffer,
-                &spIndexBuffer);
-        } else if (VertexBuffer::ComputeVertexStride(material.getVertexShaderInputs()) ==
-                   VertexBuffer::ComputeVertexStride(VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions)) {
-            LoadVertices<VertexXyzRgbUvN>(
-                attrib,
-                shapes,
-                CreateXyzRgbUvN,
-                VertexXyzRgbUvN::GetConfig(),
-                context,
-                commandBufferFactory,
-                commandQueue,
-                &spVertexBuffer,
-                &spIndexBuffer);
-        } else {
-            assert(false && "Unkown vertex config.");
-        }
+        CreateVertexBuffers(
+            vertices, indices, vertexBufferCfg,
+            context, commandBufferFactory, commandQueue,
+            &spVertexBuffer, &spIndexBuffer);
 
         std::map<Material::ImageType, const Image*> images;
         if (!material.getImageTypes().empty()) {
             for (auto imageType : material.getImageTypes()) {
-                if (imageType == Material::ImageType::Diffuse) {
-                    std::string diffuseTexPath = modelPath.substr(0, modelPath.rfind('.')) + ".png";
-                    if (!materials.empty()) {
-                        diffuseTexPath = materials.front().diffuse_texname;
-                    }
-                    Image& image =
-                        getOrLoadImage(
-                            diffuseTexPath,
-                            context,
-                            commandBufferFactory,
-                            commandQueue);
-                    images[imageType] = &image;
-                }
+                std::string texturePath = context.getAppConfig().dataDirectoryPath + "/" + modelImages[imageType];
+                Image& image =
+                    getOrLoadImage(
+                        texturePath,
+                        context,
+                        commandBufferFactory,
+                        commandQueue);
+                images[imageType] = &image;
             }
         }
         auto& models = m_drawableLibrary[modelPath];
@@ -272,6 +400,10 @@ namespace vgfx
             path.c_str(),
             &texWidth, &texHeight, &texChannels,
             STBI_rgb_alpha);
+        if (pPixels == nullptr) {
+            std::string error = "Failed to load image: " + path;
+            throw std::runtime_error(error);
+        }
 
         VkDeviceSize imageSize = static_cast<int64_t>(texWidth) * static_cast<int64_t>(texHeight) * 4;
 

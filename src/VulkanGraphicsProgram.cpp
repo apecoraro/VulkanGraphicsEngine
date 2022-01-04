@@ -29,7 +29,8 @@ namespace vgfx
         std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
         if (!file.is_open()) {
-            throw std::runtime_error("Failed to open shader file!");
+            std::string error = "Failed to open shader file: " + filename;
+            throw std::runtime_error(error);
         }
 
         auto fileSize = file.tellg();

@@ -51,6 +51,7 @@ static void GetFrameBufferSizeCallback(void* window, int* pWidth, int* pHeight)
 static GLFWwindow* AppInit(
     const std::string& dataDirPath,
     const std::string& modelFilename,
+    const std::string& modelDiffuseTextureName,
     const std::string& vertShaderFilename,
     const std::string& fragShaderFilename)
 {
@@ -68,6 +69,7 @@ static GLFWwindow* AppInit(
             enableValidationLayers,
             dataDirPath.c_str(),
             modelFilename.c_str(),
+            modelDiffuseTextureName.c_str(),
             vertShaderFilename.c_str(),
             fragShaderFilename.c_str()))
         {
@@ -124,6 +126,7 @@ static void ParseCommandLine(
     int argc, char* argv[],
     std::string* pDataDirPath,
     std::string* pModelFilename,
+    std::string* pModelDiffuseTextureName,
     std::string* pVertShaderFilename,
     std::string* pFragShaderFilename)
 {
@@ -136,6 +139,12 @@ static void ParseCommandLine(
                 ShowHelpAndExit("-m");
             }
             *pModelFilename = argv[i];
+            continue;
+        } else if (_stricmp(argv[i], "-i") == 0) {
+            if (++i == argc) {
+                ShowHelpAndExit("-m");
+            }
+            *pModelDiffuseTextureName = argv[i];
             continue;
         } else if (_stricmp(argv[i], "-v") == 0) {
             if (++i == argc) {
@@ -164,6 +173,7 @@ int main(int argc, char** argv)
 {
     std::string dataDirPath = ".";
     std::string modelFilename;
+    std::string modelDiffuseTextureName;
     std::string vertexShaderFilename;
     std::string fragShaderFilename;
 
@@ -171,6 +181,7 @@ int main(int argc, char** argv)
         argc, argv,
         &dataDirPath,
         &modelFilename,
+        &modelDiffuseTextureName,
         &vertexShaderFilename,
         &fragShaderFilename);
 
@@ -178,6 +189,7 @@ int main(int argc, char** argv)
         AppInit(
             dataDirPath,
             modelFilename,
+            modelDiffuseTextureName,
             vertexShaderFilename,
             fragShaderFilename);
     if (window != nullptr)

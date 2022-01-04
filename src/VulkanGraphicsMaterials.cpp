@@ -96,6 +96,7 @@ namespace vgfx
                 vertexShader,
                 materialInfo.vertexShaderInputs,
                 fragmentShader,
+                std::move(materialInfo.pushConstantRanges),
                 std::move(descriptorSetLayouts),
                 materialInfo.imageTypes);
 

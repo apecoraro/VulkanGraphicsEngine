@@ -128,6 +128,9 @@ namespace vgfx
         VkPipelineInputAssemblyStateCreateInfo m_inputAssembly = {};
 
         VkPipelineShaderStageCreateInfo m_fragShaderStageInfo = {};
+
+        std::vector<VkPushConstantRange> m_pushConstantRanges;
+
         std::vector<VkDescriptorSetLayout> m_descriptorSetLayouts;
 
         VkPipelineDepthStencilStateCreateInfo m_depthStencil = {};

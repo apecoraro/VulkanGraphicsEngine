@@ -1,8 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>-d ../../data -m viking_room.obj -v MvpTransform_XyzRgbUvNormal_Out.vert.spv -f TexturedBlinnPhong.frag.spv</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>-d ../../data -m SHAPE_SPHERE -i Quake_Remastered.png -v MvpTransform_XyzRgbUvNormal_Out.vert.spv -f TexturedBlinnPhong.frag.spv</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerEnvironment>TEST_MODEL='-d ../../data -m viking_room.obj -i viking_room.png -v MvpTransform_XyzRgbUvNormal_Out.vert.spv -f TexturedBlinnPhong.frag.spv'
+TEST_SHAPE='-d ../../data -m SHAPE_SPHERE -i Quake_Remastered.png -v MvpTransform_XyzRgbUvNormal_Out.vert.spv -f TexturedBlinnPhong.frag.spv'
+$(LocalDebuggerEnvironment)</LocalDebuggerEnvironment>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LocalDebuggerCommandArguments>-d ../../data -m viking_room.obj -v ub_d0.0_xyz_rgb_uv_in_rgb_uv_out.spv -f s_d1.0_rgb_uv_in.spv</LocalDebuggerCommandArguments>

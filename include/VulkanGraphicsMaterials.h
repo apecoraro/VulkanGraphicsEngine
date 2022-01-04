@@ -31,12 +31,14 @@ namespace vgfx
             const Program& vertexShader,
             const std::vector<VertexBuffer::AttributeDescription>& vtxShaderInputs,
             const Program& fragmentShader,
+            const std::vector<VkPushConstantRange>& pushConstRanges,
             DescriptorSetLayouts&& descriptorSetLayouts,
             const std::vector<ImageType>& imageTypes)
             : m_materialId(MaterialId(&vertexShader, &fragmentShader))
             , m_vertexShader(vertexShader)
             , m_vertexShaderInputs(vtxShaderInputs)
             , m_fragmentShader(fragmentShader)
+            , m_pushConstantRanges(pushConstRanges)
             , m_descriptorSetLayouts(std::move(descriptorSetLayouts))
             , m_imageTypes(imageTypes)
         {
@@ -49,6 +51,7 @@ namespace vgfx
         const Program& getFragmentShader() const { return m_fragmentShader; }
 
         const std::vector<VertexBuffer::AttributeDescription>& getVertexShaderInputs() const { return m_vertexShaderInputs; }
+        const std::vector<VkPushConstantRange>& getPushConstantRanges() const { return m_pushConstantRanges; }
         const DescriptorSetLayouts& getDescriptorSetLayouts() const { return m_descriptorSetLayouts; }
         const std::vector<ImageType>& getImageTypes() const { return m_imageTypes; }
 
@@ -59,6 +62,7 @@ namespace vgfx
         const Program& m_vertexShader;
         std::vector<VertexBuffer::AttributeDescription> m_vertexShaderInputs;
         const Program& m_fragmentShader;
+        std::vector<VkPushConstantRange> m_pushConstantRanges;
         DescriptorSetLayouts m_descriptorSetLayouts;
         std::vector<ImageType> m_imageTypes;
         mutable const Pipeline* m_pPipeline = nullptr;
@@ -76,6 +80,7 @@ namespace vgfx
             std::vector<VertexBuffer::AttributeDescription> vertexShaderInputs;
             std::string fragmentShaderPath;
             std::string fragmentShaderEntryPointFunc;
+            std::vector<VkPushConstantRange> pushConstantRanges;
             std::vector<DescriptorSetLayoutBindingInfo> descriptorSetLayoutBindings;
             std::vector<Material::ImageType> imageTypes;
 
@@ -85,6 +90,7 @@ namespace vgfx
                 const std::vector<VertexBuffer::AttributeDescription>& vtxShaderInputs,
                 const std::string& fragShaderPath,
                 const std::string& fragShaderEntryPointFunc,
+                const std::vector<VkPushConstantRange>& pushConstRanges,
                 const std::vector<DescriptorSetLayoutBindingInfo>& descSetLayoutBindings,
                 const std::vector<Material::ImageType>& imgTypes)
                 : vertexShaderPath(vtxShaderPath)
@@ -92,6 +98,7 @@ namespace vgfx
                 , vertexShaderInputs(vtxShaderInputs)
                 , fragmentShaderPath(fragShaderPath)
                 , fragmentShaderEntryPointFunc(fragShaderEntryPointFunc)
+                , pushConstantRanges(pushConstRanges)
                 , descriptorSetLayoutBindings(descSetLayoutBindings)
                 , imageTypes(imgTypes)
             {

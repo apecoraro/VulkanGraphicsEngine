@@ -21,13 +21,20 @@ namespace vgfx
     class ModelLibrary
     {
     public:
-        using ModelPath = std::string;
 
         ModelLibrary() = default;
 
+        struct Model
+        {
+            std::string modelPathOrShapeName;
+            using Images = std::unordered_map<Material::ImageType, std::string>;
+            // Use imageOverrides to override the images specified by the model, or provide them for a shape.
+            Images imageOverrides;
+        };
+
         Drawable& getOrCreateDrawable(
             Context& context,
-            const std::string& modelPath,
+            const Model& model,
             const Material& material,
             DescriptorPool& descriptorPool,
             CommandBufferFactory& commandBufferFactory,

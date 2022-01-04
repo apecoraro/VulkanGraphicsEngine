@@ -37,6 +37,8 @@ namespace vgfx
             std::vector<uint32_t> queueFamilyIndices;
             std::vector<AttributeDescription> vertexAttrDescriptions;
 
+            Config() = default;
+
             Config(
                 uint32_t vtxStride,
                 VkPrimitiveTopology primTopo)
