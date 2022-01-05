@@ -469,14 +469,14 @@ public:
         LightingUniforms lightingUniforms;
         lightingUniforms.viewPos = glm::vec4(viewPos, 1.0f);
         lightingUniforms.lights[0] = {
-            glm::vec4(2.0f, 10.0f, 10.0f, 1.0f), //position
-            glm::vec3(1.0f, 1.0f, 0.0f), // color
-            300.0f, // radius
+            glm::vec4(1.0f, 100.0f, 500.0f, 1.0f), //position
+            glm::vec3(1.0f, 1.0f, 1.0f), // color
+            150000.0f, // radius
         };
         lightingUniforms.lights[1] = {
-            glm::vec4(10.0f, 0.0f, 3.0f, 1.0f), //position
-            glm::vec3(0.0f, 0.0f, 1.0f), // color
-            200.0f, // radius
+            glm::vec4(100.0f, 0.0f, 3.0f, 1.0f), //position
+            glm::vec3(1.0f, 1.0f, 1.0f), // color
+            2000.0f, // radius
         };
 
         vgfx::Buffer::Config lightingBufferCfg(sizeof(lightingUniforms));
