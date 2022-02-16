@@ -1,7 +1,6 @@
-#ifndef VGFX_MODEL_LIBRARY_H
-#define VGFX_MODEL_LIBRARY_H
+#pragma once
 
-#include "VulkanGraphicsCommandBuffers.h"
+#include "VulkanGraphicsCommandBufferFactory.h"
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsDescriptors.h"
 #include "VulkanGraphicsDrawable.h"
@@ -79,4 +78,4 @@ namespace vgfx
         SamplerLibrary m_samplerLibrary;
     };
 }
-#endif
+

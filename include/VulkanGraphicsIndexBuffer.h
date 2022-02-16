@@ -1,9 +1,8 @@
-#ifndef VGFX_INDEX_BUFFER_H
-#define VGFX_INDEX_BUFFER_H
+#pragma once
 
 #include "VulkanGraphicsContext.h"
 
-#include "VulkanGraphicsCommandBuffers.h"
+#include "VulkanGraphicsCommandBufferFactory.h"
 
 #include <cstdint>
 #include <vector>
@@ -68,4 +67,3 @@ namespace vgfx
     };
 }
 
-#endif

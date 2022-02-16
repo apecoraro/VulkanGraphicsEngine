@@ -1,8 +1,6 @@
-#ifndef VGFX_IMAGE_DOWNSAMPLER_H
-#define VGFX_IMAGE_DOWNSAMPLER_H
+#pragma once
 
 #include "VulkanGraphicsBuffer.h"
-#include "VulkanGraphicsCommandBuffers.h"
 #include "VulkanGraphicsCompute.h"
 #include "VulkanGraphicsDescriptors.h"
 #include "VulkanGraphicsImage.h"
@@ -58,4 +56,3 @@ namespace vgfx
     };
 }
 
-#endif

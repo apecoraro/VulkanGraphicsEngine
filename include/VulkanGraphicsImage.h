@@ -1,10 +1,12 @@
-#ifndef VGFX_IMAGE_H
-#define VGFX_IMAGE_H
+#pragma once
 
+#include "VulkanGraphicsCommandBufferFactory.h"
 #include "VulkanGraphicsContext.h"
+#include "VulkanGraphicsImageView.h"
 
 #include <cassert>
 #include <cstdint>
+#include <map>
 
 #include <vulkan/vulkan.h>
 
@@ -92,6 +94,9 @@ namespace vgfx
         VkSampleCountFlagBits getSampleCount() const { return m_sampleCount; }
 
         VkImage getHandle() const { return m_handle != VK_NULL_HANDLE ? m_handle : m_image.handle; }
+
+        ImageView& getOrCreateView(const ImageView::Config& config) const;
+
     private:
         Context& m_context;
         VkExtent3D m_extent = {};
@@ -101,6 +106,8 @@ namespace vgfx
 
         MemoryAllocator::Image m_image;
         VkImage m_handle = VK_NULL_HANDLE;
+
+        mutable std::map<ImageView::Config, std::unique_ptr<ImageView>> m_imageViews;
     };
 }
-#endif
+

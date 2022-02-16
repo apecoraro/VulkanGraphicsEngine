@@ -84,10 +84,10 @@ namespace vgfx
 
     RenderPass::Config& RenderPassBuilder::addPass(
         const RenderTarget::Config& renderTargetCfg,
-        const std::optional<const std::set<size_t>>& outputAttachments,
-        const std::optional<const std::map<size_t, VkImageLayout>>& inputs)
+        const std::optional<const std::map<size_t, VkImageLayout>>& inputs,
+        const std::optional<const std::set<size_t>>& outputAttachments)
     {
-        assert(!renderTargetCfg.swapChains.empty() || renderTargetCfg.pDepthStencilBuffer != nullptr);
+        assert(!renderTargetCfg.attachmentChain.empty());
         assert(!inputs.has_value() || !m_renderPassConfigs.empty());
         if (outputAttachments.has_value() && inputs.has_value() && inputs.value().size() > 0u) {
             ValidateAttachmentIndices(outputAttachments.value(), inputs.value());
@@ -97,10 +97,9 @@ namespace vgfx
         RenderPass::Config curPass;
         curPass.subpasses.push_back(RenderPass::SubpassDescription());
         curPass.subpasses.back().bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        for (size_t i = 0; i < renderTargetCfg.swapChains.size(); ++i) {
-            const auto& renderTargetImage = renderTargetCfg.swapChains[i]->getImage(0);
+        for (size_t i = 0; i < renderTargetCfg.attachmentChain.front().targetImageViews.size(); ++i) {
 
-            // If output attachments were not provided, then assume all attachments are for output.
+            // If output attachmentChain were not provided, then assume all attachmentChain are for output.
             if (!outputAttachments.has_value()
                     || outputAttachments.value().find(i) != outputAttachments.value().end()) {
                 VkAttachmentReference outputRef = {};
@@ -109,9 +108,11 @@ namespace vgfx
                 curPass.subpasses.back().outputRefs.push_back(outputRef);
             }
 
+            const auto& pImageView = renderTargetCfg.attachmentChain.front().targetImageViews[i];
+
             curPass.attachments.push_back(VkAttachmentDescription{});
-            curPass.attachments.back().samples = renderTargetImage.getSampleCount();
-            curPass.attachments.back().format = renderTargetImage.getFormat();
+            curPass.attachments.back().samples = pImageView->getImage().getSampleCount();
+            curPass.attachments.back().format = pImageView->getFormat();
 
             curPass.attachments.back().initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
             curPass.attachments.back().finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
@@ -121,46 +122,58 @@ namespace vgfx
             curPass.attachments.back().stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         }
 
-        if (renderTargetCfg.pDepthStencilBuffer != nullptr) {
+        if (!renderTargetCfg.attachmentChain[0].targetImageViews.empty()) {
+            curPass.subpassDeps.resize(2u, VkSubpassDependency{});
+            // Dependency at the start of the renderpass does the transition from final to initial layout.
+            auto& firstDep = curPass.subpassDeps.front();
+            firstDep.srcSubpass = VK_SUBPASS_EXTERNAL;
+            firstDep.dstSubpass = 0u;
+            firstDep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            firstDep.srcAccessMask = 0u;
+            firstDep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            firstDep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            firstDep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+            // Dependency at the end the renderpass does the transition from the initial to the final layout.
+            auto& secondDep = curPass.subpassDeps.back();
+            secondDep.dstSubpass = VK_SUBPASS_EXTERNAL;
+            secondDep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            secondDep.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+            secondDep.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            secondDep.dstAccessMask = 0u;
+            secondDep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+        }
+
+        if (renderTargetCfg.attachmentChain.front().pDepthStencilView != nullptr) {
             curPass.subpasses.back().depthAttachmentRef.attachment =
-                static_cast<uint32_t>(renderTargetCfg.swapChains.size());
-            // TODO it is possible to use a depth only layout and format with:
+                static_cast<uint32_t>(renderTargetCfg.attachmentChain.front().targetImageViews.size());
+            // TODO it is possible to use a depth only layout and renderTargetFormat with:
             // https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures.html
             curPass.subpasses.back().depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+            const auto& pDepthStencilView = renderTargetCfg.attachmentChain.front().pDepthStencilView;
             curPass.attachments.push_back(VkAttachmentDescription{});
-            curPass.attachments.back().samples = renderTargetCfg.pDepthStencilBuffer->getSampleCount();
-            curPass.attachments.back().format = renderTargetCfg.pDepthStencilBuffer->getFormat();
+            curPass.attachments.back().samples = pDepthStencilView->getImage().getSampleCount();
+            curPass.attachments.back().format = pDepthStencilView->getFormat();
             if (m_renderPassConfigs.empty()) {
                 curPass.attachments.back().initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
                 curPass.attachments.back().finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
                 curPass.attachments.back().loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
                 curPass.attachments.back().storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
                 curPass.attachments.back().stencilLoadOp =
-                    HasStencilBits(renderTargetCfg.pDepthStencilBuffer->getFormat())
+                    HasStencilBits(pDepthStencilView->getFormat())
                         ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
                 curPass.attachments.back().stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
             }
-        }
 
-        curPass.subpassDeps.resize(2u, VkSubpassDependency{});
-        // Dependency at the start of the renderpass does the transition from final to initial layout.
-        auto& firstDep = curPass.subpassDeps.front();
-        firstDep.srcSubpass = VK_SUBPASS_EXTERNAL;
-        firstDep.dstSubpass = 0u;
-        firstDep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        firstDep.srcAccessMask = 0u;
-        firstDep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        firstDep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        firstDep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-        // Dependency at the end the renderpass does the transition from the initial to the final layout.
-        auto& secondDep = curPass.subpassDeps.back();
-        secondDep.dstSubpass = VK_SUBPASS_EXTERNAL;
-        secondDep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        secondDep.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        secondDep.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        secondDep.dstAccessMask = 0u;
-        secondDep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+            if (curPass.subpassDeps.empty()) {
+                curPass.subpassDeps.push_back(VkSubpassDependency{});
+            }
+            auto& depthDep = curPass.subpassDeps.front();
+            depthDep.srcStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            depthDep.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            depthDep.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            depthDep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+        }
 
         // Update the previous pass' store op and final layout.
         if (!m_renderPassConfigs.empty()) {
@@ -175,7 +188,7 @@ namespace vgfx
                     assert(HasStencilBits(prevPassOutput.format));
                     prevPassOutput.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
                     if (input.second == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL_KHR) {
-                        // Change the depth store op back to dont care, since the desire layout only requires
+                        // Change the depth store op back to dont care, since the desired layout only requires
                         // the stencil bits to be read-able.
                         prevPassOutput.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
                     }
@@ -195,19 +208,28 @@ namespace vgfx
         return m_renderPassConfigs.back();
     }
 
-    std::unique_ptr<RenderPass> RenderPassBuilder::createPass(Context& context, size_t passIndex)
+    std::unique_ptr<RenderPass> RenderPassBuilder::createPass(const RenderPass::Config& config)
     {
-        return std::make_unique<RenderPass>(context, m_renderPassConfigs[passIndex]);
+        return std::make_unique<RenderPass>(m_context, config);
     }
 
-    std::vector<std::unique_ptr<RenderPass>>&& vgfx::RenderPassBuilder::createPasses(Context& context)
+    std::vector<std::unique_ptr<RenderPass>>&& RenderPassBuilder::createPasses()
     {
         std::vector<std::unique_ptr<RenderPass>> renderPasses;
         for (const auto& config : m_renderPassConfigs) {
-            renderPasses.push_back(std::make_unique<RenderPass>(context, config));
+            renderPasses.push_back(std::make_unique<RenderPass>(m_context, config));
         }
 
         return std::move(renderPasses);
+    }
+
+    void RenderPassBuilder::accept(RenderPassNode& node)
+    {
+        const auto& renderPassConfig = addPass(node.getRenderTargetConfig(), node.getInputs());
+
+        node.visit(*this);
+
+        node.setRenderPass(std::move(createPass(renderPassConfig)));
     }
 
     RenderPass::RenderPass(
@@ -279,7 +301,8 @@ namespace vgfx
         VkCommandBuffer commandBuffer,
         size_t swapChainImageIndex,
         RenderTarget& renderTarget,
-        const std::optional<const VkRect2D> renderArea)
+        const std::optional<const VkRect2D> renderArea,
+        const std::optional<std::vector<VkClearValue>> clearValues)
     {
         VkRenderPassBeginInfo renderPassBeginInfo = {};
         renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -292,12 +315,18 @@ namespace vgfx
             renderPassBeginInfo.renderArea.extent = renderTarget.getExtent();
         }
 
-        VkClearValue clearValues[] = {
+        VkClearValue defaultClearValues[2] = {
           { 0.0f, 0.0f, 0.0f, 0.0f }, // Color
           { 1.0f, 0 }, // Depth/Stencil
         };
-        renderPassBeginInfo.pClearValues = clearValues;
-        renderPassBeginInfo.clearValueCount = renderTarget.getDepthStencilBuffer() == nullptr ? 1 : 2;
+
+        if (clearValues.has_value()) {
+            renderPassBeginInfo.pClearValues = clearValues.value().data();
+            renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.value().size());
+        } else {
+            renderPassBeginInfo.pClearValues = defaultClearValues;
+            renderPassBeginInfo.clearValueCount = (renderTarget.hasDepthStencilBuffer() ? 1 : 2);
+        }
 
         vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
     }

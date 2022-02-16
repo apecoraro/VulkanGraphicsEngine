@@ -1,5 +1,4 @@
-#ifndef VGFX_IMAGE_DESCRIPTOR_UPDATER_H
-#define VGFX_IMAGE_DESCRIPTOR_UPDATER_H
+#pragma once
 
 #include "VulkanGraphicsDescriptors.h"
 #include "VulkanGraphicsImageView.h"
@@ -134,4 +133,3 @@ namespace vgfx
     };
 }
 
-#endif

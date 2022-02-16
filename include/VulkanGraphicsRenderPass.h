@@ -1,8 +1,8 @@
-#ifndef VGFX_RENDER_PASS_H
-#define VGFX_RENDER_PASS_H
+#pragma once
 
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsRenderTarget.h"
+#include "VulkanGraphicsSceneNode.h"
 
 #include <map>
 #include <optional>
@@ -47,34 +47,39 @@ namespace vgfx
             VkCommandBuffer commandBuffer,
             size_t swapChainImageIndex,
             RenderTarget& renderTarget,
-            const std::optional<const VkRect2D> renderArea = std::nullopt);
+            const std::optional<const VkRect2D> renderArea = std::nullopt,
+            const std::optional<std::vector<VkClearValue>> clearValues = std::nullopt);
 
         void end(VkCommandBuffer commandBuffer);
 
         VkRenderPass getHandle() const { return m_renderPass; }
+
+        Context& getContext() { return m_context; }
+
     private:
         Context& m_context;
 
         VkRenderPass m_renderPass = VK_NULL_HANDLE;
     }; 
 
-    class RenderPassBuilder
+    class RenderPassBuilder : public Visitor
     {
     public:
-        RenderPassBuilder() = default;
+        RenderPassBuilder(Context& context) : m_context(context) {}
 
         RenderPass::Config& addPass(
             const RenderTarget::Config& renderTargetCfg,
-            // If not output attachments are specified then all render target attachments are assumed.
-            const std::optional<const std::set<size_t>>& outputAttachments = std::nullopt,
-            const std::optional<const std::map<size_t, VkImageLayout>>& inputs = std::nullopt);
+            const std::optional<const std::map<size_t, VkImageLayout>>& inputs = std::nullopt,
+            // If no output attachmentChain are specified then all render target attachmentChain are assumed.
+            const std::optional<const std::set<size_t>>& outputAttachments = std::nullopt);
 
-        std::unique_ptr<RenderPass> createPass(Context& context, size_t passIndex=0u);
-        std::vector<std::unique_ptr<RenderPass>>&& createPasses(Context& context);
+        std::unique_ptr<RenderPass> createPass(const RenderPass::Config& config);
+        std::vector<std::unique_ptr<RenderPass>>&& createPasses();
+
+        void accept(RenderPassNode& node) override;
 
     private:
+        Context& m_context;
         std::vector<RenderPass::Config> m_renderPassConfigs;
     };
 }
-
-#endif

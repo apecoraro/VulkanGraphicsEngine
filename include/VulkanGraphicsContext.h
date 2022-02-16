@@ -1,10 +1,9 @@
 //
 //  Created by Alex Pecoraro on 3/5/20.
 //
-#ifndef VGFX_CONTEXT_H
-#define VGFX_CONTEXT_H
+#pragma once
 
-#include "VulkanGraphicsCommandBuffers.h"
+#include "VulkanGraphicsCommandQueue.h"
 #include "VulkanGraphicsMemoryAllocator.h"
 
 #include <cstdint>
@@ -81,7 +80,7 @@ namespace vgfx
 
         void waitForDeviceToIdle();
 
-        void enableDebugReportCallback(PFN_vkDebugReportCallbackEXT pfnCallback);
+        void enableDebugReportCallback(PFN_vkDebugReportCallbackEXT pfnCallback, void* pUserData);
         void disableDebugReportCallback();
 
         VkInstance getInstance() { return m_instance;  }
@@ -203,13 +202,12 @@ namespace vgfx
 
         MemoryAllocator m_memoryAllocator;
 
-        struct ImageSamplerDeleter
+        // TODO this should probably be a component of some type of pluggable system.
+        struct ImageDownsamplerDeleter
         {
-            ImageSamplerDeleter() = default;
+            ImageDownsamplerDeleter() = default;
             void operator()(ImageDownsampler*);
         };
-        std::unique_ptr<ImageDownsampler, ImageSamplerDeleter> m_spImageDownsampler;
+        std::unique_ptr<ImageDownsampler, ImageDownsamplerDeleter> m_spImageDownsampler;
     };
 }
-
-#endif

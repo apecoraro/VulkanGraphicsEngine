@@ -1,9 +1,8 @@
-#ifndef VGFX_VERTEX_BUFFER_H
-#define VGFX_VERTEX_BUFFER_H
+#pragma once
 
 #include "VulkanGraphicsContext.h"
 
-#include "VulkanGraphicsCommandBuffers.h"
+#include "VulkanGraphicsCommandBufferFactory.h"
 
 #include <cstdint>
 #include <vector>
@@ -115,5 +114,3 @@ namespace vgfx
         static const VertexBuffer::Config& GetConfig();
     };
 }
-
-#endif

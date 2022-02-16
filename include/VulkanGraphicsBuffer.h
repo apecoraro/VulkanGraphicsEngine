@@ -1,5 +1,4 @@
-#ifndef VGFX_BUFFER_H
-#define VGFX_BUFFER_H
+#pragma once
 
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsDescriptors.h"
@@ -59,16 +58,17 @@ namespace vgfx
         bool update(
             void* pData,
             size_t sizeOfDataBytes,
+            size_t writeOffsetBytes = 0u,
             MemMap memMap = MemMap::UnMap)
         {
             assert(sizeOfDataBytes <= m_bufferSize);
             if (m_pMappedPtr == nullptr) {
-                if (!m_context.getMemoryAllocator().mapBuffer(m_buffer, &m_pMappedPtr)) {
+                if (!m_context.getMemoryAllocator().mapBuffer(m_buffer, reinterpret_cast<void**>(&m_pMappedPtr))) {
                     return false;
                 }
             }
 
-            memcpy(m_pMappedPtr, pData, sizeOfDataBytes);
+            memcpy(m_pMappedPtr + writeOffsetBytes, pData, sizeOfDataBytes);
 
             if (memMap != MemMap::LeaveMapped) {
                 m_context.getMemoryAllocator().unmapBuffer(m_buffer);
@@ -97,10 +97,9 @@ namespace vgfx
         size_t m_bufferSize = 0u;
 
         MemoryAllocator::Buffer m_buffer;
-        void* m_pMappedPtr = nullptr;
+        uint8_t* m_pMappedPtr = nullptr;
 
         VkDescriptorBufferInfo m_bufferInfo = {};
     };
 }
 
-#endif

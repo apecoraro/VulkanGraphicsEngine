@@ -1,5 +1,4 @@
-#ifndef VGFX_MEMORY_ALLOCATOR_H
-#define VGFX_MEMORY_ALLOCATOR_H
+#pragma once
 
 #include <cstdint>
 #include <vector>
@@ -76,4 +75,3 @@ namespace vgfx
     };
 }
 
-#endif

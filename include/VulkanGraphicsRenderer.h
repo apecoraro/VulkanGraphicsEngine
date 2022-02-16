@@ -1,8 +1,7 @@
-#ifndef VGFX_RENDERER_H
-#define VGFX_RENDERER_H
+#pragma once
 
 #include "VulkanGraphicsContext.h"
-#include "VulkanGraphicsCommandBuffers.h"
+#include "VulkanGraphicsCommandBufferFactory.h"
 #include "VulkanGraphicsFence.h"
 #include "VulkanGraphicsObject.h"
 #include "VulkanGraphicsPipeline.h"
@@ -14,6 +13,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <set>
 #include <vulkan/vulkan.h>
 
 namespace vgfx
@@ -41,20 +41,8 @@ namespace vgfx
         // to setup its configuration based on the capabilities of the device.
         virtual void configureForDevice(VkPhysicalDevice device) = 0;
 
-        virtual void initSwapChain(
-            Context& context,
-            const SwapChain::CreateImageViewFunc& createImageViewFunc,
-            uint32_t maxFramesInFlight) = 0;
-
-        virtual SwapChain& getSwapChain() = 0;
-        virtual const SwapChain& getSwapChain() const = 0;
-
         DepthStencilBuffer* getDepthStencilBuffer() { return m_spDepthStencilBuffer.get(); }
         const DepthStencilBuffer* getDepthStencilBuffer() const { return m_spDepthStencilBuffer.get(); }
-
-        // Acquire a swap chain image to render into outputs the index
-        // of the image.
-        virtual VkResult acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex) = 0;
 
         struct QueueSubmitInfo
         {
@@ -85,10 +73,10 @@ namespace vgfx
             uint32_t swapChainImageIndex,
             const QueueSubmitInfo& submitInfo) = 0;
 
-        // Record commands required to start writing to the SwapChain of this Renderer.
+        // Record commands required to start writing to the ImageQueue of this Renderer.
         virtual void startFrame(VkCommandBuffer commandBuffer, size_t swapChainImageIndex) = 0;
 
-        // Record commands required to stop writing into the SwapChain of this Renderer.
+        // Record commands required to stop writing into the ImageQueue of this Renderer.
         virtual void endFrame(VkCommandBuffer commandBuffer, size_t swapChainImageIndex) = 0;
 
         using PickDepthStencilFormatFunc = std::function<VkFormat(const std::set<VkFormat>& candidates)>;
@@ -122,12 +110,12 @@ namespace vgfx
             std::optional<uint32_t> imageCount;
             // if not specified then defaults determined by ChooseImageExtentFunc, if ChooseImageExtentFunc is not specified
             // then defaults to max(minExtent, min(maxExtent, curExtent)). If explicitly setting the imageExtent, then to specify
-            // format without colorSpace, set colorSpace to VK_COLOR_SPACE_MAX_ENUM_KHR, to specify colorSpace without format,
-            // set format to VK_FORMAT_UNDEFINED.
+            // renderTargetFormat without colorSpace, set colorSpace to VK_COLOR_SPACE_MAX_ENUM_KHR, to specify colorSpace without renderTargetFormat,
+            // set renderTargetFormat to VK_FORMAT_UNDEFINED.
             std::optional<VkExtent2D> imageExtent;
             // If not specified then determined by ChooseSurfaceFormatFunc, if ChooseSurfaceFormatFunc is null,
             // then defaults to either VK_FORMAT_B8G8R8A8_SRGB and VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, unless it's not available,
-            // in which case the first supported format, as returned by vkGetPhysicalDeviceSurfaceFormatsKHR is used.
+            // in which case the first supported renderTargetFormat, as returned by vkGetPhysicalDeviceSurfaceFormatsKHR is used.
             std::optional<VkSurfaceFormatKHR> imageFormat;
             // If not specified then defaults to VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
             std::optional<VkImageUsageFlags> imageUsage;
@@ -153,7 +141,7 @@ namespace vgfx
         // not be nullptr.
         WindowRenderer(
             const SwapChainConfig& swapChainConfig,
-            std::unique_ptr<WindowSwapChain> spSwapChain,
+            std::unique_ptr<SwapChain> spSwapChain,
             const ChooseImageCountFunc& chooseImageCountFunc = nullptr,
             const ChooseImageExtentFunc& chooseWindowExtentFunc = nullptr,
             const ChooseSurfaceFormatFunc& chooseSurfaceFormatFunc = nullptr,
@@ -182,27 +170,26 @@ namespace vgfx
 
         void initSwapChain(
             Context& context,
-            const SwapChain::CreateImageViewFunc& createImageViewFunc,
-            uint32_t maxFramesInFlight) override;
+            uint32_t maxFramesInFlight);
 
-        SwapChain& getSwapChain() override { return *m_spSwapChain.get(); }
-        virtual const SwapChain& getSwapChain() const { return *m_spSwapChain.get(); }
+        SwapChain& getSwapChain() { return *m_spSwapChain.get(); }
+        const SwapChain& getSwapChain() const { return *m_spSwapChain.get(); }
 
-        VkResult acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex) override;
+        VkResult acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex);
 
         VkResult renderFrame(
             uint32_t swapChainImageIndex,
             const QueueSubmitInfo& submitInfo) override;
 
-        // Call startFrame prior to doing any commands that operate on the SwapChain images.
+        // Call startFrame prior to doing any commands that operate on the ImageQueue images.
         void startFrame(VkCommandBuffer commandBuffer, size_t swapChainImageIndex) override;
 
-        // Call endFrame after done recording commands that operate on the SwapChain images.
+        // Call endFrame after done recording commands that operate on the ImageQueue images.
         void endFrame(VkCommandBuffer commandBuffer, size_t swapChainImageIndex) override;
 
     private:
         SwapChainConfig m_swapChainConfig;
-        std::unique_ptr<WindowSwapChain> m_spSwapChain;
+        std::unique_ptr<SwapChain> m_spSwapChain;
 
         ChooseImageCountFunc m_chooseImageCountFunc = nullptr;
         ChooseImageExtentFunc m_chooseWindowExtentFunc = nullptr;
@@ -214,6 +201,4 @@ namespace vgfx
         uint32_t m_syncObjIndex = 0u;
     };
 }
-
-#endif
 

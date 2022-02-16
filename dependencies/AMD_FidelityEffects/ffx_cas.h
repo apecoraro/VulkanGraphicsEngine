@@ -200,7 +200,7 @@
 //        imageStore(img[0],ASU2(gxy+AU2(8,0)),AF4(c1));
 // ---------------------------
 //  - sRGB with slightly better quality and higher cost.
-//     - Use texelFetch() with sRGB format (VK_FORMAT_R8G8B8A8_SRGB) for loads (gets linear into shader).
+//     - Use texelFetch() with sRGB renderTargetFormat (VK_FORMAT_R8G8B8A8_SRGB) for loads (gets linear into shader).
 //     - Store to destination using UNORM (not sRGB) stores and do the linear to sRGB conversion in the shader.
 //     - Modifications:
 //        // Use texel fetch instead of image load (on GCN this will translate into an image load in the driver).
@@ -351,7 +351,7 @@
 // 20190507 - Fixed typo bug in CAS_DEBUG_CHECKER, fixed sign typo in the docs.
 // 20190503 - Setup temporary workaround for compiler bug.
 // 20190502 - Added argument for 'gamma2' path so input transform in that case runs packed.
-// 20190426 - Improved documentation on format specific cases, etc.
+// 20190426 - Improved documentation on renderTargetFormat specific cases, etc.
 // 20190425 - Updated/corrected documentation.
 // 20190405 - Added CAS_PACKED_ONLY, misc bug fixes.
 // 20190404 - Updated for the new a.h header.

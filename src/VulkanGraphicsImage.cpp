@@ -60,7 +60,18 @@ vgfx::Image::Image(
 
 vgfx::Image::~Image()
 {
+    m_imageViews.clear();
+
     if (m_image.isValid()) {
         m_context.getMemoryAllocator().destroyImage(m_image);
     }
+}
+
+vgfx::ImageView& vgfx::Image::getOrCreateView(const ImageView::Config& config) const
+{
+    const auto& findIt = m_imageViews.find(config);
+    if (findIt == m_imageViews.end()) {
+        return *(m_imageViews[config] = std::move(std::make_unique<ImageView>(m_context, config, *this))).get();
+    }
+    return *findIt->second.get();
 }

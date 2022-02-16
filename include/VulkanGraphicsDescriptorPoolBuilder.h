@@ -1,5 +1,4 @@
-#ifndef VGFX_DESCRIPTOR_POOL_BUILDER_H
-#define VGFX_DESCRIPTOR_POOL_BUILDER_H
+#pragma once
 
 #include "VulkanGraphicsCompute.h"
 #include "VulkanGraphicsDescriptors.h"
@@ -34,4 +33,3 @@ namespace vgfx
     };
 }
 
-#endif

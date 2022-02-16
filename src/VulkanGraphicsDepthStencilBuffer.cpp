@@ -5,12 +5,25 @@
 
 namespace vgfx
 {
-    DepthStencilBuffer::DepthStencilBuffer(
-        Context& context, const Image::Config& config)
-        : m_spImage(new Image(context, config))
+    static Image::Config GetImageConfig(
+        uint32_t width,
+        uint32_t height,
+        VkFormat format)
     {
-        ImageView::Config viewCfg(config.imageInfo.format, VK_IMAGE_VIEW_TYPE_2D);
-        m_spImageView.reset(new ImageView(context, viewCfg, *m_spImage.get()));
+        Image::Config depthImageCfg(
+            width,
+            height,
+            format,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+        return depthImageCfg;
+    }
+
+    DepthStencilBuffer::DepthStencilBuffer(
+        Context& context,
+        const Config& config)
+        : m_spImage(new Image(context, GetImageConfig(config.width, config.height, config.format)))
+    {
     }
 }
 

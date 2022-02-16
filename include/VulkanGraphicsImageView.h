@@ -1,13 +1,13 @@
-#ifndef VGFX_IMAGE_VIEW_H
-#define VGFX_IMAGE_VIEW_H
+#pragma once
 
 #include "VulkanGraphicsContext.h"
-#include "VulkanGraphicsImage.h"
 
 #include <vulkan/vulkan.h>
 
 namespace vgfx
 {
+    class Image;
+
     class ImageView
     {
     public:
@@ -16,7 +16,7 @@ namespace vgfx
             Config() = default;
 
             Config(
-                VkFormat format, // format must be compatible with image's format.
+                VkFormat format, // renderTargetFormat must be compatible with image's renderTargetFormat.
                 VkImageViewType viewType,
                 uint32_t baseMipLevel = 0u,
                 uint32_t mipMapLevels = 1u)
@@ -51,29 +51,25 @@ namespace vgfx
             VkImageViewCreateInfo imageViewInfo = {};
         };
 
-        ImageView(
-            Context& context,
-            const Config& config,
-            VkImage image);
-
-        ImageView(
-            Context& context,
-            const Config& config,
-            const vgfx::Image& image) : ImageView(context, config, image.getHandle()) {}
+        ImageView(Context& context, const Config& config, const Image& image);
 
         ~ImageView()
         {
             destroy();
         }
 
+        const Image& getImage() const { return m_image;  }
+
+        VkFormat getFormat() const { return m_format; }
 
         VkImageView getHandle() const { return m_imageView;  }
+
     private:
         void destroy();
 
         Context& m_context;
+        const Image& m_image;
+        VkFormat m_format = VK_FORMAT_UNDEFINED; // ImageView format may differ from Image's format.
         VkImageView m_imageView = VK_NULL_HANDLE;
     };
 }
-
-#endif

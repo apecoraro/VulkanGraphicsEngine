@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\VulkanGraphicsApplication.cpp" />
     <ClCompile Include="src\VulkanGraphicsBuffer.cpp" />
     <ClCompile Include="src\VulkanGraphicsCompute.cpp" />
     <ClCompile Include="src\VulkanGraphicsDepthStencilBuffer.cpp" />
@@ -29,7 +30,7 @@
     <ClCompile Include="src\VulkanGraphicsModelLibrary.cpp" />
     <ClCompile Include="src\VulkanGraphicsRenderPass.cpp" />
     <ClCompile Include="src\VulkanGraphicsSampler.cpp" />
-    <ClCompile Include="src\VulkanGraphicsCommandBuffers.cpp" />
+    <ClCompile Include="src\VulkanGraphicsCommandBufferFactory.cpp" />
     <ClCompile Include="src\VulkanGraphicsDescriptors.cpp" />
     <ClCompile Include="src\VulkanGraphicsDrawable.cpp" />
     <ClCompile Include="src\VulkanGraphicsImageView.cpp" />
@@ -42,6 +43,7 @@
     <ClCompile Include="src\VulkanGraphicsRenderer.cpp" />
     <ClCompile Include="src\VulkanGraphicsContext.cpp" />
     <ClCompile Include="src\VulkanGraphicsRenderTarget.cpp" />
+    <ClCompile Include="src\VulkanGraphicsSceneNode.cpp" />
     <ClCompile Include="src\VulkanGraphicsSemaphore.cpp" />
     <ClCompile Include="src\VulkanGraphicsImageDownsampler.cpp" />
     <ClCompile Include="src\VulkanGraphicsSwapChain.cpp" />
@@ -52,10 +54,12 @@
     <ClInclude Include="dependencies\AMD_FidelityEffects\ffx_a.h" />
     <ClInclude Include="dependencies\AMD_FidelityEffects\ffx_cas.h" />
     <ClInclude Include="dependencies\AMD_FidelityEffects\ffx_spd.h" />
+    <ClInclude Include="include\VulkanGraphicsApplication.h" />
     <ClInclude Include="include\VulkanGraphicsBuffer.h" />
+    <ClInclude Include="include\VulkanGraphicsCommandBufferFactory.h" />
     <ClInclude Include="include\VulkanGraphicsDepthStencilBuffer.h" />
     <ClInclude Include="include\VulkanGraphicsImageDescriptorUpdaters.h" />
-    <ClInclude Include="include\VulkanGraphicsCommandBuffers.h" />
+    <ClInclude Include="include\VulkanGraphicsCommandQueue.h" />
     <ClInclude Include="include\VulkanGraphicsCompute.h" />
     <ClInclude Include="include\VulkanGraphicsDescriptorPoolBuilder.h" />
     <ClInclude Include="include\VulkanGraphicsDescriptors.h" />
@@ -75,6 +79,7 @@
     <ClInclude Include="include\VulkanGraphicsRenderPass.h" />
     <ClInclude Include="include\VulkanGraphicsRenderTarget.h" />
     <ClInclude Include="include\VulkanGraphicsSampler.h" />
+    <ClInclude Include="include\VulkanGraphicsSceneNode.h" />
     <ClInclude Include="include\VulkanGraphicsSemaphore.h" />
     <ClInclude Include="include\VulkanGraphicsImageDownsampler.h" />
     <ClInclude Include="include\VulkanGraphicsSwapChain.h" />

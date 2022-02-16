@@ -1,5 +1,4 @@
-#ifndef VGFX_COMPUTE_H
-#define VGFX_COMPUTE_H
+#pragma once
 
 #include "VulkanGraphicsDescriptors.h"
 #include "VulkanGraphicsProgram.h"
@@ -55,4 +54,3 @@ namespace vgfx
     };
 }
 
-#endif

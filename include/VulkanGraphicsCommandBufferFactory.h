@@ -1,5 +1,4 @@
-#ifndef VGFX_COMMAND_BUFFERS_H
-#define VGFX_COMMAND_BUFFERS_H
+#pragma once
 
 #include <cstdint>
 
@@ -24,13 +23,5 @@ namespace vgfx
         uint32_t m_queueFamilyIndex = -1;
         VkCommandPool m_commandPool = VK_NULL_HANDLE;
     };
-
-    struct CommandQueue
-    {
-        uint32_t queueFamilyIndex = -1;
-        CommandQueue(uint32_t qfi) : queueFamilyIndex(qfi) { }
-        VkQueue queue = VK_NULL_HANDLE;
-    };
 }
 
-#endif

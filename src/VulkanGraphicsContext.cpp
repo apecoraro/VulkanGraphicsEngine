@@ -707,12 +707,14 @@ namespace vgfx
     }
 
     void Context::enableDebugReportCallback(
-        PFN_vkDebugReportCallbackEXT pfnCallback)
+        PFN_vkDebugReportCallbackEXT pfnCallback,
+        void* pUserData)
     {
         VkDebugReportCallbackCreateInfoEXT createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
         createInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
         createInfo.pfnCallback = pfnCallback;
+        createInfo.pUserData = pUserData;
 
         CreateDebugReportCallbackEXT(m_instance, &createInfo, nullptr, &m_debugReportCallback);
     }
@@ -846,7 +848,7 @@ namespace vgfx
         return 0u;
     }
 
-    void Context::ImageSamplerDeleter::operator()(ImageDownsampler* pImageDownsampler)
+    void Context::ImageDownsamplerDeleter::operator()(ImageDownsampler* pImageDownsampler)
     {
         if (pImageDownsampler != nullptr) {
             delete pImageDownsampler;

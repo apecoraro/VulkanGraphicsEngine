@@ -1,5 +1,4 @@
-#ifndef VGFX_IMAGE_SHARPENER_H
-#define VGFX_IMAGE_SHARPENER_H
+#pragma once
 
 #include "VulkanGraphicsCompute.h"
 #include "VulkanGraphicsDescriptors.h"
@@ -93,4 +92,3 @@ namespace vgfx
     };
 }
 
-#endif

@@ -1,5 +1,4 @@
-#ifndef VGFX_OBJECT_H
-#define VGFX_OBJECT_H
+#pragma once
 
 #include <vector>
 
@@ -26,4 +25,3 @@ namespace vgfx
     };
 }
 
-#endif

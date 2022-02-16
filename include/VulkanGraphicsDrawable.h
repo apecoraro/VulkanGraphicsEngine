@@ -1,5 +1,4 @@
-#ifndef VGFX_DRAWABLE_H
-#define VGFX_DRAWABLE_H
+#pragma once
 
 #include "VulkanGraphicsContext.h"
 
@@ -97,4 +96,4 @@ namespace vgfx
         std::vector<std::vector<VkDescriptorSet>> m_descriptorSets;
     };
 }
-#endif
+

@@ -1,5 +1,4 @@
-#ifndef VGFX_DESCRIPTORS_H
-#define VGFX_DESCRIPTORS_H
+#pragma once
 
 #include "VulkanGraphicsContext.h"
 
@@ -185,4 +184,3 @@ namespace vgfx
     };
 }
 
-#endif

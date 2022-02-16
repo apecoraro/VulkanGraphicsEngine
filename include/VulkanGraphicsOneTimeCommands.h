@@ -1,8 +1,8 @@
-#ifndef VGFX_ONE_TIME_COMMANDS_H
-#define VGFX_ONE_TIME_COMMANDS_H
+#pragma once 
 
 #include "VulkanGraphicsMemoryAllocator.h"
-#include "VulkanGraphicsCommandBuffers.h"
+#include "VulkanGraphicsCommandBufferFactory.h"
+#include "VulkanGraphicsCommandQueue.h"
 #include "VulkanGraphicsImage.h"
 
 #include <cstdint>
@@ -75,5 +75,3 @@ namespace vgfx
         CommandQueue m_commandQueue;
     };
 }
-
-#endif

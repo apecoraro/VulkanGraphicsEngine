@@ -1,5 +1,7 @@
 #include "VulkanGraphicsImageView.h"
 
+#include "VulkanGraphicsImage.h"
+
 #include <cassert>
 #include <stdexcept>
 
@@ -8,8 +10,9 @@ namespace vgfx
     ImageView::ImageView(
         Context& context,
         const Config& config,
-        VkImage image)
+        const Image& image)
         : m_context(context)
+        , m_image(image)
     {
         VkDevice device = context.getLogicalDevice();
         assert(device != VK_NULL_HANDLE && "Invalid context!");
@@ -17,11 +20,13 @@ namespace vgfx
         VkAllocationCallbacks* pAllocationCallbacks = context.getAllocationCallbacks();
 
         VkImageViewCreateInfo imageViewInfo = config.imageViewInfo;
-        imageViewInfo.image = image;
+        imageViewInfo.image = image.getHandle();
 
         if (vkCreateImageView(device, &imageViewInfo, pAllocationCallbacks, &m_imageView) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create image view!");
         }
+
+        m_format = imageViewInfo.format;
     }
 
     void ImageView::destroy()

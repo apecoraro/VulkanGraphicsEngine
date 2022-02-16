@@ -1,5 +1,4 @@
-#ifndef VGFX_FENCE_H
-#define VGFX_FENCE_H
+#pragma once
 
 #include "VulkanGraphicsContext.h"
 
@@ -19,4 +18,4 @@ namespace vgfx
         VkFence m_fence;
     };
 }
-#endif
+

@@ -1,5 +1,4 @@
-#ifndef VGFX_SAMPLER_H
-#define VGFX_SAMPLER_H
+#pragma once
 
 #include "VulkanGraphicsContext.h"
 
@@ -69,4 +68,3 @@ namespace vgfx
     };
 }
 
-#endif

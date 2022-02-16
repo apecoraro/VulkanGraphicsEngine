@@ -1,5 +1,8 @@
 #include "VulkanGraphicsPipeline.h"
 
+#include "VulkanGraphicsDepthStencilBuffer.h"
+#include "VulkanGraphicsRenderPass.h"
+
 #include <stdexcept>
 
 namespace vgfx

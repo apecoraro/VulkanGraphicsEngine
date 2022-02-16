@@ -7,7 +7,7 @@
 
 namespace vgfx
 {
-    WindowSwapChain::WindowSwapChain(
+    SwapChain::SwapChain(
         void* pWindow,
         uint32_t windowWidth,
         uint32_t windowHeight,
@@ -19,7 +19,7 @@ namespace vgfx
     {
     }
 
-    void WindowSwapChain::createVulkanSurface(
+    void SwapChain::createVulkanSurface(
         VkInstance instance,
         const VkAllocationCallbacks* pAllocationCallbacks)
     {
@@ -34,7 +34,7 @@ namespace vgfx
         }
 	}
 
-    void WindowSwapChain::getImageCapabilities(
+    void SwapChain::getImageCapabilities(
         VkPhysicalDevice device,
         uint32_t* pMinImageCount,
         uint32_t* pMaxImageCount,
@@ -67,7 +67,7 @@ namespace vgfx
         *pSupportedUsageFlags = surfaceCaps.supportedUsageFlags;
     }
 
-    void WindowSwapChain::getSupportedImageFormats(
+    void SwapChain::getSupportedImageFormats(
         VkPhysicalDevice device,
         std::vector<VkSurfaceFormatKHR>* pSupportedImageFormats) const
     {
@@ -81,7 +81,7 @@ namespace vgfx
         vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, pSupportedImageFormats->data());
     }
 
-    void WindowSwapChain::getSupportedPresentationModes(
+    void SwapChain::getSupportedPresentationModes(
         VkPhysicalDevice device,
         std::vector<VkPresentModeKHR>* pSupportedPresentationModes) const
     {
@@ -95,17 +95,14 @@ namespace vgfx
         vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, pSupportedPresentationModes->data());
     } 
 
-    bool WindowSwapChain::surfaceSupportsQueueFamily(VkPhysicalDevice device, uint32_t queueFamilyIndex) const
+    bool SwapChain::surfaceSupportsQueueFamily(VkPhysicalDevice device, uint32_t queueFamilyIndex) const
     {
         VkBool32 presentSupport = false;
         vkGetPhysicalDeviceSurfaceSupportKHR(device, queueFamilyIndex, m_surface, &presentSupport);
         return presentSupport != 0;
     }
 
-    void WindowSwapChain::createRenderingResources(
-        Context& context,
-        const Config& config,
-        const SwapChain::CreateImageViewFunc& createImageViewFunc)
+    void SwapChain::createRenderingResources(Context& context, const Config& config)
     {
         VkSwapchainCreateInfoKHR createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -172,21 +169,14 @@ namespace vgfx
                 config.imageFormat.format,
                 VK_IMAGE_TILING_OPTIMAL,
                 config.imageUsage);
-            m_images.push_back(Image(context, imageHandle, metadata));
+            m_images.emplace_back(std::make_unique<Image>(context, imageHandle, metadata));
         }
 
         m_imageExtent = config.imageExtent;
 
-        m_imageFormat = config.imageFormat.format;
-
-        m_imageViews.resize(m_images.size());
-
-        for (size_t imageViewIndex = 0; imageViewIndex < m_imageViews.size(); ++imageViewIndex) {
-            m_imageViews[imageViewIndex] =
-                createImageViewFunc(
-                    context,
-                    m_images[imageViewIndex].getHandle(),
-                    createInfo.imageFormat);
+        for (size_t imageViewIndex = 0; imageViewIndex < m_images.size(); ++imageViewIndex) {
+            ImageView::Config imageViewCfg(config.imageFormat.format, VK_IMAGE_VIEW_TYPE_2D);
+            m_imageViews.push_back(&m_images[imageViewIndex]->getOrCreateView(imageViewCfg));
         }
 
         uint32_t maxFramesInFlight = std::min(actualImageCount, config.maxFramesInFlight);
@@ -196,7 +186,7 @@ namespace vgfx
         }
     }
 
-    void WindowSwapChain::destroy()
+    void SwapChain::destroy()
     {
         if (m_swapChain != VK_NULL_HANDLE) {
             VkDevice device = m_pContext->getLogicalDevice();
@@ -206,30 +196,8 @@ namespace vgfx
             m_swapChain = VK_NULL_HANDLE;
 
             m_images.clear();
-            m_imageViews.clear();
 
             m_pContext = nullptr;
         }
-    }
-
-    OffscreenSwapChain::OffscreenSwapChain(
-        std::vector<std::unique_ptr<Image>>&& images,
-        std::vector<std::unique_ptr<ImageView>>&& imageViews)
-        : m_imagePtrs(std::move(images))
-    {
-        m_imageViews = std::move(imageViews);
-        assert(m_imagePtrs.size() == m_imageViews.size());
-        assert(m_imagePtrs.size() > 0u);
-
-        m_imageExtent = { m_imagePtrs[0]->getWidth(), m_imagePtrs[0]->getHeight() };
-        m_imageFormat = m_imagePtrs[0]->getFormat();
-
-        for (const auto& spImage : m_imagePtrs) {
-            m_images.push_back(*spImage.get());
-    
-            assert(spImage->getWidth() == m_imageExtent.width);
-            assert(spImage->getHeight() == m_imageExtent.height);
-            assert(spImage->getFormat() == m_imageFormat);
-        }
-    }
+    } 
 }

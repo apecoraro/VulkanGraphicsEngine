@@ -1,9 +1,7 @@
-#ifndef VGFX_PIPELINE_H
-#define VGFX_PIPELINE_H
+#pragma once
 
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsMaterials.h"
-#include "VulkanGraphicsRenderPass.h"
 #include "VulkanGraphicsVertexBuffer.h"
 
 #include <vector>
@@ -12,6 +10,9 @@
 
 namespace vgfx
 {
+    class RenderPass;
+    class DepthStencilBuffer;
+
     class Pipeline
     {
     public:
@@ -150,4 +151,3 @@ namespace vgfx
     }; 
 }
 
-#endif

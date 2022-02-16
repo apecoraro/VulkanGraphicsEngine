@@ -83,12 +83,12 @@
 // than 4x load() plus manual averaging
 
 // // Setup layout. Example below for VK_FORMAT_R16G16B16A16_SFLOAT.
-// // Note: If you use SRGB format for UAV load() and store() (if it's supported), you need to convert to and from linear space
+// // Note: If you use SRGB renderTargetFormat for UAV load() and store() (if it's supported), you need to convert to and from linear space
 // // when using UAV load() and store()
 // // approximate conversion to linear (load function): x*x
 // // approximate conversion from linear (store function): sqrt()
 // // or use more accurate functions from ffx_a.h: AFromSrgbF1(value) and AToSrgbF1(value)
-// // Recommendation: use UNORM format instead of SRGB for UAV access, and SRGB for SRV access
+// // Recommendation: use UNORM renderTargetFormat instead of SRGB for UAV access, and SRGB for SRV access
 // // look in the sample app to see how it's done
 
 // // source image
@@ -179,7 +179,7 @@
 // // if you don't add border controls you'll read zeros past the border
 // // if you load with a sampler, this is obv. handled by your sampler :)
 // // this is also the place where you need to do color space transformation if needed
-// // E.g. if your texture format is SRGB/UNORM and you use the UAV load and store functions
+// // E.g. if your texture renderTargetFormat is SRGB/UNORM and you use the UAV load and store functions
 // // no automatic to/from linear conversions are happening
 // // there is to/from linear conversions when using a sampler and render target approach
 // // conversion to linear (load function): x*x

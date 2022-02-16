@@ -14,33 +14,30 @@ namespace vgfx
         const Config& config,
         const RenderPass& renderPassTemplate)
         : m_context(context)
-        , m_pDepthStencilBuffer(config.pDepthStencilBuffer)
     {
-        assert(!config.swapChains.empty());
+        assert(!config.attachmentChain.empty());
 
         // The max image count determines how multi-buffered this render target
-        // can be, but some color attachments might not need to be buffered, if
+        // can be, but some color attachmentChain might not need to be buffered, if
         // their contents are only temporary (i.e. scratch space) or if image
         // barriers are used to prevent race conditions.
-        uint32_t maxImageCount = 0u;
-        for (const auto& pSwapChain : config.swapChains) {
-            maxImageCount = std::max(maxImageCount, pSwapChain->getImageCount());
-        }
-        m_framebuffers.resize(maxImageCount);
+        m_framebuffers.resize(config.attachmentChain.size());
 
-        auto& swapChainExtent = config.swapChains.front()->getImageExtent();
+        m_hasDepthStencilBuffer = config.attachmentChain.front().pDepthStencilView != nullptr;
+
+        std::vector<VkImageView> imageViewAttachments(
+            config.attachmentChain.front().targetImageViews.size() + (m_hasDepthStencilBuffer ? 1 : 0));
+
+        std::vector<VkImageView> lastImageViewAttachments;
         for (size_t i = 0; i < m_framebuffers.size(); ++i) {
-            std::vector<VkImageView> imageViewAttachments;
-            for (const auto& pSwapChain : config.swapChains) {
-                assert(pSwapChain->getImageExtent().width == swapChainExtent.width);
-                assert(pSwapChain->getImageExtent().height == swapChainExtent.height);
-
-                size_t imageViewIndex = i % pSwapChain->getImageCount();
-                imageViewAttachments.push_back(pSwapChain->getImageView(imageViewIndex).getHandle());
+            size_t attachmentIndex = 0;
+            for (const auto& pTargetImageView : config.attachmentChain[i].targetImageViews) {
+                imageViewAttachments[attachmentIndex] = pTargetImageView->getHandle();
+                ++attachmentIndex;
             }
 
-            if (m_pDepthStencilBuffer != nullptr) {
-                imageViewAttachments.push_back(m_pDepthStencilBuffer->getImageView()->getHandle());
+            if (config.attachmentChain[i].pDepthStencilView != nullptr) {
+                imageViewAttachments[attachmentIndex] = config.attachmentChain[i].pDepthStencilView->getHandle();
             }
 
             VkFramebufferCreateInfo framebufferInfo = {};
@@ -48,8 +45,8 @@ namespace vgfx
             framebufferInfo.renderPass = renderPassTemplate.getHandle();
             framebufferInfo.attachmentCount = static_cast<uint32_t>(imageViewAttachments.size());
             framebufferInfo.pAttachments = imageViewAttachments.data();
-            framebufferInfo.width = swapChainExtent.width;
-            framebufferInfo.height = swapChainExtent.height;
+            framebufferInfo.width = config.targetExtent.width;
+            framebufferInfo.height = config.targetExtent.height;
             framebufferInfo.layers = 1;
 
             VkDevice device = m_context.getLogicalDevice();
@@ -57,8 +54,13 @@ namespace vgfx
             if (vkCreateFramebuffer(device, &framebufferInfo, pCallbacks, &m_framebuffers[i]) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create framebuffer!");
             }
+
+            std::vector<VkImageView> tmp;
+            tmp.swap(imageViewAttachments);
+            imageViewAttachments.swap(lastImageViewAttachments);
+            lastImageViewAttachments.swap(tmp);
         }
-        m_renderExtent = swapChainExtent;
+        m_renderExtent = config.targetExtent;
     }
  
     void RenderTarget::destroy()
@@ -74,6 +76,51 @@ namespace vgfx
 
             m_framebuffers.clear();
         }
+    }
+
+    void RenderTargetBuilder::addRenderImage(const Image& image, VkFormat renderFormat, size_t chainIndex)
+    {
+        if (m_config.attachmentChain.empty()) {
+            m_config.targetExtent.width = image.getWidth();
+            m_config.targetExtent.height = image.getHeight();
+        }
+
+        assert(m_config.targetExtent.width == image.getWidth() && m_config.targetExtent.height == image.getHeight());
+
+        assert(chainIndex <= m_config.attachmentChain.size());
+        if (chainIndex == m_config.attachmentChain.size()) {
+            m_config.attachmentChain.resize(chainIndex + 1);
+        }
+
+        ImageView::Config imageViewConfig(
+            renderFormat == VK_FORMAT_UNDEFINED ? image.getFormat() : renderFormat,
+            VK_IMAGE_VIEW_TYPE_2D);
+        m_config.attachmentChain[chainIndex].targetImageViews.push_back(&image.getOrCreateView(imageViewConfig));
+    }
+
+    void RenderTargetBuilder::addDepthStencilBuffer(const DepthStencilBuffer& depthStencilBuffer, VkFormat renderFormat, size_t chainIndex)
+    {
+        if (m_config.attachmentChain.empty()) {
+            m_config.targetExtent.width = depthStencilBuffer.getWidth();
+            m_config.targetExtent.height = depthStencilBuffer.getHeight();
+        }
+
+        assert(m_config.targetExtent.width == depthStencilBuffer.getWidth() && m_config.targetExtent.height == depthStencilBuffer.getHeight());
+
+        assert(chainIndex <= m_config.attachmentChain.size());
+        if (chainIndex == m_config.attachmentChain.size()) {
+            m_config.attachmentChain.resize(chainIndex + 1);
+        }
+
+        ImageView::Config viewConfig(
+            renderFormat == VK_FORMAT_UNDEFINED ? depthStencilBuffer.getFormat() : renderFormat,
+            VK_IMAGE_VIEW_TYPE_2D);
+        m_config.attachmentChain[chainIndex].pDepthStencilView = &depthStencilBuffer.getOrCreateImageView(viewConfig);
+    }
+
+    std::unique_ptr<RenderTarget> RenderTargetBuilder::createRenderTarget(Context& context, const RenderPass& renderPassTemplate)
+    {
+        return std::make_unique<RenderTarget>(context, m_config, renderPassTemplate);
     }
 }
 

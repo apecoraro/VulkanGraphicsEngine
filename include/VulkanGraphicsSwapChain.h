@@ -1,9 +1,7 @@
-#ifndef VGFX_SWAP_CHAIN_H
-#define VGFX_SWAP_CHAIN_H
+#pragma once
 
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsImage.h"
-#include "VulkanGraphicsImageView.h"
 #include "VulkanGraphicsSemaphore.h"
 #include "VulkanGraphicsRenderTarget.h"
 
@@ -14,70 +12,19 @@
 
 namespace vgfx
 {
+    // Encapsulates the VkSwapChain which is a queue images that can be presented to on the screen.
     class SwapChain
-    {
-    public:
-        SwapChain() = default;
-        virtual ~SwapChain() = default;
-
-        uint32_t getImageCount() const {
-            return static_cast<uint32_t>(m_images.size());
-        }
-
-        Image& getImage(size_t index) {
-            return m_images[index];
-        }
-
-        const Image& getImage(size_t index) const {
-            return m_images[index];
-        }
-
-        const VkExtent2D& getImageExtent() const {
-            return m_imageExtent;
-        }
-
-        VkFormat getImageFormat() const {
-            return m_imageFormat;
-        }
-
-        VkSampleCountFlagBits getSampleCount() const {
-            return m_sampleCount;
-        }
-
-        using CreateImageViewFunc =
-            std::function<std::unique_ptr<ImageView>(
-                Context& context, VkImage image, VkFormat imageFormat)>;
-
-        const ImageView& getImageView(size_t index) const
-        {
-            return *m_imageViews[index].get();
-        }
-
-        ImageView& getImageView(size_t index)
-        {
-            return *m_imageViews[index].get();
-        }
-
-    protected:
-        std::vector<Image> m_images;
-        VkExtent2D m_imageExtent = { 0u, 0u };
-        VkFormat m_imageFormat = VK_FORMAT_UNDEFINED;
-        VkSampleCountFlagBits m_sampleCount = VK_SAMPLE_COUNT_1_BIT;
-        std::vector<std::unique_ptr<ImageView>> m_imageViews; 
-    };
-
-    class WindowSwapChain : public SwapChain
     {
     public:
         using CreateVulkanSurfaceFunc = std::function<VkResult(VkInstance, void*, const VkAllocationCallbacks*, VkSurfaceKHR*)>;
 
-        WindowSwapChain(
+        SwapChain(
             void* pWindow,
             uint32_t initWindowWidth,
             uint32_t initWindowHeight,
             const CreateVulkanSurfaceFunc& createVulkanSurfaceFunc);
 
-        virtual ~WindowSwapChain()
+        virtual ~SwapChain()
         {
             destroy();
         }
@@ -144,10 +91,8 @@ namespace vgfx
             }
             Config() = delete;
         };
-        void createRenderingResources(
-            Context& context,
-            const Config& config,
-            const SwapChain::CreateImageViewFunc& createImageViewFunc);
+
+        void createRenderingResources(Context& context, const Config& config);
 
         void destroy();
 
@@ -160,6 +105,42 @@ namespace vgfx
         }
 
         VkSwapchainKHR getHandle() const { return m_swapChain; }
+
+        uint32_t getImageCount() const {
+            return static_cast<uint32_t>(m_images.size());
+        }
+
+        Image& getImage(size_t index) {
+            return *m_images[index].get();
+        }
+
+        const Image& getImage(size_t index) const {
+            return *m_images[index].get();
+        }
+
+        ImageView& getImageView(size_t index) {
+            return *m_imageViews[index];
+        }
+
+        const ImageView& getImageView(size_t index) const {
+            return *m_imageViews[index];
+        }
+
+        std::vector<ImageView*>& getImageViews() { return m_imageViews; }
+        const std::vector<ImageView*>& getImageViews() const { return m_imageViews; }
+
+        const VkExtent2D& getImageExtent() const {
+            return m_imageExtent;
+        }
+
+        VkFormat getImageFormat() const {
+            return m_images[0]->getFormat();
+        }
+
+        VkSampleCountFlagBits getSampleCount() const {
+            return m_images[0]->getSampleCount();
+        }
+
     private:
         void* m_pWindow = nullptr;
         uint32_t m_initWindowWidth = 0u;
@@ -171,20 +152,13 @@ namespace vgfx
         VkSwapchainKHR m_swapChain = VK_NULL_HANDLE;
 
         Context* m_pContext = nullptr;
+
+        std::vector<std::unique_ptr<Image>> m_images;
+        std::vector<ImageView*> m_imageViews;
+        VkExtent2D m_imageExtent = { 0u, 0u };
+        VkSampleCountFlagBits m_sampleCount = VK_SAMPLE_COUNT_1_BIT;
+
         std::vector<std::unique_ptr<Semaphore>> m_imageAvailableSemaphores;
     };
-
-    class OffscreenSwapChain : public SwapChain
-    {
-    public:
-        OffscreenSwapChain(
-            std::vector<std::unique_ptr<Image>>&& images,
-            std::vector<std::unique_ptr<ImageView>>&& imageViews);
-
-    private:
-        std::vector<std::unique_ptr<Image>> m_imagePtrs;
-    };
 }
-
-#endif
 

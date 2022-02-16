@@ -8,7 +8,7 @@
     <ClCompile Include="src\VulkanGraphicsRenderTarget.cpp" />
     <ClCompile Include="src\VulkanGraphicsProgram.cpp" />
     <ClCompile Include="src\VulkanGraphicsMemoryAllocator.cpp" />
-    <ClCompile Include="src\VulkanGraphicsCommandBuffers.cpp" />
+    <ClCompile Include="src\VulkanGraphicsCommandBufferFactory.cpp" />
     <ClCompile Include="src\VulkanGraphicsVertexBuffer.cpp" />
     <ClCompile Include="src\VulkanGraphicsIndexBuffer.cpp" />
     <ClCompile Include="src\VulkanGraphicsOneTimeCommands.cpp" />
@@ -29,6 +29,8 @@
     <ClCompile Include="src\VulkanGraphicsDepthStencilBuffer.cpp" />
     <ClCompile Include="src\VulkanGraphicsImageSharpener.cpp" />
     <ClCompile Include="src\VulkanGraphicsRenderPass.cpp" />
+    <ClCompile Include="src\VulkanGraphicsApplication.cpp" />
+    <ClCompile Include="src\VulkanGraphicsSceneNode.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\VulkanGraphicsContext.h" />
@@ -39,7 +41,7 @@
     <ClInclude Include="include\VulkanGraphicsProgram.h" />
     <ClInclude Include="include\VulkanGraphicsPipeline.h" />
     <ClInclude Include="include\VulkanGraphicsMemoryAllocator.h" />
-    <ClInclude Include="include\VulkanGraphicsCommandBuffers.h" />
+    <ClInclude Include="include\VulkanGraphicsCommandQueue.h" />
     <ClInclude Include="include\VulkanGraphicsVertexBuffer.h" />
     <ClInclude Include="include\VulkanGraphicsIndexBuffer.h" />
     <ClInclude Include="include\VulkanGraphicsOneTimeCommands.h" />
@@ -69,6 +71,9 @@
       <Filter>Shaders</Filter>
     </ClInclude>
     <ClInclude Include="include\VulkanGraphicsRenderPass.h" />
+    <ClInclude Include="include\VulkanGraphicsApplication.h" />
+    <ClInclude Include="include\VulkanGraphicsSceneNode.h" />
+    <ClInclude Include="include\VulkanGraphicsCommandBufferFactory.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">

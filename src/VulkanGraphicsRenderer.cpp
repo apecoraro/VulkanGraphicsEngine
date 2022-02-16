@@ -205,7 +205,7 @@ namespace vgfx
         }
 
         if (!m_swapChainConfig.imageFormat.has_value()) {
-            // configure the surface format
+            // configure the surface renderTargetFormat
             std::vector<VkSurfaceFormatKHR> supportedFormats;
             m_spSwapChain->getSupportedImageFormats(device, &supportedFormats);
 
@@ -243,10 +243,9 @@ namespace vgfx
 
     void WindowRenderer::initSwapChain(
         Context& context,
-        const SwapChain::CreateImageViewFunc& createImageViewFunc,
         uint32_t maxFramesInFlight)
     {
-        WindowSwapChain::Config swapChainConfig(
+        SwapChain::Config swapChainConfig(
             m_swapChainConfig.imageCount.value(),
             maxFramesInFlight,
             m_swapChainConfig.imageFormat.value(),
@@ -256,7 +255,7 @@ namespace vgfx
             m_swapChainConfig.presentMode.value(),
             m_swapChainConfig.preTransform.value());
 
-        m_spSwapChain->createRenderingResources(context, swapChainConfig, createImageViewFunc);
+        m_spSwapChain->createRenderingResources(context, swapChainConfig);
 
         // Don't know how many images were created until after createRenderingResources completes, so have
         // to query to get this value even though we passed it in.
@@ -505,14 +504,9 @@ namespace vgfx
 
         VkFormat selectedFormat = pickFormatFunc(supportedDepthStencilFormats);
 
-        Image::Config depthImageCfg(
-            width,
-            height,
-            selectedFormat,
-            VK_IMAGE_TILING_OPTIMAL,
-            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
-
-        m_spDepthStencilBuffer.reset(new DepthStencilBuffer(context, depthImageCfg));
+        DepthStencilBuffer::Config dsCfg(width, height, selectedFormat);
+        m_spDepthStencilBuffer.reset(
+            new DepthStencilBuffer(context, dsCfg));
     }
 
     void Renderer::DepthStencilDeleter::operator()(DepthStencilBuffer * pDSBuffer)

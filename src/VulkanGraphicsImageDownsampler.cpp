@@ -112,7 +112,7 @@ namespace vgfx
 
         // initialize global atomic counter to 0
         uint32_t zero = 0u;
-        m_spGlobalCounterUBO->update(&zero, sizeof(zero), Buffer::MemMap::UnMap);
+        m_spGlobalCounterUBO->update(&zero, sizeof(zero), 0u, Buffer::MemMap::UnMap);
     }
 
     void ImageDownsampler::execute(const Image& image, OneTimeCommandsHelper& commandsHelper)
