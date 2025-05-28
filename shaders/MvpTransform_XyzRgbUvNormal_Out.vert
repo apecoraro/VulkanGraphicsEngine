@@ -1,14 +1,14 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-layout(push_constant) uniform ModelParams {
+layout(push_constant) uniform PushParams {
     mat4 world;
-} model;
-
-layout(set = 0, binding = 0) uniform CameraParams {
     mat4 view;
+} push;
+
+layout(set = 0, binding = 0) uniform UniformParams {
     mat4 proj;
-} camera;
+} ubo;
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;
@@ -26,9 +26,9 @@ void main()
 
     fragTexCoord = inTexCoord;
 
-    mat4 normalTransform = transpose(inverse(model.world));
+    mat4 normalTransform = transpose(inverse(push.world));
     fragNormal = (normalTransform * vec4(inNormal, 0.0)).xyz;
 
-    fragPos = (model.world * vec4(inPosition, 1.0)).xyz;
-    gl_Position = camera.proj * camera.view * vec4(fragPos, 1.0);
+    fragPos = (push.world * vec4(inPosition, 1.0)).xyz;
+    gl_Position = ubo.proj * push.view * vec4(fragPos, 1.0);
 }

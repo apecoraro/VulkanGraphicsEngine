@@ -28,6 +28,7 @@
     <ClCompile Include="src\VulkanGraphicsImage.cpp" />
     <ClCompile Include="src\VulkanGraphicsImageSharpener.cpp" />
     <ClCompile Include="src\VulkanGraphicsModelLibrary.cpp" />
+    <ClCompile Include="src\VulkanGraphicsPbrDrawable.cpp" />
     <ClCompile Include="src\VulkanGraphicsRenderPass.cpp" />
     <ClCompile Include="src\VulkanGraphicsSampler.cpp" />
     <ClCompile Include="src\VulkanGraphicsCommandBufferFactory.cpp" />
@@ -74,6 +75,7 @@
     <ClInclude Include="include\VulkanGraphicsMemoryAllocator.h" />
     <ClInclude Include="include\VulkanGraphicsModelLibrary.h" />
     <ClInclude Include="include\VulkanGraphicsObject.h" />
+    <ClInclude Include="include\VulkanGraphicsPbrDrawable.h" />
     <ClInclude Include="include\VulkanGraphicsPipeline.h" />
     <ClInclude Include="include\VulkanGraphicsProgram.h" />
     <ClInclude Include="include\VulkanGraphicsRenderPass.h" />
@@ -114,26 +116,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>

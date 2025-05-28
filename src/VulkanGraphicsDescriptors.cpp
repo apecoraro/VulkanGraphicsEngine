@@ -69,18 +69,20 @@ namespace vgfx
         }
     }
 
-    void DescriptorSet::update(
+    void DescriptorSetUpdater::update(
         Context& context,
-        const std::map<uint32_t, DescriptorUpdater*>& descriptors)
+        const std::map<uint32_t, DescriptorUpdater>& descriptors,
+        VkDescriptorSet descriptorSet)
     {
         m_descriptorWrites.resize(descriptors.size());
         size_t dindex = 0u;
-        for (auto& [binding, pDescriptor]: descriptors) {
+        for (auto& [binding, descriptorUpdater]: descriptors) {
             VkWriteDescriptorSet& descriptorWrite = m_descriptorWrites[dindex];
             descriptorWrite = {};
             descriptorWrite.dstBinding = binding;
-            descriptorWrite.dstSet = m_descriptorSet;
-            pDescriptor->write(&descriptorWrite);
+            descriptorWrite.dstSet = descriptorSet;
+
+            descriptorUpdater.write(&descriptorWrite);
             ++dindex;
         }
 
@@ -88,21 +90,6 @@ namespace vgfx
             context.getLogicalDevice(),
             static_cast<uint32_t>(m_descriptorWrites.size()),
             m_descriptorWrites.data(), 0, nullptr);
-    }
-
-    DescriptorSetBuffer::DescriptorSetBuffer(size_t bufferCopies)
-    {
-        m_copies.reserve(bufferCopies);
-    }
-
-    void DescriptorSetBuffer::init(
-        const DescriptorSetLayout& layout,
-        DescriptorPool& pool)
-    {
-        pool.allocateDescriptorSets(
-            layout,
-            static_cast<uint32_t>(m_copies.capacity()),
-            &m_copies);
     }
 
     DescriptorPool::DescriptorPool(
@@ -143,7 +130,7 @@ namespace vgfx
     void DescriptorPool::allocateDescriptorSets(
         const DescriptorSetLayout& layout,
         uint32_t count,
-        std::vector<DescriptorSet>* pDescriptorSets)
+        VkDescriptorSet** ppDescriptorSetHandles)
     {
         std::vector<VkDescriptorSetLayout> layouts(count, layout.getHandle());
         VkDescriptorSetAllocateInfo allocInfo = {};
@@ -152,14 +139,25 @@ namespace vgfx
         allocInfo.descriptorSetCount = count;
         allocInfo.pSetLayouts = layouts.data();
 
-        std::vector<VkDescriptorSet> descriptorSetHandles(count);
-        VkResult result = vkAllocateDescriptorSets(m_context.getLogicalDevice(), &allocInfo, descriptorSetHandles.data());
+        VkResult result = vkAllocateDescriptorSets(m_context.getLogicalDevice(), &allocInfo, *ppDescriptorSetHandles);
         if (result != VK_SUCCESS) {
             throw std::runtime_error("Failed to allocate descriptor sets!");
         }
+    }
 
-        for (size_t i = 0; i < descriptorSetHandles.size(); ++i) {
-            pDescriptorSets->push_back(DescriptorSet(descriptorSetHandles[i]));
+    void DescriptorPool::freeDescriptorSets(std::vector<VkDescriptorSet>& descriptorSetHandles)
+    {
+        VkResult result = vkFreeDescriptorSets(m_context.getLogicalDevice(), m_descriptorPool, static_cast<uint32_t>(descriptorSetHandles.size()), descriptorSetHandles.data());
+        if (result != VK_SUCCESS) {
+            throw std::runtime_error("Failed to allocate descriptor sets!");
+        }
+    }
+
+    void DescriptorPool::reset(VkDescriptorPoolResetFlags flags)
+    {
+        VkResult result = vkResetDescriptorPool(m_context.getLogicalDevice(), m_descriptorPool, flags);
+        if (result != VK_SUCCESS) {
+            throw std::runtime_error("Failed to allocate descriptor sets!");
         }
     }
 }

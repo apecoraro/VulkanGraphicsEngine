@@ -47,7 +47,7 @@ namespace vgfx
         std::unique_ptr<Program> m_spComputeProgram;
         std::unique_ptr<ComputePipeline> m_spComputePipeline;
         std::unique_ptr<DescriptorPool> m_spDescriptorPool;
-        std::unique_ptr<DescriptorSet> m_spDescriptorSet;
+        std::unique_ptr<DescriptorSetUpdater> m_spDescriptorSet;
         std::unique_ptr<Sampler> m_spSampler;
         std::unique_ptr<Buffer> m_spGlobalCounterUBO;
 

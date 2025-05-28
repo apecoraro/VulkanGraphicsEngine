@@ -3,6 +3,7 @@
 #include "VulkanGraphicsBuffer.h"
 #include "VulkanGraphicsObject.h"
 #include "VulkanGraphicsPipeline.h"
+#include "VulkanGraphicsRenderer.h"
 #include "VulkanGraphicsRenderTarget.h"
 
 #include <glm/glm.hpp>
@@ -12,17 +13,12 @@
 
 namespace vgfx
 {
-    class Renderer;
-    class Visitor;
-
     class SceneNode
     {
     public:
         SceneNode() = default;
 
-        virtual void visit(Visitor& visitor) = 0;
-
-        virtual void recordCommands(Renderer& renderer) = 0;
+        virtual void draw(Renderer::DrawContext& recorder) = 0;
     };
 
     class GroupNode : public SceneNode
@@ -35,17 +31,10 @@ namespace vgfx
             m_children.emplace_back(std::move(addNode));
         }
 
-        void visit(Visitor& visit) override;
-        /* {
-            for (auto& spChild : m_children) {
-                spChild->createRenderingResources(context);
-            }
-        }*/
-
-        void recordCommands(Renderer& renderer) override
+        void draw(Renderer::DrawContext& drawState) override
         {
             for (auto& spChild : m_children) {
-                spChild->recordCommands(renderer);
+                spChild->draw(drawState);
             }
         }
 
@@ -56,13 +45,15 @@ namespace vgfx
     class CameraNode : public GroupNode
     {
     public:
-        CameraNode(Context& context, size_t numBuffers);
-        CameraNode(Context& context, size_t numBuffers, const glm::mat4& view, const glm::mat4& proj)
-            : CameraNode(context, numBuffers)
+        CameraNode(Context& context, size_t maxFramesInFlight);
+        CameraNode(Context& context, size_t maxFramesInFlight, const glm::mat4& view, const glm::mat4& proj)
+            : CameraNode(context, maxFramesInFlight)
         {
             m_view = view;
             m_proj = proj;
         }
+
+        const glm::mat4& getView() const { return m_view; }
 
         void setView(const glm::mat4& view)
         {
@@ -75,15 +66,18 @@ namespace vgfx
             m_projUpdated = true;
         }
 
-        void visit(Visitor& visit) override;
-        void recordCommands(Renderer& renderer) override;
+        void draw(Renderer::DrawContext& drawState) override;
+
+        Buffer& getProjectionBuffer() { return *m_cameraMatrixBuffers[m_currentBufferIndex].get(); }
 
     private:
         std::vector<std::unique_ptr<Buffer>> m_cameraMatrixBuffers;
-
+        
         glm::mat4 m_view = glm::identity<glm::mat4>();
         glm::mat4 m_proj = glm::identity<glm::mat4>();
         bool m_projUpdated = true;
+
+        size_t m_currentBufferIndex;
     };
 
     class RenderPassNode : public GroupNode
@@ -97,7 +91,7 @@ namespace vgfx
         {
         }
 
-        void recordCommands(Renderer& renderer) override;
+        void draw(Renderer::DrawContext& recorder) override;
     
         const RenderTarget::Config& getRenderTargetConfig() const { return m_renderTargetConfig; }
         const std::optional<const std::map<size_t, VkImageLayout>>& getInputs() const { return m_inputs; }
@@ -118,19 +112,12 @@ namespace vgfx
 
         void addObject(std::unique_ptr<Object>&& newObj);
 
-        void recordCommands(Renderer& renderer) override;
+        void initRenderingResources(Renderer::renderer& renderer) override;
+        void draw(Renderer::DrawContext& recorder) override;
+
     private:
         std::unique_ptr<Pipeline> m_spGraphicsPipeline;
 
         std::vector<std::unique_ptr<Object>> m_graphicsObjects;
-    };
-
-    class Visitor
-    {
-    public:
-        virtual void accept(GroupNode& groupNode) {};
-        virtual void accept(CameraNode& groupNode) {};
-        virtual void accept(RenderPassNode& groupNode) {};
-        virtual void accept(GraphicsNode& groupNode) {};
     };
 }

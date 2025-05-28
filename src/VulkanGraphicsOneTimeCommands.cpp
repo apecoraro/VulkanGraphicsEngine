@@ -8,7 +8,7 @@ namespace vgfx
 {
     OneTimeCommandsRunner::OneTimeCommandsRunner(
         CommandBufferFactory& commandBufferFactory,
-        const RecordCommandsFunc& recordCommandsFunc)
+        const RecordCommandsFunc& drawFunc)
         : m_commandBufferFactory(commandBufferFactory)
     {
         m_commandBuffer = commandBufferFactory.createCommandBuffer();
@@ -19,7 +19,7 @@ namespace vgfx
 
         vkBeginCommandBuffer(m_commandBuffer, &beginInfo);
 
-        recordCommandsFunc(m_commandBuffer);
+        drawFunc(m_commandBuffer);
 
         vkEndCommandBuffer(m_commandBuffer);
     }

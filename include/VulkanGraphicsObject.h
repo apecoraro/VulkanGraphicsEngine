@@ -1,5 +1,7 @@
 #pragma once
 
+#include "VulkanGraphicsRenderer.h"
+
 #include <vector>
 
 #include <vulkan/vulkan.h>
@@ -17,9 +19,8 @@ namespace vgfx
 
         void addDrawable(Drawable& pDrawable);
 
-        void recordDrawCommands(
-            VkCommandBuffer commandBuffer,
-            size_t swapChainIndex);
+        void draw(Renderer::DrawContext& drawContext);
+
     public:
         std::vector<Drawable*> m_drawables;
     };

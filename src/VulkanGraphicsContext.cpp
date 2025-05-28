@@ -99,6 +99,32 @@ namespace vgfx
         return *m_spImageDownsampler.get();
     }
 
+    static Context::InstanceVersion QueryInstanceVersion()
+    {
+        uint32_t versionBits = 0;
+        VkResult result = vkEnumerateInstanceVersion(&versionBits);
+        if (result != VK_SUCCESS)
+            throw std::runtime_error("Failed to query instance version!");
+
+        Context::InstanceVersion instanceVersion;
+        instanceVersion.major = VK_API_VERSION_MAJOR(versionBits);
+        instanceVersion.minor = VK_API_VERSION_MINOR(versionBits);
+        instanceVersion.patch = VK_API_VERSION_PATCH(versionBits);
+
+        return instanceVersion;
+    }
+
+    static void QuerySupportedExtensions(std::vector<VkExtensionProperties>* pSupportedExtensions)
+    {
+        uint32_t allExtensionsCount = 0;
+        vkEnumerateInstanceExtensionProperties(nullptr, &allExtensionsCount, nullptr);
+
+        std::vector<VkExtensionProperties> allExtensions(allExtensionsCount);
+        vkEnumerateInstanceExtensionProperties(nullptr, &allExtensionsCount, allExtensions.data());
+
+        pSupportedExtensions->swap(allExtensions);
+    }
+
     void Context::createInstance(
         const AppConfig& appConfig,
         const InstanceConfig& instanceConfig)
@@ -114,26 +140,53 @@ namespace vgfx
 
         appInfo.pEngineName = k_vgfxEngineName;
         appInfo.engineVersion = k_vgfxVersion;
-        appInfo.apiVersion = VK_API_VERSION_1_2;
+
+        m_instanceVersion = QueryInstanceVersion();
+        if (instanceConfig.minMajorVersion > m_instanceVersion.major
+            || (instanceConfig.minMajorVersion == m_instanceVersion.major
+                && instanceConfig.minMinorVersion > m_instanceVersion.minor)
+            || (instanceConfig.minMajorVersion == m_instanceVersion.major
+                && instanceConfig.minMinorVersion == m_instanceVersion.minor
+                && instanceConfig.minPatchVersion > m_instanceVersion.patch))
+        {
+            throw std::runtime_error("Minimum required API version not supported!");
+        }
+
+        appInfo.apiVersion =
+            VK_MAKE_API_VERSION(
+                0,
+                m_instanceVersion.major,
+                m_instanceVersion.minor,
+                instanceConfig.minPatchVersion);
 
         VkInstanceCreateInfo createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         createInfo.pApplicationInfo = &appInfo;
 
+        std::vector<VkExtensionProperties> supportedExtensions;
+        QuerySupportedExtensions(&supportedExtensions);
+
         std::vector<const char*> instanceExtensionsAsCharPtrs;
         if (!instanceConfig.requiredExtensions.empty()) {
-            checkInstanceExtensionSupport(instanceConfig.requiredExtensions);
-
-            createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceConfig.requiredExtensions.size());
+            checkInstanceExtensionSupport(supportedExtensions, instanceConfig.requiredExtensions);
 
             ContainerOfStringsToCharPtrs(instanceConfig.requiredExtensions, &instanceExtensionsAsCharPtrs);
 
             createInfo.ppEnabledExtensionNames = instanceExtensionsAsCharPtrs.data();
         }
         else {
-            createInfo.enabledExtensionCount = 0u;
             createInfo.ppEnabledExtensionNames = nullptr;
         }
+
+        // Make sure dynamic rendering is available
+        // (either API v1.3 or greater, or the dynamic rendering extension is required)
+        if (m_instanceVersion.major <= 1 && m_instanceVersion.minor < 3)
+        {
+            checkInstanceExtensionSupport(supportedExtensions, {VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME});
+            instanceExtensionsAsCharPtrs.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
+            createInfo.ppEnabledExtensionNames = instanceExtensionsAsCharPtrs.data();
+        }
+        createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensionsAsCharPtrs.size());
 
         std::vector<std::string> requestedAndAvailableLayers;
         std::vector<const char*> validationLayersAsCharPtrs;
@@ -165,17 +218,12 @@ namespace vgfx
     }
 
     void Context::checkInstanceExtensionSupport(
+        const std::vector<VkExtensionProperties>& supportedExtensions,
         const std::vector<std::string>& requiredExtensions)
     {
         std::set<std::string> requiredExtensionSet(requiredExtensions.begin(), requiredExtensions.end());
 
-        uint32_t allExtensionsCount = 0;
-        vkEnumerateInstanceExtensionProperties(nullptr, &allExtensionsCount, nullptr);
-
-        std::vector<VkExtensionProperties> allExtensions(allExtensionsCount);
-        vkEnumerateInstanceExtensionProperties(nullptr, &allExtensionsCount, allExtensions.data());
-
-        for (const auto& vkExtension : allExtensions) {
+        for (const auto& vkExtension : supportedExtensions) {
             requiredExtensionSet.erase(vkExtension.extensionName);
         }
 
@@ -617,7 +665,13 @@ namespace vgfx
         // Used by ImageSharpener.
         physDevFeatures.features.shaderInt16 = VK_TRUE;
 
+        VkPhysicalDeviceDynamicRenderingFeaturesKHR dynRenderingFeatures = {};
+        dynRenderingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
+        dynRenderingFeatures.dynamicRendering = VK_TRUE;
+        dynRenderingFeatures.pNext = nullptr;
+
         createInfo.pNext = &physDevFeatures;
+        physDevFeatures.pNext = &dynRenderingFeatures;
 
         std::vector<const char*> deviceExtensionsAsCharPtrs;
         if (!deviceConfig.requiredDeviceExtensions.empty()) {

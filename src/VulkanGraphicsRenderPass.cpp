@@ -122,7 +122,7 @@ namespace vgfx
             curPass.attachments.back().stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         }
 
-        if (!renderTargetCfg.attachmentChain[0].targetImageViews.empty()) {
+        if (!renderTargetCfg.attachmentChain.front().targetImageViews.empty()) {
             curPass.subpassDeps.resize(2u, VkSubpassDependency{});
             // Dependency at the start of the renderpass does the transition from final to initial layout.
             auto& firstDep = curPass.subpassDeps.front();
@@ -299,7 +299,6 @@ namespace vgfx
 
     void RenderPass::begin(
         VkCommandBuffer commandBuffer,
-        size_t swapChainImageIndex,
         RenderTarget& renderTarget,
         const std::optional<const VkRect2D> renderArea,
         const std::optional<std::vector<VkClearValue>> clearValues)
@@ -307,7 +306,7 @@ namespace vgfx
         VkRenderPassBeginInfo renderPassBeginInfo = {};
         renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         renderPassBeginInfo.renderPass = m_renderPass;
-        renderPassBeginInfo.framebuffer = renderTarget.getFramebuffer(swapChainImageIndex);
+        renderPassBeginInfo.framebuffer = renderTarget.getNextFramebuffer();
         if (renderArea.has_value()) {
             renderPassBeginInfo.renderArea = renderArea.value();
         } else {

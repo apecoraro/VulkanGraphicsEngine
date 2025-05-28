@@ -17,15 +17,15 @@ namespace vgfx
     public:
         DescriptorPoolBuilder() = default;
 
+        DescriptorPoolBuilder& addDescriptors(VkDescriptorType type, uint32_t count);
+        DescriptorPoolBuilder& addDescriptorSets(const DescriptorSetLayouts& descriptorSetLayouts, uint32_t perTypeScaleFactor);
+        DescriptorPoolBuilder& addMaxSets(uint32_t count);
         // Add to pool sizes for each Descriptor in the DescriptorSet
-        DescriptorPoolBuilder& addMaterialDescriptorSets(const Material& material);
-        DescriptorPoolBuilder& addComputeShaderDescriptorSets(const ComputeShader& computeShader);
         DescriptorPoolBuilder& setCreateFlags(VkDescriptorPoolCreateFlags flags);
 
         std::unique_ptr<DescriptorPool> createPool(Context& context);
 
     private:
-        void addDescriptorSets(const DescriptorSetLayouts& descriptorSetLayouts);
 
         std::map<VkDescriptorType, VkDescriptorPoolSize> m_descriptorPoolSizes;
         VkDescriptorPoolCreateFlags m_flags = 0;

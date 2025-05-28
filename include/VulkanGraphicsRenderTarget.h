@@ -20,43 +20,32 @@ namespace vgfx
     public:
         // RenderTarget can consist of multiple color buffers and a depth/stencil buffer and
         // optionally multiple copies/chains (e.g. SwapChain) of the buffers.
+        struct AttachmentViews
+        {
+        public:
+            std::vector<ImageView*> targetImageViews;
+            ImageView* pDepthStencilView;
+        };
         struct Config
         {
         public:
-            struct Attachments
-            {
-                std::vector<ImageView*> targetImageViews;
-                ImageView* pDepthStencilView;
-            };
-            std::vector<Attachments> attachmentChain;
+            std::vector<AttachmentViews> attachmentChain;
             VkExtent2D targetExtent;
         };
         RenderTarget(
             Context& context,
-            const Config& config,
-            const RenderPass& renderPassTemplate);
+            Config&& config);
 
-        ~RenderTarget()
-        {
-            destroy();
-        }
+        bool hasDepthStencilBuffer() const { return m_config.attachmentChain.front().pDepthStencilView != nullptr; }
 
-        bool hasDepthStencilBuffer() const { return m_hasDepthStencilBuffer; }
+        const VkExtent2D& getExtent() const { return m_config.targetExtent; }
 
-        VkFramebuffer getFramebuffer(size_t chainIndex) const
-        {
-            return m_framebuffers[chainIndex % m_framebuffers.size()];
-        }
-        const VkExtent2D& getExtent() const { return m_renderExtent; }
+        const AttachmentViews& getAttachmentChain(size_t index) const { return m_config.attachmentChain[index]; }
 
     protected:
-        void destroy();
 
         Context& m_context;
-
-        std::vector<VkFramebuffer> m_framebuffers;
-        bool m_hasDepthStencilBuffer = false;
-        VkExtent2D m_renderExtent = {};
+        Config m_config;
     };
 
     class RenderTargetBuilder
@@ -64,11 +53,15 @@ namespace vgfx
     public:
         RenderTargetBuilder() = default;
         void addRenderImage(const Image& image, VkFormat renderFormat = VK_FORMAT_UNDEFINED, size_t chainIndex=0u);
-        void addRenderImageChain(const std::vector<std::unique_ptr<Image>>& imageChain, VkFormat renderFormat = VK_FORMAT_UNDEFINED);
-        void addDepthStencilBuffer(const DepthStencilBuffer& depthStencilBuffer, VkFormat = VK_FORMAT_UNDEFINED, size_t chainIndex=0u);
-        void addDepthStencilBufferChain(const std::vector<std::unique_ptr<DepthStencilBuffer>>& depthStencilBuffer, VkFormat = VK_FORMAT_UNDEFINED);
+        void addAttachmentChain(
+            const std::vector<std::unique_ptr<Image>>& imageChain,
+            const DepthStencilBuffer* pOptionalDepthStencilBuffer=nullptr,
+            VkFormat overrideImageRenderFormat = VK_FORMAT_UNDEFINED,
+            VkFormat overrideDepthStencilRenderFormat = VK_FORMAT_UNDEFINED);
+        void attachDepthStencilBuffer(const DepthStencilBuffer& depthStencilBuffer, VkFormat renderFormat = VK_FORMAT_UNDEFINED, size_t chainIndex=0u);
 
-        std::unique_ptr<RenderTarget> createRenderTarget(Context& context, const RenderPass& renderPassTemplate);
+        const RenderTarget::Config& getConfig() const { return m_config; }
+        std::unique_ptr<RenderTarget> createRenderTarget(Context& context);
     private:
         RenderTarget::Config m_config;
     };

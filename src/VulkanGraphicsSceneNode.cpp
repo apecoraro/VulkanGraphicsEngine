@@ -1,13 +1,14 @@
 #include "VulkanGraphicsSceneNode.h"
 
 #include "VulkanGraphicsRenderer.h"
+#include "VulkanGraphicsRenderPass.h"
 
 namespace vgfx
 {
-    CameraNode::CameraNode(Context& context, size_t numBuffers)
+    CameraNode::CameraNode(Context& context, size_t maxFramesInFlight)
     {
         vgfx::Buffer::Config cameraMatrixBufferCfg(sizeof(glm::mat4));
-        for (uint32_t index = 0; index < numBuffers; ++index) {
+        for (uint32_t index = 0; index < maxFramesInFlight; ++index) {
             m_cameraMatrixBuffers.emplace_back(
                 std::make_unique<vgfx::Buffer>(
                     context,
@@ -16,30 +17,37 @@ namespace vgfx
         }
     }
 
-    void CameraNode::recordCommands(Renderer& renderer)
+    void CameraNode::draw(Renderer::DrawContext& drawContext)
     {
-        size_t currentBufferIndex = renderer.getFrameIndex() % m_cameraMatrixBuffers.size();
-        
-        renderer.setViewTransform(m_view);
+        CameraNode* pParentCamera = drawContext.sceneState.pCurrentCameraNode;
+
+        drawContext.sceneState.pCurrentCameraNode = this;
+
+        auto& currentBuffer = *m_cameraMatrixBuffers[m_currentBufferIndex];
         if (m_projUpdated) {
-            m_projUpdated = false;
-
-            auto& currentBuffer = *m_cameraMatrixBuffers[currentBufferIndex];
             currentBuffer.update(&m_proj, sizeof(glm::mat4));
-
-            renderer.setProjectionTransformBuffer(currentBuffer);
         }
 
-        GroupNode::recordCommands(renderer);
+        GroupNode::draw(drawContext);
+
+        drawContext.sceneState.pCurrentCameraNode = pParentCamera;
+
+        if (m_projUpdated) {
+            m_projUpdated = false;
+            ++m_currentBufferIndex;
+            if (m_currentBufferIndex == m_cameraMatrixBuffers.size()) {
+                m_currentBufferIndex = 0u;
+            }
+        }
     }
 
-    void RenderPassNode::recordCommands(Renderer& renderer)
+    void RenderPassNode::draw(Renderer::DrawContext& drawContext)
     {
-        m_spRenderPass->begin(renderer, *m_spRenderTarget.get());
+        m_spRenderPass->begin(drawContext.commandBuffer, *m_spRenderTarget.get());
 
-        GroupNode::recordCommands(renderer);
+        GroupNode::draw(drawContext);
 
-        m_spRenderPass->end(renderer);
+        m_spRenderPass->end(drawContext.commandBuffer);
     }
 
     void RenderPassNode::setRenderPass(std::unique_ptr<RenderPass> spRenderPass)
@@ -50,5 +58,12 @@ namespace vgfx
                 m_spRenderPass->getContext(),
                 m_renderTargetConfig,
                 *m_spRenderPass.get());
+    }
+
+    void GraphicsNode::draw(Renderer::DrawContext& drawContext)
+    {
+        for (auto& objects : m_graphicsObjects) {
+            objects->draw(drawContext);
+        }
     }
 }

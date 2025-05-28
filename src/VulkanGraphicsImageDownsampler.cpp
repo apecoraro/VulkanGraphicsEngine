@@ -81,13 +81,13 @@ namespace vgfx
         descriptorPoolBuilder.addComputeShaderDescriptorSets(*m_spComputeShader.get());
         m_spDescriptorPool = descriptorPoolBuilder.createPool(context);
 
-        std::vector<DescriptorSet> descriptorSets;
+        std::vector<DescriptorSetUpdater> descriptorSets;
         m_spDescriptorPool->allocateDescriptorSets(
             *m_spComputeShader->getDescriptorSetLayouts().front().spDescriptorSetLayout.get(),
             1u, // Only one copy needed
             &descriptorSets);
 
-        m_spDescriptorSet = std::make_unique<DescriptorSet>(descriptorSets.front());
+        m_spDescriptorSet = std::make_unique<DescriptorSetUpdater>(descriptorSets.front());
 
         Sampler::Config samplerConfig(
             VK_FILTER_LINEAR,

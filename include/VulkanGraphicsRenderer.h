@@ -18,37 +18,45 @@
 
 namespace vgfx
 {
+    class Buffer;
+    class CameraNode;
+    class SceneNode;
+
     class Renderer
     {
-    public:
-        Renderer(bool requiresPresentQueue) : m_requiresPresentQueue(requiresPresentQueue) {}
-        virtual ~Renderer() = default;
-
+    protected:
+        friend class Context;
         // Called by vgfx::Context after the VkInstance has been created.
         virtual void bindToInstance(VkInstance instance, const VkAllocationCallbacks* pAllocationCallbacks) = 0;
 
         // Called by vgfx::Context to validate that a particular device will work for this Renderer.
         virtual void checkIsDeviceSuitable(VkPhysicalDevice device) const = 0;
 
-        // Returns true if this Renderer requires use of a presentation queue.
-        bool requiresPresentQueue() const { return m_requiresPresentQueue; }
-
         // Sub class should implement this function if it requires a queue that supports present
-        // to a surface (see WindowRenderer).
+        // to a surface (see WindowRenderer for example).
         virtual bool queueFamilySupportsPresent(VkPhysicalDevice device, uint32_t familyIndex) const { return true;  }
 
         // Callback by vgfx::Context after a physical device has been selected. Allows this Renderer
         // to setup its configuration based on the capabilities of the device.
         virtual void configureForDevice(VkPhysicalDevice device) = 0;
 
-        DepthStencilBuffer* getDepthStencilBuffer() { return m_spDepthStencilBuffer.get(); }
-        const DepthStencilBuffer* getDepthStencilBuffer() const { return m_spDepthStencilBuffer.get(); }
+        using PickDepthStencilFormatFunc = std::function<VkFormat(const std::set<VkFormat>& candidates)>;
+        void createDepthStencilBuffer(
+            Context& context,
+            uint32_t width,
+            uint32_t height,
+            PickDepthStencilFormatFunc pickFormatFunc);
+
+        // Called by drawScene() right before scene.draw(...)
+        virtual void beginDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) = 0;
+        // Called by drawScene() right after scene.draw(...)
+        virtual void endDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) = 0;
 
         struct QueueSubmitInfo
         {
             void addWait(VkSemaphore sem, VkPipelineStageFlags stage)
             {
-                waitSemaphores.push_back(sem); 
+                waitSemaphores.push_back(sem);
                 waitSemaphoreStages.push_back(stage);
             }
 
@@ -69,24 +77,55 @@ namespace vgfx
         };
         // Use previously recorded command buffers to render to the
         // specified swap chain image as specified by the swapChainImageIndex.
-        virtual VkResult renderFrame(
-            uint32_t swapChainImageIndex,
-            const QueueSubmitInfo& submitInfo) = 0;
+        virtual VkResult presentFrame(QueueSubmitInfo& submitInfo) = 0;
 
-        // Record commands required to start writing to the ImageQueue of this Renderer.
-        virtual void startFrame(VkCommandBuffer commandBuffer, size_t swapChainImageIndex) = 0;
-
-        // Record commands required to stop writing into the ImageQueue of this Renderer.
-        virtual void endFrame(VkCommandBuffer commandBuffer, size_t swapChainImageIndex) = 0;
-
-        using PickDepthStencilFormatFunc = std::function<VkFormat(const std::set<VkFormat>& candidates)>;
-
-    protected:
-        bool m_requiresPresentQueue = false;
         Context* m_pContext = nullptr;
-        uint32_t m_maxFramesInFlight = 0u;
-        QueueSubmitInfo m_gfxQueueSubmitInfo;
 
+    public:
+
+        Renderer(bool requiresPresentQueue) : m_requiresPresentQueue(requiresPresentQueue) {}
+        virtual ~Renderer() = default;
+
+        // Returns true if this Renderer requires use of a presentation queue.
+        bool requiresPresentQueue() const { return m_requiresPresentQueue; }
+
+        DepthStencilBuffer* getDepthStencilBuffer() { return m_spDepthStencilBuffer.get(); }
+        const DepthStencilBuffer* getDepthStencilBuffer() const { return m_spDepthStencilBuffer.get(); }
+        Context& getContext() { return *m_pContext; }
+
+        virtual void init(
+            Context& context,
+            uint32_t maxFramesInFlight);
+
+        struct SceneState
+        {
+            CameraNode* pCurrentCameraNode = nullptr;
+        };
+
+        struct DrawContext
+        {
+            Context& context;
+            SceneState sceneState;
+            size_t frameIndex;
+            VkCommandBuffer commandBuffer;
+            DescriptorPool& descriptorPool;
+            DrawContext(
+                Context& ctx,
+                size_t fi,
+                VkCommandBuffer cb,
+                DescriptorPool& dp)
+                : context(ctx)
+                , frameIndex(fi)
+                , commandBuffer(cb)
+                , descriptorPool(dp)
+            {}
+        };
+
+        // Records command buffer(s) to draw the scene in its current state
+        // and call presentFrame
+        void drawScene(SceneNode& scene);
+
+    private:
         struct DepthStencilDeleter
         {
             DepthStencilDeleter() = default;
@@ -94,11 +133,15 @@ namespace vgfx
         };
         std::unique_ptr<DepthStencilBuffer, DepthStencilDeleter> m_spDepthStencilBuffer;
 
-        void createDepthStencilBuffer(
-            Context& context,
-            uint32_t width,
-            uint32_t height,
-            PickDepthStencilFormatFunc pickFormatFunc);
+        bool m_requiresPresentQueue = false;
+
+        uint32_t m_maxFramesInFlight = 1u;
+        QueueSubmitInfo m_gfxQueueSubmitInfo;
+
+        size_t m_frameIndex = 0u;
+        std::vector<std::unique_ptr<DescriptorPool>> m_descriptorPools;
+        std::unique_ptr<CommandBufferFactory> m_spCommandBufferFactory;
+        std::vector<VkCommandBuffer> m_commandBuffers;
     };
 
     class WindowRenderer : public Renderer
@@ -168,26 +211,22 @@ namespace vgfx
 
         const SwapChainConfig& getSwapChainConfig() const { return m_swapChainConfig; }
 
-        void initSwapChain(
+        void init(
             Context& context,
-            uint32_t maxFramesInFlight);
+            uint32_t maxFramesInFlight) override;
 
         SwapChain& getSwapChain() { return *m_spSwapChain.get(); }
         const SwapChain& getSwapChain() const { return *m_spSwapChain.get(); }
 
-        VkResult acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex);
-
-        VkResult renderFrame(
-            uint32_t swapChainImageIndex,
-            const QueueSubmitInfo& submitInfo) override;
-
-        // Call startFrame prior to doing any commands that operate on the ImageQueue images.
-        void startFrame(VkCommandBuffer commandBuffer, size_t swapChainImageIndex) override;
-
-        // Call endFrame after done recording commands that operate on the ImageQueue images.
-        void endFrame(VkCommandBuffer commandBuffer, size_t swapChainImageIndex) override;
+        VkResult presentFrame(
+            QueueSubmitInfo& submitInfo) override;
 
     private:
+        void beginDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) override;
+        void endDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) override;
+
+        VkResult acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex);
+
         SwapChainConfig m_swapChainConfig;
         std::unique_ptr<SwapChain> m_spSwapChain;
 

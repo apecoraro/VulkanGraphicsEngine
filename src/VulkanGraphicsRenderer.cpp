@@ -1,6 +1,8 @@
 #include "VulkanGraphicsRenderer.h"
 
 #include "VulkanGraphicsDepthStencilBuffer.h"
+#include "VulkanGraphicsDescriptorPoolBuilder.h"
+#include "VulkanGraphicsSceneNode.h"
 
 #include <algorithm>
 #include <stdexcept>
@@ -241,7 +243,7 @@ namespace vgfx
         }
     }
 
-    void WindowRenderer::initSwapChain(
+    void WindowRenderer::init(
         Context& context,
         uint32_t maxFramesInFlight)
     {
@@ -260,6 +262,8 @@ namespace vgfx
         // Don't know how many images were created until after createRenderingResources completes, so have
         // to query to get this value even though we passed it in.
         size_t actualMaxFramesInFlight = m_spSwapChain->getImageAvailableSemaphoreCount();
+
+        Renderer::init(context, actualMaxFramesInFlight);
 
         m_renderFinishedSemaphores.reserve(actualMaxFramesInFlight);
         for (size_t i = 0; i < actualMaxFramesInFlight; ++i) {
@@ -282,20 +286,13 @@ namespace vgfx
         m_pContext = &context;
     }
 
-    void WindowRenderer::startFrame(VkCommandBuffer commandBuffer, size_t swapChainImageIndex)
+    void WindowRenderer::beginDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex)
     {
         bool imageBarrierNeeded =
             m_pContext->getPresentQueue(0).queue != m_pContext->getGraphicsQueue(0).queue;
         if (imageBarrierNeeded) {
             // This barrier needed to transfer ownership of the image from the present queue to the
             // graphics queue.
-            VkImageSubresourceRange imageSubresourceRange = {};
-            imageSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            imageSubresourceRange.baseMipLevel = 0u;
-            imageSubresourceRange.levelCount = 1u;
-            imageSubresourceRange.baseArrayLayer = 0u;
-            imageSubresourceRange.layerCount = 1u;
-
             VkImageMemoryBarrier barrierFromPresentToDraw = {};
             barrierFromPresentToDraw.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
             barrierFromPresentToDraw.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
@@ -305,8 +302,17 @@ namespace vgfx
             barrierFromPresentToDraw.srcQueueFamilyIndex = m_pContext->getPresentQueueFamilyIndex().value();
             barrierFromPresentToDraw.dstQueueFamilyIndex = m_pContext->getGraphicsQueueFamilyIndex().value();
 
+            size_t swapChainImageIndex = frameIndex % m_spSwapChain->getImageCount();
             VkImage swapChainImage = m_spSwapChain->getImage(swapChainImageIndex).getHandle();
+
             barrierFromPresentToDraw.image = swapChainImage;
+
+            VkImageSubresourceRange imageSubresourceRange = {};
+            imageSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            imageSubresourceRange.baseMipLevel = 0u;
+            imageSubresourceRange.levelCount = 1u;
+            imageSubresourceRange.baseArrayLayer = 0u;
+            imageSubresourceRange.layerCount = 1u;
             barrierFromPresentToDraw.subresourceRange = imageSubresourceRange;
 
             vkCmdPipelineBarrier(
@@ -323,18 +329,11 @@ namespace vgfx
         }
     }
 
-    void WindowRenderer::endFrame(VkCommandBuffer commandBuffer, size_t swapChainImageIndex)
+    void WindowRenderer::endDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex)
     {
         bool imageBarrierNeeded =
             m_pContext->getPresentQueue(0).queue != m_pContext->getGraphicsQueue(0).queue;
         if (imageBarrierNeeded) {
-            VkImageSubresourceRange imageSubresourceRange = {};
-            imageSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            imageSubresourceRange.baseMipLevel = 0u;
-            imageSubresourceRange.levelCount = 1u;
-            imageSubresourceRange.baseArrayLayer = 0u;
-            imageSubresourceRange.layerCount = 1u;
-
             VkImageMemoryBarrier barrierFromDrawToPresent = {};
             barrierFromDrawToPresent.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
             barrierFromDrawToPresent.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -344,9 +343,19 @@ namespace vgfx
             barrierFromDrawToPresent.srcQueueFamilyIndex = m_pContext->getGraphicsQueueFamilyIndex().value();
             barrierFromDrawToPresent.dstQueueFamilyIndex = m_pContext->getPresentQueueFamilyIndex().value();
 
+            size_t swapChainImageIndex = frameIndex % m_spSwapChain->getImageCount();
             VkImage swapChainImage = m_spSwapChain->getImage(swapChainImageIndex).getHandle();
+
             barrierFromDrawToPresent.image = swapChainImage;
+
+            VkImageSubresourceRange imageSubresourceRange = {};
+            imageSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            imageSubresourceRange.baseMipLevel = 0u;
+            imageSubresourceRange.levelCount = 1u;
+            imageSubresourceRange.baseArrayLayer = 0u;
+            imageSubresourceRange.layerCount = 1u;
             barrierFromDrawToPresent.subresourceRange = imageSubresourceRange;
+
             vkCmdPipelineBarrier(
                 commandBuffer,
                 VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -382,68 +391,28 @@ namespace vgfx
             pSwapChainImageIndex);
     }
 
-    VkResult WindowRenderer::renderFrame(
-        uint32_t swapChainImageIndex,
-        const QueueSubmitInfo& submitInfo)
+    VkResult WindowRenderer::presentFrame(QueueSubmitInfo& submitInfo)
     {
+        uint32_t swapChainImageIndex = 0u;
+        if (acquireNextSwapChainImage(&swapChainImageIndex) == VK_ERROR_OUT_OF_DATE_KHR) {
+            return VK_ERROR_OUT_OF_DATE_KHR;
+        }
+
         VkSubmitInfo vkSubmitInfo = {};
         vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-        vkSubmitInfo.waitSemaphoreCount = 1u + static_cast<uint32_t>(submitInfo.waitSemaphores.size());
-        // The intention is that by making these vectors persistent across multiple calls to renderFrame that
-        // after just a few frames they will have settled on a good size that doesn't require reallocation.
-        // We clear them at the end of the frame because vectors don't release their memory unless shrink_to_fit
-        // is called, so by clearing it simplifies the process of building them on the next frame.
-        m_gfxQueueSubmitInfo.clearAll();
-        if (vkSubmitInfo.waitSemaphoreCount > m_gfxQueueSubmitInfo.waitSemaphores.capacity()) {
-            m_gfxQueueSubmitInfo.waitSemaphores.reserve(vkSubmitInfo.waitSemaphoreCount);
-            m_gfxQueueSubmitInfo.waitSemaphoreStages.reserve(vkSubmitInfo.waitSemaphoreCount);
-        }
+        submitInfo.addWait(m_spSwapChain->getImageAvailableSemaphore(m_syncObjIndex), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-        m_gfxQueueSubmitInfo.waitSemaphores.push_back(m_spSwapChain->getImageAvailableSemaphore(m_syncObjIndex));
-        m_gfxQueueSubmitInfo.waitSemaphoreStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-        if (!submitInfo.waitSemaphores.empty()) {
-            m_gfxQueueSubmitInfo.waitSemaphores.insert(
-                std::end(m_gfxQueueSubmitInfo.waitSemaphores),
-                std::begin(submitInfo.waitSemaphores),
-                std::end(submitInfo.waitSemaphores));
-
-            m_gfxQueueSubmitInfo.waitSemaphoreStages.insert(
-                std::end(m_gfxQueueSubmitInfo.waitSemaphoreStages),
-                std::begin(submitInfo.waitSemaphoreStages),
-                std::end(submitInfo.waitSemaphoreStages));
-        }
-
-        vkSubmitInfo.pWaitSemaphores = m_gfxQueueSubmitInfo.waitSemaphores.data();
-        vkSubmitInfo.pWaitDstStageMask = m_gfxQueueSubmitInfo.waitSemaphoreStages.data();
+        vkSubmitInfo.waitSemaphoreCount = static_cast<uint32_t>(submitInfo.waitSemaphores.size());
+        vkSubmitInfo.pWaitSemaphores = submitInfo.waitSemaphores.data();
+        vkSubmitInfo.pWaitDstStageMask = submitInfo.waitSemaphoreStages.data();
 
         vkSubmitInfo.commandBufferCount = static_cast<uint32_t>(submitInfo.commandBuffers.size());
-        if (vkSubmitInfo.commandBufferCount > m_gfxQueueSubmitInfo.commandBuffers.capacity()) {
-            m_gfxQueueSubmitInfo.commandBuffers.reserve(vkSubmitInfo.commandBufferCount);
-        }
-        // See comment above about persistent vectors used for VkSubmitInfo
-        m_gfxQueueSubmitInfo.commandBuffers.insert(
-            std::end(m_gfxQueueSubmitInfo.commandBuffers),
-            std::begin(submitInfo.commandBuffers),
-            std::end(submitInfo.commandBuffers));
+        vkSubmitInfo.pCommandBuffers = submitInfo.commandBuffers.data();
 
-        vkSubmitInfo.pCommandBuffers = m_gfxQueueSubmitInfo.commandBuffers.data();
-
-        vkSubmitInfo.signalSemaphoreCount = 1u + static_cast<uint32_t>(submitInfo.signalSemaphores.size());
-
-        if (vkSubmitInfo.signalSemaphoreCount > m_gfxQueueSubmitInfo.signalSemaphores.capacity()) {
-            m_gfxQueueSubmitInfo.signalSemaphores.reserve(vkSubmitInfo.signalSemaphoreCount);
-        }
-
-        m_gfxQueueSubmitInfo.signalSemaphores.push_back(m_renderFinishedSemaphores[m_syncObjIndex]->getHandle());
-
-        if (!submitInfo.signalSemaphores.empty()) {
-            m_gfxQueueSubmitInfo.signalSemaphores.insert(
-                std::end(m_gfxQueueSubmitInfo.signalSemaphores),
-                std::begin(submitInfo.signalSemaphores),
-                std::end(submitInfo.signalSemaphores));
-        }
-        vkSubmitInfo.pSignalSemaphores = m_gfxQueueSubmitInfo.signalSemaphores.data();
+        submitInfo.signalSemaphores.push_back(m_renderFinishedSemaphores[m_syncObjIndex]->getHandle());
+        vkSubmitInfo.signalSemaphoreCount = static_cast<uint32_t>(submitInfo.signalSemaphores.size());
+        vkSubmitInfo.pSignalSemaphores = submitInfo.signalSemaphores.data();
 
         VkDevice device = m_pContext->getLogicalDevice();
 
@@ -465,7 +434,7 @@ namespace vgfx
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
         presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = m_gfxQueueSubmitInfo.signalSemaphores.data();
+        presentInfo.pWaitSemaphores = submitInfo.signalSemaphores.data();
 
         VkSwapchainKHR swapChains[] = { m_spSwapChain->getHandle() };
         presentInfo.swapchainCount = 1;
@@ -475,6 +444,61 @@ namespace vgfx
         presentInfo.pResults = nullptr; // Optional
 
         return vkQueuePresentKHR(m_pContext->getPresentQueue(0u).queue, &presentInfo);
+    }
+
+    void Renderer::init(Context& context, uint32_t maxFramesInFlight)
+    {
+        m_maxFramesInFlight = maxFramesInFlight;
+
+        vgfx::DescriptorPoolBuilder poolBuilder;
+        poolBuilder.addDescriptors(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100);
+        poolBuilder.addDescriptors(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 100);
+        poolBuilder.addMaxSets(200);
+        //poolBuilder.setCreateFlags(VkDescriptorPoolCreateFlags);
+
+        m_spCommandBufferFactory =
+            std::make_unique<CommandBufferFactory>(
+                context, context.getGraphicsQueueFamilyIndex());
+
+        // Need 1 DescriptorPool and CommandBuffer for the current frame
+        // and 1 of each for each frame in flight.
+        for (size_t i = 0; i < (maxFramesInFlight+1); ++i) {
+            m_descriptorPools.emplace_back(poolBuilder.createPool(context));
+
+            m_commandBuffers.push_back(m_spCommandBufferFactory->createCommandBuffer());
+        }
+    }
+
+    void Renderer::drawScene(SceneNode& scene)
+    {
+        size_t frameInFlight = m_frameIndex % m_maxFramesInFlight;
+        DescriptorPool& descriptorPool = *m_descriptorPools[frameInFlight].get();
+        descriptorPool.reset();
+
+        VkCommandBuffer commandBuffer = m_commandBuffers[frameInFlight];
+        vkResetCommandBuffer(commandBuffer, 0);
+
+        VkCommandBufferBeginInfo beginInfo = {};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = 0u;
+        beginInfo.pInheritanceInfo = nullptr; // Optional
+        vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+        beginDrawScene(commandBuffer, m_frameIndex);
+
+        DrawContext drawState(*this->m_pContext, m_frameIndex, commandBuffer, descriptorPool);
+        scene.draw(drawState);
+
+        endDrawScene(commandBuffer, m_frameIndex);
+
+        vkEndCommandBuffer(commandBuffer);
+
+        m_gfxQueueSubmitInfo.clearAll();
+        m_gfxQueueSubmitInfo.commandBuffers.push_back(commandBuffer);
+
+        presentFrame(m_gfxQueueSubmitInfo);
+
+        ++m_frameIndex;
     }
 
     void Renderer::createDepthStencilBuffer(

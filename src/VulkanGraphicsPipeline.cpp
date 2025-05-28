@@ -169,17 +169,21 @@ namespace vgfx
         return *this;
     }
 
-    PipelineBuilder& PipelineBuilder::configureRenderPass(const RenderPass& renderPass, uint32_t subpass)
+    PipelineBuilder& PipelineBuilder::configureRenderTarget(const RenderTarget::AttachmentViews& attachments)
     {
-        m_pRenderPass = &renderPass;
-        m_subpass = subpass;
+        m_renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
+        m_renderingInfo.colorAttachmentCount = static_cast<uint32_t>(attachments.targetImageViews.size());
 
-        return *this;
-    }
+        std::vector<VkFormat> colorAttachmentFormats;
+        for (const auto& pColorImageView : attachments.targetImageViews) {
+            colorAttachmentFormats.push_back(pColorImageView->getFormat());
+        }
 
-    PipelineBuilder& PipelineBuilder::configureRenderPassSubpass(uint32_t subpass)
-    {
-        m_subpass = subpass;
+        m_renderingInfo.pColorAttachmentFormats = colorAttachmentFormats.data();
+        if (attachments.pDepthStencilView != nullptr) {
+            m_renderingInfo.depthAttachmentFormat = attachments.pDepthStencilView->getFormat();
+            m_renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED; // Seems like this should be configurable - TODO
+        }
 
         return *this;
     }
@@ -244,9 +248,9 @@ namespace vgfx
 
         pipelineInfo.layout = pipelineLayout;
 
-        assert(m_pRenderPass != VK_NULL_HANDLE);
-        pipelineInfo.renderPass = m_pRenderPass->getHandle();
-        pipelineInfo.subpass = m_subpass;
+        pipelineInfo.renderPass = VK_NULL_HANDLE; // Use dynamic rendering instead of render passes
+        pipelineInfo.subpass = 0;
+        pipelineInfo.pNext = &m_renderingInfo;
 
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
         pipelineInfo.basePipelineIndex = -1; // Optional

@@ -262,7 +262,6 @@ namespace vgfx
         Context& context,
         const Model& model,
         const Material& material,
-        DescriptorPool& descriptorPool,
         CommandBufferFactory& commandBufferFactory,
         CommandQueue commandQueue)
     {
@@ -357,7 +356,6 @@ namespace vgfx
                 context,
                 std::move(spVertexBuffer),
                 std::move(spIndexBuffer),
-                descriptorPool,
                 material,
                 images)));
 

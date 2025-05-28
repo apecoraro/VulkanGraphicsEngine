@@ -4,12 +4,12 @@
 
 #include "VulkanGraphicsDescriptorPoolBuilder.h"
 #include "VulkanGraphicsDescriptors.h"
+#include "VulkanGraphicsDepthStencilBuffer.h"
 #include "VulkanGraphicsImageDescriptorUpdaters.h"
 #include "VulkanGraphicsImageSharpener.h"
 #include "VulkanGraphicsImageView.h"
 #include "VulkanGraphicsMaterials.h"
 #include "VulkanGraphicsModelLibrary.h"
-#include "VulkanGraphicsRenderPass.h"
 #include "VulkanGraphicsRenderTarget.h"
 #include "VulkanGraphicsSampler.h"
 #include "VulkanGraphicsSwapChain.h"
@@ -41,12 +41,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
     return VK_FALSE;
 }
 
-struct ModelParams {
-    glm::mat4 world = glm::identity<glm::mat4>();
-};
-
 struct CameraParams {
-    glm::mat4 view = glm::identity<glm::mat4>();
     glm::mat4 proj = glm::identity<glm::mat4>();
 };
 
@@ -148,22 +143,11 @@ public:
         m_spOffscreenSwapChain =
             std::make_unique<vgfx::SwapChain>(std::move(offscreenImages));
 
-        vgfx::RenderPassBuilder renderPassBuilder;
+        vgfx::RenderTargetBuilder renderTargetBuilder;
+        renderTargetBuilder.addAttachmentChain(offscreenImages, m_spApplication->getRenderer().getDepthStencilBuffer());
 
-        vgfx::RenderTarget::Config offscreenRenderTargetConfig(
-            *m_spOffscreenSwapChain.get(),
-            m_spApplication->getRenderer().getDepthStencilBuffer());
-
-        renderPassBuilder.addPass(offscreenRenderTargetConfig)
-            .attachments[0].finalLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-        m_spOffscreenRenderPass = renderPassBuilder.createPass(m_spApplication->getContext());
-            
         m_spOffscreenRenderTarget =
-            std::make_unique<vgfx::RenderTarget>(
-                m_spApplication->getContext(),
-                offscreenRenderTargetConfig,
-                *m_spOffscreenRenderPass.get());
+            renderTargetBuilder.createRenderTarget(m_spApplication->getContext());
 
         m_spImageSharpener =
             std::make_unique<vgfx::ImageSharpener>(
@@ -179,42 +163,6 @@ public:
         std::string vertexShaderEntryPointFunc = "main";
         std::string fragmentShaderEntryPointFunc = "main";
 
-        uint32_t bindingIndex = 0;
-        vgfx::DescriptorSetLayout::DescriptorBindings vertShaderBindings;
-        vertShaderBindings[bindingIndex] =
-            vgfx::DescriptorSetLayout::DescriptorBinding(
-                VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                VK_SHADER_STAGE_VERTEX_BIT);
-
-        vgfx::DescriptorSetLayout::DescriptorBindings fragShaderBindings;
-        fragShaderBindings[bindingIndex] =
-            vgfx::DescriptorSetLayout::DescriptorBinding(
-                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                VK_SHADER_STAGE_FRAGMENT_BIT);
-
-        ++bindingIndex;
-        fragShaderBindings[bindingIndex] =
-            vgfx::DescriptorSetLayout::DescriptorBinding(
-                VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                VK_SHADER_STAGE_FRAGMENT_BIT);
-
-        std::vector<vgfx::DescriptorSetLayoutBindingInfo> descriptorSetLayoutBindings = {
-            vgfx::DescriptorSetLayoutBindingInfo(
-                vertShaderBindings,
-                m_spApplication->getRenderer().getSwapChain().getImageCount()), // Number of copies of this DescriptorSet
-            vgfx::DescriptorSetLayoutBindingInfo(
-                fragShaderBindings)
-        };
-
-        std::vector<vgfx::Material::ImageType> imageTypes = { vgfx::Material::ImageType::Diffuse };
-
-        VkPushConstantRange pushConstantRange = {};
-        pushConstantRange.offset = 0;
-        pushConstantRange.size = sizeof(ModelParams);
-        pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-        std::vector<VkPushConstantRange> pushConstantRanges = { pushConstantRange };
-
         // Create MaterialInfo which is used to create an instance of the material for a particular
         // model by the ModelLibrary.
         vgfx::MaterialsLibrary::MaterialInfo materialInfo(
@@ -222,18 +170,26 @@ public:
             vertexShaderEntryPointFunc,
             vgfx::VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions,
             fragmentShader,
-            fragmentShaderEntryPointFunc,
-            pushConstantRanges,
-            descriptorSetLayoutBindings,
-            imageTypes);
+            fragmentShaderEntryPointFunc);
 
         vgfx::Material& material = vgfx::MaterialsLibrary::GetOrLoadMaterial(m_spApplication->getContext(), materialInfo);
 
         vgfx::DescriptorPoolBuilder poolBuilder;
-        poolBuilder.addMaterialDescriptorSets(material);
-        poolBuilder.addComputeShaderDescriptorSets(m_spImageSharpener->getComputeShader());
+        // For each descriptor this will add 3 to the pool of that descriptor's type.
+        poolBuilder.addDescriptorSets(material.getDescriptorSetLayouts(), 3);
+        poolBuilder.addMaxSets(3); // We need to create three copies of this descriptor set for each in flight frame
+
+        // For each descriptor this will add 3 to the pool of that descriptor's type.
+        poolBuilder.addDescriptorSets(m_spImageSharpener->getComputeShader().getDescriptorSetLayouts(), 3);
+        poolBuilder.addMaxSets(3); // We need to create three copies of this descriptor set for each in flight frame
+
         //poolBuilder.setCreateFlags(VkDescriptorPoolCreateFlags);
         m_spDescriptorPool = poolBuilder.createPool(m_spApplication->getContext());
+
+        // Allocate buffer for camera parameters
+        // Allocate descriptor set for camera parameters
+        // Update descriptor set to point at the buffer
+        // Each frame map the buffer and write the new camera data
 
         m_spModelLibrary = std::make_unique<vgfx::ModelLibrary>();
 
@@ -336,6 +292,7 @@ public:
 
         m_graphicsObjects.push_back(std::move(spModelObject));
     }
+
  
     void initDrawableDescriptorSets(
         vgfx::Context& graphicsContext,
@@ -371,7 +328,7 @@ public:
                 &m_cameraMatrix,
                 sizeof(m_cameraMatrix));
         
-            drawable.getDescriptorSetBuffers().front()->getDescriptorSet(index).update(
+            drawable.getDescriptorSetChain().front()->getDescriptorSet(index).update(
                 graphicsContext, {{0, m_cameraMatrixBuffers.back().get()}});
         }
 
@@ -425,7 +382,7 @@ public:
 
         vgfx::CombinedImageSamplerDescriptorUpdater descriptorUpdater(imageView,  sampler);
         // frag shader descriptor set is set index == 1.
-        drawable.getDescriptorSetBuffers()[1]->getDescriptorSet(0).update(
+        drawable.getDescriptorSetChain()[1]->getDescriptorSet(0).update(
             graphicsContext, { {0, &descriptorUpdater}, {1, m_spLightingUniformsBuffer.get()} });
     }
 
@@ -483,12 +440,12 @@ public:
                 m_spGraphicsPipeline->getHandle());
 
             for (auto& spObject : m_graphicsObjects) {
-                spObject->recordDrawCommands(commandBuffer, swapChainImageIndex);
+                spObject->draw(commandBuffer, swapChainImageIndex);
             }
 
             m_spOffscreenRenderPass->end(commandBuffer);
 
-            m_spApplication->getRenderer().startFrame(commandBuffer, swapChainImageIndex);
+            m_spApplication->getRenderer().transferSwapChainToPresentQueue(commandBuffer, swapChainImageIndex);
 
             m_spImageSharpener->recordCommandBuffer(
                 commandBuffer,
@@ -498,7 +455,7 @@ public:
                 m_spApplication->getRenderer().getSwapChain().getImage(swapChainImageIndex),
                 m_spApplication->getRenderer().getSwapChain().getImageView(swapChainImageIndex));
 
-            m_spApplication->getRenderer().endFrame(commandBuffer, swapChainImageIndex);
+            m_spApplication->getRenderer().transferSwapChainToGfxQueue(commandBuffer, swapChainImageIndex);
 
             vkEndCommandBuffer(commandBuffer);
 
@@ -536,13 +493,8 @@ public:
 
         bool frameDrawn = false;
         while (true) {
-            size_t syncObjIndex = m_curFrame % MAX_FRAMES_IN_FLIGHT;
-            if (m_spApplication->getRenderer().acquireNextSwapChainImage(&curSwapChainImage) == VK_ERROR_OUT_OF_DATE_KHR) {
-                recreateSwapChain();
-                continue;
-            }
-
-            if (m_spApplication->getRenderer().renderFrame(curSwapChainImage, m_queueSubmits[curSwapChainImage]) == VK_ERROR_OUT_OF_DATE_KHR) {
+            size_t syncObjIndex = m_curFrame % m_queueSubmits.size();
+            if (m_spApplication->getRenderer().presentFrame(m_queueSubmits[curSwapChainImage]) == VK_ERROR_OUT_OF_DATE_KHR) {
                 recreateSwapChain();
             }
 
@@ -559,15 +511,6 @@ public:
         //Recreate SwapChain, Pipeline, and Command Buffers
         m_spApplication->getRenderer().initSwapChain(
             m_spApplication->getContext(),
-            [](vgfx::Context& context, VkImage image, VkFormat imageFormat)
-            {
-                vgfx::ImageView::Config cfg(
-                    imageFormat,
-                    VK_IMAGE_VIEW_TYPE_2D,
-                    0u, // base mip level
-                    1u); // mip levels
-                return std::make_unique<vgfx::ImageView>(context, cfg, image);
-            },
             // If only double buffering is available then one frame in flight, otherwise
             // 2 frames in flight (i.e. triple buffering).
             std::min(m_spApplication->getRenderer().getSwapChainConfig().imageCount.value() - 1u, 2u));

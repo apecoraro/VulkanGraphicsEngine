@@ -24,7 +24,7 @@ namespace vgfx
                 context.getAllocationCallbacks(),
                 &m_commandPool);
         if (result != VK_SUCCESS) {
-            throw std::runtime_error("Failed to craete command pool for UtilCommands.");
+            throw std::runtime_error("Failed to create command pool for CommandBufferFactory.");
         }
     }
 

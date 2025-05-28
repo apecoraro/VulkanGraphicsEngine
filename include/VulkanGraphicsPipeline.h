@@ -2,6 +2,7 @@
 
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsMaterials.h"
+#include "VulkanGraphicsRenderTarget.h"
 #include "VulkanGraphicsVertexBuffer.h"
 
 #include <vector>
@@ -10,7 +11,6 @@
 
 namespace vgfx
 {
-    class RenderPass;
     class DepthStencilBuffer;
 
     class Pipeline
@@ -58,7 +58,7 @@ namespace vgfx
         };
 
         PipelineBuilder& configureDrawableInput(
-            const Material& material,
+            const Drawable& drawable,
             const VertexBuffer::Config& vertexBufferConfig,
             const InputAssemblyConfig& inputAssemblyConfig);
  
@@ -108,13 +108,9 @@ namespace vgfx
             return *this;
         }
 
-        // Override the RenderPass specified at construction to create new pipeline with similar settings
-        PipelineBuilder& configureRenderPass(const RenderPass& renderPass, uint32_t subpass = 0u);
-
-        // Create a pipeline from a specific subpass of the current RenderPass.
-        PipelineBuilder& configureRenderPassSubpass(uint32_t subpass = 0u);
-        
         PipelineBuilder& configureRasterizer(const RasterizerConfig& config);
+
+        PipelineBuilder& configureRenderTarget(const RenderTarget::AttachmentViews& attachments);
 
         std::unique_ptr<Pipeline> createPipeline(Context& context);
 
@@ -146,7 +142,8 @@ namespace vgfx
 
         std::vector<VkDynamicState> m_dynamicStateEnables;
 
-        const RenderPass* m_pRenderPass = nullptr;
+        VkPipelineRenderingCreateInfo m_renderingInfo = {};
+
         uint32_t m_subpass = 0u;
     }; 
 }

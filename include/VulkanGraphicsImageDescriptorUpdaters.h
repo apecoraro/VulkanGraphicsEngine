@@ -8,6 +8,7 @@
 
 namespace vgfx
 {
+    // Base class for IMAGE type descriptors
     class ImageDescriptorUpdater : public DescriptorUpdater
     {
     public:
@@ -38,6 +39,7 @@ namespace vgfx
         VkDescriptorImageInfo m_imageInfo = {};
     };
 
+    // This would work as a base class for array of Image
     class ImageArrayDescriptorUpdater : public DescriptorUpdater
     {
     public:

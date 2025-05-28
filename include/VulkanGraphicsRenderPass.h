@@ -45,7 +45,6 @@ namespace vgfx
 
         void begin(
             VkCommandBuffer commandBuffer,
-            size_t swapChainImageIndex,
             RenderTarget& renderTarget,
             const std::optional<const VkRect2D> renderArea = std::nullopt,
             const std::optional<std::vector<VkClearValue>> clearValues = std::nullopt);

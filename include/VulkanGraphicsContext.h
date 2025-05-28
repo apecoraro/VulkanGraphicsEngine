@@ -55,6 +55,9 @@ namespace vgfx
 
         struct InstanceConfig
         {
+            uint16_t minMajorVersion = 1u;
+            uint16_t minMinorVersion = 0u;
+            uint16_t minPatchVersion = 0u;
             std::vector<std::string> requiredExtensions;
             std::vector<std::string> validationLayers;
         };
@@ -82,6 +85,14 @@ namespace vgfx
 
         void enableDebugReportCallback(PFN_vkDebugReportCallbackEXT pfnCallback, void* pUserData);
         void disableDebugReportCallback();
+
+        struct InstanceVersion
+        {
+            int32_t major = 0;
+            int32_t minor = 0;
+            int32_t patch = 0;
+        };
+        const InstanceVersion& getInstanceVersion() const { return m_instanceVersion; }
 
         VkInstance getInstance() { return m_instance;  }
         VkPhysicalDevice getPhysicalDevice() { return m_physicalDevice;  }
@@ -133,6 +144,7 @@ namespace vgfx
         void destroyInstance();
 
         void checkInstanceExtensionSupport(
+            const std::vector<VkExtensionProperties>& supportedExtensions,
             const std::vector<std::string>& requiredExtensions);
 
         std::vector<std::string> checkValidationLayerSupport(
@@ -184,6 +196,7 @@ namespace vgfx
 
         AppConfig m_appConfig;
 
+        InstanceVersion m_instanceVersion;
         VkInstance m_instance = VK_NULL_HANDLE;
         VkAllocationCallbacks* m_pAllocationCallbacks = nullptr;
         VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;

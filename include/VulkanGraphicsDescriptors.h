@@ -70,36 +70,7 @@ namespace vgfx
         VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
     };
 
-    struct DescriptorSetLayoutInfo
-    {
-        // The number of copies that DescriptorSets created from this layout need to have,
-        // generally if it is updated every frame then there needs to be one copy for each swap chain
-        // image that can be "in flight" simultaneously. If never updated then only one copy.
-        std::unique_ptr<DescriptorSetLayout> spDescriptorSetLayout;
-        size_t copyCount = 1u;
-        DescriptorSetLayoutInfo(
-            std::unique_ptr<DescriptorSetLayout> spDescSetLayout,
-            size_t copies = 1u)
-            : spDescriptorSetLayout(std::move(spDescSetLayout))
-            , copyCount(copies)
-        {
-        }
-    };
-
-    using DescriptorSetLayouts = std::vector<DescriptorSetLayoutInfo>;
-
-    struct DescriptorSetLayoutBindingInfo
-    {
-        DescriptorSetLayout::DescriptorBindings descriptorSetLayoutBindings;
-        size_t copyCount = 1u;
-        DescriptorSetLayoutBindingInfo(
-            const DescriptorSetLayout::DescriptorBindings& bindings,
-            size_t copies = 1u)
-            : descriptorSetLayoutBindings(bindings)
-            , copyCount(copies)
-        {
-        }
-    };
+    using DescriptorSetLayouts = std::vector<std::unique_ptr<DescriptorSetLayout>>;
 
     class DescriptorUpdater
     {
@@ -111,7 +82,7 @@ namespace vgfx
 
         virtual ~DescriptorUpdater() = default;
 
-        virtual void write(VkWriteDescriptorSet* pWriteSet)
+        virtual void write(VkWriteDescriptorSet* pWriteSet) const
         {
             VkWriteDescriptorSet& writeSet = *pWriteSet;
             writeSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -124,20 +95,17 @@ namespace vgfx
         VkDescriptorType m_type = VK_DESCRIPTOR_TYPE_MAX_ENUM;
     };
 
-    class DescriptorSet
+    class DescriptorSetUpdater
     {
     public:
-        DescriptorSet(VkDescriptorSet descSet)
-            : m_descriptorSet(descSet)
+        DescriptorSetUpdater()
         {
         }
 
-        void update(Context& context, const std::map<uint32_t, DescriptorUpdater*>& descriptors);
+        void update(Context& context, const std::map<uint32_t, DescriptorUpdater>& descriptors, VkDescriptorSet descriptorSet);
 
-        VkDescriptorSet getHandle() const { return m_descriptorSet; }
     private:
         std::vector<VkWriteDescriptorSet> m_descriptorWrites;
-        VkDescriptorSet m_descriptorSet = VK_NULL_HANDLE;
     };
 
     // Wraps a VkDescriptorPool.
@@ -154,33 +122,16 @@ namespace vgfx
         void allocateDescriptorSets(
             const DescriptorSetLayout& layout,
             uint32_t count,
-            std::vector<DescriptorSet>* pDescriptorSets);
+            VkDescriptorSet** ppDescriptorSetHandles);
+
+        void freeDescriptorSets(
+            std::vector<VkDescriptorSet>& descriptorSetHandles);
+
+        void reset(VkDescriptorPoolResetFlags flags=0u);
     private:
         Context& m_context;
         VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
+        uint32_t m_maxSets = 0u;
     }; 
-
-    // Represents one or more instances of a VkDescriptorSet where each
-    // VkDescriptorSet has the same layout.
-    class DescriptorSetBuffer
-    {
-    public:
-        DescriptorSetBuffer(
-            size_t bufferCopies);
-        ~DescriptorSetBuffer() = default;
-
-        void init(
-            const DescriptorSetLayout& layout,
-            DescriptorPool& pool);
-
-        virtual size_t getCopyCount() const { return m_copies.size();  }
-
-        DescriptorSet& getDescriptorSet(size_t index) {
-            return m_copies[index];
-        }
-
-    private:
-        std::vector<DescriptorSet> m_copies;
-    };
 }
 

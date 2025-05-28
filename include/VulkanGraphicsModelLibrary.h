@@ -35,7 +35,6 @@ namespace vgfx
             Context& context,
             const Model& model,
             const Material& material,
-            DescriptorPool& descriptorPool,
             CommandBufferFactory& commandBufferFactory,
             CommandQueue commandQueue);
  

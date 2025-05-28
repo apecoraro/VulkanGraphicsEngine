@@ -68,15 +68,16 @@ const vgfx::WindowRenderer::SwapChainConfig& vgfx::WindowApplication::CreateSwap
 
         swapChainConfig.imageFormat = surfaceFormat;
 
-        swapChainConfig.pickDepthStencilFormat = [preferredDepthStencilFormats](const std::set<VkFormat>& formats) {
-            for (const auto& preferredDepthStencilFormat : preferredDepthStencilFormats) {
-                if (formats.find(preferredDepthStencilFormat) != formats.end()) {
-                    return preferredDepthStencilFormat;
+        swapChainConfig.pickDepthStencilFormat =
+            [preferredDepthStencilFormats](const std::set<VkFormat>& formats) {
+                for (const auto& preferredDepthStencilFormat : preferredDepthStencilFormats) {
+                    if (formats.find(preferredDepthStencilFormat) != formats.end()) {
+                        return preferredDepthStencilFormat;
+                    }
                 }
-            }
-            throw std::runtime_error("Failed to find suitable depth stencil format!");
-            return VK_FORMAT_MAX_ENUM;
-        };
+                throw std::runtime_error("Failed to find suitable depth stencil format!");
+                return VK_FORMAT_MAX_ENUM;
+            };
     }
     return swapChainConfig;
 }
@@ -101,7 +102,7 @@ vgfx::WindowApplication::WindowApplication(
                 createVulkanSurface)))
     , m_windowRenderer(reinterpret_cast<vgfx::WindowRenderer&>(*m_spRenderer))
 {
-    m_windowRenderer.initSwapChain(
+    m_windowRenderer.init(
         m_graphicsContext,
         // If only double buffering is available then one frame in flight, otherwise
         // 2 frames in flight (i.e. triple buffering).

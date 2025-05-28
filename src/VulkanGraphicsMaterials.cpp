@@ -1,5 +1,8 @@
 #include "VulkanGraphicsMaterials.h"
 
+#include <glm/glm.hpp>
+#include <glm/ext/matrix_transform.hpp>
+
 #include <map>
 
 namespace vgfx
@@ -59,6 +62,39 @@ namespace vgfx
     using MaterialsTable = std::map<MaterialId, std::unique_ptr<Material>>;
     static MaterialsTable s_materialsTable;
 
+    vgfx::DescriptorSetLayout::DescriptorBindings GetVertShaderDescriptorBindings(
+        const std::string&,// shaderPath
+        const std::string&)// shaderEntryFunc
+        // TODO at some point this should be tied to the specific shader
+    {
+        vgfx::DescriptorSetLayout::DescriptorBindings vertShaderBindings;
+        vertShaderBindings[0] =
+            vgfx::DescriptorSetLayout::DescriptorBinding(
+                VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                VK_SHADER_STAGE_VERTEX_BIT);
+
+        return vertShaderBindings;
+    }
+
+    vgfx::DescriptorSetLayout::DescriptorBindings GetFragShaderDescriptorBindings(
+        const std::string&,// shaderPath
+        const std::string&)// shaderEntryFunc
+        // TODO at some point this should be tied to the specific shader
+    {
+        vgfx::DescriptorSetLayout::DescriptorBindings fragShaderBindings;
+        fragShaderBindings[0] =
+            vgfx::DescriptorSetLayout::DescriptorBinding(
+                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                VK_SHADER_STAGE_FRAGMENT_BIT);
+
+        fragShaderBindings[1] =
+            vgfx::DescriptorSetLayout::DescriptorBinding(
+                VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                VK_SHADER_STAGE_FRAGMENT_BIT);
+
+        return fragShaderBindings;
+    }
+
     Material& MaterialsLibrary::GetOrLoadMaterial(
         Context& context,
         const MaterialInfo& materialInfo)
@@ -82,21 +118,40 @@ namespace vgfx
             return *spMaterial.get();
         }
 
-        DescriptorSetLayouts descriptorSetLayouts;
-        for (const auto& descSetLayoutBindingInfo : materialInfo.descriptorSetLayoutBindings) {
-            descriptorSetLayouts.push_back(
-                DescriptorSetLayoutInfo(
-                    std::make_unique<DescriptorSetLayout>(context, descSetLayoutBindingInfo.descriptorSetLayoutBindings),
-                    descSetLayoutBindingInfo.copyCount));
-        }
-
         std::unique_ptr<Material>& spMaterial = s_materialsTable[materialId];
+
+        uint32_t bindingIndex = 0;
+        vgfx::DescriptorSetLayout::DescriptorBindings vertShaderBindings =
+            GetVertShaderDescriptorBindings(materialInfo.vertexShaderPath, materialInfo.vertexShaderEntryPointFunc);
+
+        vgfx::DescriptorSetLayout::DescriptorBindings fragShaderBindings =
+            GetFragShaderDescriptorBindings(materialInfo.fragmentShaderPath, materialInfo.fragmentShaderEntryPointFunc);
+
+        std::vector<std::unique_ptr<vgfx::DescriptorSetLayout>> descriptorSetLayouts = {
+            std::make_unique<vgfx::DescriptorSetLayout>(vertShaderBindings),
+            std::make_unique<vgfx::DescriptorSetLayout>(fragShaderBindings)
+        };
+
+        struct ModelParams {
+            glm::mat4 world = glm::identity<glm::mat4>();
+            glm::mat4 view = glm::identity<glm::mat4>();
+        };
+
+        VkPushConstantRange pushConstantRange = {};
+        pushConstantRange.offset = 0;
+        pushConstantRange.size = sizeof(ModelParams);
+        pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+        std::vector<VkPushConstantRange> pushConstantRanges = { pushConstantRange };
+
+        std::vector<vgfx::Material::ImageType> imageTypes = { vgfx::Material::ImageType::Diffuse };
+
         spMaterial =
             std::make_unique<Material>(
                 vertexShader,
                 materialInfo.vertexShaderInputs,
                 fragmentShader,
-                std::move(materialInfo.pushConstantRanges),
+                pushConstantRanges,
                 std::move(descriptorSetLayouts),
                 materialInfo.imageTypes);
 

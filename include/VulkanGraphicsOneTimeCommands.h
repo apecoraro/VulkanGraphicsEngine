@@ -21,7 +21,7 @@ namespace vgfx
         using RecordCommandsFunc = std::function<void(VkCommandBuffer commandBuffer)>;
         OneTimeCommandsRunner(
             CommandBufferFactory& commandBufferFactory,
-            const RecordCommandsFunc& recordCommandsFunc);
+            const RecordCommandsFunc& drawFunc);
         ~OneTimeCommandsRunner();
 
         void submit(CommandQueue queue);
@@ -40,10 +40,10 @@ namespace vgfx
             CommandQueue& commandQueue);
         ~OneTimeCommandsHelper();
 
-        void execute(const OneTimeCommandsRunner::RecordCommandsFunc& recordCommandsFunc) {
+        void execute(const OneTimeCommandsRunner::RecordCommandsFunc& drawFunc) {
             OneTimeCommandsRunner runner(
                 m_commandBufferFactory,
-                recordCommandsFunc);
+                drawFunc);
             runner.submit(m_commandQueue);
         }
 

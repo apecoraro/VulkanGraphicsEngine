@@ -6,29 +6,32 @@
 
 namespace vgfx
 {
-    DescriptorPoolBuilder& DescriptorPoolBuilder::addMaterialDescriptorSets(const Material& material)
+    DescriptorPoolBuilder& DescriptorPoolBuilder::addDescriptors(VkDescriptorType type, uint32_t count)
     {
-        addDescriptorSets(material.getDescriptorSetLayouts());
+        VkDescriptorPoolSize& poolSize = m_descriptorPoolSizes[type];
+        poolSize.type = type;
+        poolSize.descriptorCount += count;
         return *this;
     }
 
-    DescriptorPoolBuilder& DescriptorPoolBuilder::addComputeShaderDescriptorSets(const ComputeShader& computeShader)
+    DescriptorPoolBuilder& DescriptorPoolBuilder::addDescriptorSets(const DescriptorSetLayouts& descriptorSetLayouts, uint32_t perTypeScaleFactor)
     {
-        addDescriptorSets(computeShader.getDescriptorSetLayouts());
-        return *this;
-    }
-
-    void DescriptorPoolBuilder::addDescriptorSets(const DescriptorSetLayouts& descriptorSetLayouts)
-    {
-        for (const auto& descSetLayoutInfo : descriptorSetLayouts) {
-            m_maxSets += static_cast<uint32_t>(descSetLayoutInfo.copyCount);
-            for (const auto& descBindingCfg : descSetLayoutInfo.spDescriptorSetLayout->getDescriptorBindings()) {
+        // For each type of descriptor in this layout add perTypeScaleFactor to the pools total for that type of descriptor.
+        for (const auto& spDescSetLayout : descriptorSetLayouts) {
+            for (const auto& descBindingCfg : spDescSetLayout->getDescriptorBindings()) {
                 VkDescriptorPoolSize& poolSize = m_descriptorPoolSizes[descBindingCfg.second.descriptorType];
                 poolSize.type = descBindingCfg.second.descriptorType;
-                poolSize.descriptorCount +=
-                    (descBindingCfg.second.arrayElementCount * static_cast<uint32_t>(descSetLayoutInfo.copyCount));
+                poolSize.descriptorCount += perTypeScaleFactor;
             }
         }
+        return *this;
+    }
+
+    DescriptorPoolBuilder& DescriptorPoolBuilder::addMaxSets(uint32_t count)
+    {
+        // Increase the number of descriptor sets that can be allocated from the pool by the specified count.
+        m_maxSets += count;
+        return *this;
     }
 
     DescriptorPoolBuilder& DescriptorPoolBuilder::setCreateFlags(VkDescriptorPoolCreateFlags flags)

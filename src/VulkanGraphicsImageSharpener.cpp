@@ -113,7 +113,7 @@ namespace vgfx
         m_descriptorUpdaters[0] = &inputImageUpdater;
         m_descriptorUpdaters[1] = &outputImageUpdater;
 
-        DescriptorSet& curDescriptorSet = m_descriptorSets[swapChainImageIndex % m_descriptorSets.size()];
+        DescriptorSetUpdater& curDescriptorSet = m_descriptorSets[swapChainImageIndex % m_descriptorSets.size()];
 
         curDescriptorSet.update(m_context, m_descriptorUpdaters);
         
