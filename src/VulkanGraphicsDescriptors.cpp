@@ -75,6 +75,7 @@ namespace vgfx
         VkDescriptorSet descriptorSet)
     {
         m_descriptorWrites.resize(descriptors.size());
+
         size_t dindex = 0u;
         for (auto& [binding, descriptorUpdater]: descriptors) {
             VkWriteDescriptorSet& descriptorWrite = m_descriptorWrites[dindex];
@@ -90,6 +91,8 @@ namespace vgfx
             context.getLogicalDevice(),
             static_cast<uint32_t>(m_descriptorWrites.size()),
             m_descriptorWrites.data(), 0, nullptr);
+
+        m_descriptorWrites.clear();
     }
 
     DescriptorPool::DescriptorPool(
