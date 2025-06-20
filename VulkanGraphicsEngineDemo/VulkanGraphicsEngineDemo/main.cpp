@@ -1,51 +1,56 @@
 // VulkanGraphicsEngineDemo.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
-#include "VulkanGraphicsEngineDemo.h"
+#include "VulkanGraphicsGLFWApplication.h"
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#include <vulkan/vulkan.h>
-
-
-#include <sstream>
-#include <iostream>
-
-static void FramebufferResizedCallback(
-    GLFWwindow*, // window
-    int, // width
-    int) // height
+void LoadScene()
 {
-    DemoSetFramebufferResized(true);
-}
+    m_spCommandBufferFactory =
+        std::make_unique<vgfx::CommandBufferFactory>(
+            m_spApplication->getContext(),
+            m_spApplication->getContext().getGraphicsQueueFamilyIndex().value());
 
-static GLFWwindow* InitWindow()
-{
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "Vulkan", nullptr, nullptr);
-    glfwSetWindowUserPointer(window, nullptr);
-    glfwSetFramebufferSizeCallback(window, FramebufferResizedCallback);
+    std::string vertexShaderEntryPointFunc = "main";
+    std::string fragmentShaderEntryPointFunc = "main";
 
-    return window;
-}
+    // Create MaterialInfo which is used to create an instance of the material for a particular
+    // model by the ModelLibrary.
+    vgfx::MaterialsLibrary::MaterialInfo materialInfo(
+        vertexShader,
+        vertexShaderEntryPointFunc,
+        vgfx::VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions, // TODO should use reflection for this.
+        fragmentShader,
+        fragmentShaderEntryPointFunc);
 
-static VkResult CreateWindowSurfaceCallback(VkInstance vulkanInstance, void* window, const VkAllocationCallbacks* pAllocCallbacks, VkSurfaceKHR* pSurfaceOut)
-{
-    return glfwCreateWindowSurface(vulkanInstance, (GLFWwindow*)window, pAllocCallbacks, pSurfaceOut);
-}
+    vgfx::Material& material = vgfx::MaterialsLibrary::GetOrLoadMaterial(m_spApplication->getContext(), materialInfo);
 
-static void GetFrameBufferSizeCallback(void* window, int* pWidth, int* pHeight)
-{
-    int width = 0, height = 0;
-    while (width == 0 || height == 0) {
-        glfwGetFramebufferSize((GLFWwindow*)window, &width, &height);
-        glfwWaitEvents();
+    // Allocate buffer for camera parameters
+    // Allocate descriptor set for camera parameters
+    // Update descriptor set to point at the buffer
+    // Each frame map the buffer and write the new camera data
+
+    m_spModelLibrary = std::make_unique<vgfx::ModelLibrary>();
+
+    vgfx::ModelLibrary::Model model;
+    model.modelPathOrShapeName = modelPath;
+    if (!modelDiffuseTexName.empty()) {
+        model.imageOverrides[vgfx::Material::ImageType::Diffuse] = modelDiffuseTexName;
     }
 
-    *pWidth = width;
-    *pHeight = height;
+    glm::mat4 modelWorldTransform = glm::identity<glm::mat4>();
+    // Rendering to offscreen image at half the resolution requires dynamic viewport and scissor in the
+    // graphics pipeline.
+    auto& drawable =
+        m_spModelLibrary->getOrCreateDrawable(
+            m_spApplication->getContext(),
+            model,
+            material,
+            *m_spCommandBufferFactory,
+            m_spApplication->getContext().getGraphicsQueue(0));
+
+    drawable.setWorldTransform(modelWorldTransform);
+
+    createScene(m_spApplication->getContext(), drawable);
 }
 
 static GLFWwindow* AppInit(
@@ -93,6 +98,7 @@ static void AppRun(GLFWwindow* window)
 
 static void AppCleanup(GLFWwindow* window)
 {
+    // TODO the main function should handle loading the scene and passing to this Application.
     DemoCleanUp();
 
     glfwDestroyWindow(window);

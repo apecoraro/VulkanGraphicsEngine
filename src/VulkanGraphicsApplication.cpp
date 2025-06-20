@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+using namespace vgfx;
+
 static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
     VkDebugReportFlagsEXT flags,
     VkDebugReportObjectTypeEXT objType,
@@ -12,45 +14,52 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
     const char* pMsg,
     void* pUserData)
 {
-    vgfx::Application* pApp = reinterpret_cast<vgfx::Application*>(pUserData);
+    Application* pApp = reinterpret_cast<Application*>(pUserData);
     return pApp->onValidationError(flags, objType, obj, location, code, layerPrefix, pMsg);
 }
 
-vgfx::Application::Application(
-    const vgfx::Context::AppConfig& appConfig,
-    const vgfx::Context::InstanceConfig& instanceConfig,
-    const vgfx::Context::DeviceConfig& deviceConfig,
-    std::unique_ptr<vgfx::Renderer> spRenderer)
-    : m_spRenderer(std::move(spRenderer))
+Application::Application(
+    const Context::AppConfig& appConfig,
+    const Context::InstanceConfig& instanceConfig,
+    const Context::DeviceConfig& deviceConfig,
+    std::unique_ptr<Renderer> spRenderer)
 {
+    init(appConfig, instanceConfig, deviceConfig, std::move(spRenderer));
+}
+
+void Application::init(
+    const Context::AppConfig& appConfig,
+    const Context::InstanceConfig& instanceConfig,
+    const Context::DeviceConfig& deviceConfig,
+    std::unique_ptr<Renderer>&& spRenderer)
+{
+    m_spRenderer = std::move(spRenderer);
+
     m_graphicsContext.init(
         appConfig,
         instanceConfig,
         deviceConfig,
         m_spRenderer.get());
 
-    if (std::find(
-            instanceConfig.requiredExtensions.begin(),
-            instanceConfig.requiredExtensions.end(),
-            std::string(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)) != std::end(instanceConfig.requiredExtensions)) {
+    if (instanceConfig.enableDebugLayers) {
         m_graphicsContext.enableDebugReportCallback(DebugCallback, this);
     }
 }
 
-VkBool32 vgfx::Application::onValidationError(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objType, uint64_t obj, size_t location, int32_t code, const char* pLayerPrefix, const char* pMsg)
+VkBool32 Application::onValidationError(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objType, uint64_t obj, size_t location, int32_t code, const char* pLayerPrefix, const char* pMsg)
 {
     std::cerr << "Validation layer: " << pMsg << std::endl;
 
     return VK_FALSE;
 }
 
-const vgfx::WindowRenderer::SwapChainConfig& vgfx::WindowApplication::CreateSwapChainConfig(
+const WindowRenderer::SwapChainConfig& WindowApplication::CreateSwapChainConfig(
     uint32_t width, uint32_t height,
     uint32_t imageUsageFlags,
     VkSurfaceFormatKHR surfaceFormat,
     const std::vector<VkFormat>& preferredDepthStencilFormats)
 {
-    static vgfx::WindowRenderer::SwapChainConfig swapChainConfig;
+    static WindowRenderer::SwapChainConfig swapChainConfig;
     static bool initialized = false;
     if (!initialized) {
         initialized = true;
@@ -82,30 +91,50 @@ const vgfx::WindowRenderer::SwapChainConfig& vgfx::WindowApplication::CreateSwap
     return swapChainConfig;
 }
 
-vgfx::WindowApplication::WindowApplication(
-    const vgfx::Context::AppConfig& appConfig,
-    const vgfx::Context::InstanceConfig& instanceConfig,
-    const vgfx::Context::DeviceConfig& deviceConfig,
-    const vgfx::WindowRenderer::SwapChainConfig& swapChainConfig,
+WindowApplication::WindowApplication(
+    const Context::AppConfig& appConfig,
+    const Context::InstanceConfig& instanceConfig,
+    const Context::DeviceConfig& deviceConfig,
+    const WindowRenderer::SwapChainConfig& swapChainConfig,
     void* window,
     const std::function<VkResult(VkInstance, void*, const VkAllocationCallbacks*, VkSurfaceKHR*)>& createVulkanSurface)
     : Application(
         appConfig,
         instanceConfig,
         deviceConfig,
-        std::make_unique<vgfx::WindowRenderer>(
+        std::make_unique<WindowRenderer>(
             swapChainConfig,
-            std::make_unique<vgfx::SwapChain>(
+            std::make_unique<SwapChain>(
                 window,
                 swapChainConfig.imageExtent.has_value() ? swapChainConfig.imageExtent.value().width : 800,
                 swapChainConfig.imageExtent.has_value() ? swapChainConfig.imageExtent.value().height : 600,
                 createVulkanSurface)))
-    , m_windowRenderer(reinterpret_cast<vgfx::WindowRenderer&>(*m_spRenderer))
+    , m_pWindowRenderer(reinterpret_cast<WindowRenderer*>(m_spRenderer.get()))
 {
-    m_windowRenderer.init(
+    m_pWindowRenderer->init(
         m_graphicsContext,
-        // If only double buffering is available then one frame in flight, otherwise
-        // 2 frames in flight (i.e. triple buffering).
-        std::min(m_windowRenderer.getSwapChainConfig().imageCount.value() - 1u, 2u));
+        m_pWindowRenderer->getSwapChainConfig().imageCount.value());
+}
+
+void WindowApplication::initWindowApplication(
+    const Context::AppConfig& appConfig,
+    const Context::InstanceConfig& instanceConfig,
+    const Context::DeviceConfig& deviceConfig,
+    const WindowRenderer::SwapChainConfig& swapChainConfig,
+    void* window,
+    const std::function<VkResult(VkInstance, void*, const VkAllocationCallbacks*, VkSurfaceKHR*)>& createVulkanSurface)
+{
+    std::unique_ptr<WindowRenderer> spWindowRenderer = std::make_unique<WindowRenderer>(
+        swapChainConfig,
+        std::make_unique<SwapChain>(
+            window,
+            swapChainConfig.imageExtent.has_value() ? swapChainConfig.imageExtent.value().width : 800,
+            swapChainConfig.imageExtent.has_value() ? swapChainConfig.imageExtent.value().height : 600,
+            createVulkanSurface));
+    Application::init(appConfig, instanceConfig, deviceConfig, std::move(spWindowRenderer));
+    m_pWindowRenderer = reinterpret_cast<WindowRenderer*>(m_spRenderer.get());
+    m_pWindowRenderer->init(
+        m_graphicsContext,
+        m_pWindowRenderer->getSwapChainConfig().imageCount.value());
 }
 

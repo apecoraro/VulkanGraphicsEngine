@@ -167,42 +167,39 @@ namespace vgfx
         QuerySupportedExtensions(&supportedExtensions);
 
         std::vector<const char*> instanceExtensionsAsCharPtrs;
+
         if (!instanceConfig.requiredExtensions.empty()) {
             checkInstanceExtensionSupport(supportedExtensions, instanceConfig.requiredExtensions);
 
             ContainerOfStringsToCharPtrs(instanceConfig.requiredExtensions, &instanceExtensionsAsCharPtrs);
-
-            createInfo.ppEnabledExtensionNames = instanceExtensionsAsCharPtrs.data();
         }
-        else {
-            createInfo.ppEnabledExtensionNames = nullptr;
-        }
-
         // Make sure dynamic rendering is available
         // (either API v1.3 or greater, or the dynamic rendering extension is required)
         if (m_instanceVersion.major <= 1 && m_instanceVersion.minor < 3)
         {
             checkInstanceExtensionSupport(supportedExtensions, {VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME});
             instanceExtensionsAsCharPtrs.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
-            createInfo.ppEnabledExtensionNames = instanceExtensionsAsCharPtrs.data();
         }
-        createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensionsAsCharPtrs.size());
+
+        std::vector<const char*> validationLayersAsCharPtrs;
+        if (instanceConfig.enableDebugLayers) {
+            instanceExtensionsAsCharPtrs.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+            validationLayersAsCharPtrs.push_back("VK_LAYER_KHRONOS_validation");
+        }
 
         std::vector<std::string> requestedAndAvailableLayers;
-        std::vector<const char*> validationLayersAsCharPtrs;
         if (!instanceConfig.validationLayers.empty()) {
             requestedAndAvailableLayers =
                 checkValidationLayerSupport(instanceConfig.validationLayers);
 
-            createInfo.enabledLayerCount = static_cast<uint32_t>(requestedAndAvailableLayers.size());
-
             ContainerOfStringsToCharPtrs(requestedAndAvailableLayers, &validationLayersAsCharPtrs);
-
-            createInfo.ppEnabledLayerNames = validationLayersAsCharPtrs.data();
-        } else {
-            createInfo.enabledLayerCount = 0u;
-            createInfo.ppEnabledLayerNames = nullptr;
         }
+
+        createInfo.ppEnabledExtensionNames = instanceExtensionsAsCharPtrs.data();
+        createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensionsAsCharPtrs.size());
+
+        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayersAsCharPtrs.size());
+        createInfo.ppEnabledLayerNames = validationLayersAsCharPtrs.data();
 
         VkResult result = vkCreateInstance(&createInfo, nullptr, &m_instance);
         if (result != VK_SUCCESS) {

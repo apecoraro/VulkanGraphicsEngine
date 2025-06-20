@@ -1,7 +1,10 @@
 #include "VulkanGraphicsDrawable.h"
 
+#include "VulkanGraphicsImage.h"
+#include "VulkanGraphicsImageDescriptorUpdaters.h"
 #include "VulkanGraphicsPipeline.h"
 #include "VulkanGraphicsRenderer.h"
+#include "VulkanGraphicsSampler.h"
 #include "VulkanGraphicsSceneNode.h"
 
 //void vgfx::Renderer::updateCameraDescriptorSet(DescriptorSet& cameraDescriptorSet)
@@ -23,25 +26,66 @@ void vgfx::Drawable::configureDescriptorSets(
             *spDescSetLayout.get(), 1, &pWritePtr);
     }
 
+    Renderer::Camera& curCamera = drawContext.sceneState.views.back();
     // First set is the projection matrix
     DescriptorSetUpdater updater;
-    updater.update(
-        drawContext.context,
-        {
-            // Bind the projection matrix buffer to index 0 in descriptor set 0.
-            {0, drawContext.sceneState.pCurrentCameraNode->getProjectionBuffer()}
-        },
-        pDescriptorSets->at(0)
-    );
+    updater.bindDescriptor(0, *curCamera.pCameraProjectionBuffer);
+    updater.updateDescriptorSet(drawContext.context, pDescriptorSets->at(0));
 
-    // TODO setup other descriptor sets
+    auto& imageSampler = getImageSampler(Material::ImageType::Diffuse);
+
+    CombinedImageSamplerDescriptorUpdater imageSamplerUpdater(*imageSampler.first, *imageSampler.second);
+
+    // Second set is the texture sampler
+    updater.bindDescriptor(0, imageSamplerUpdater);
+    updater.updateDescriptorSet(drawContext.context, pDescriptorSets->at(1));
+
+    int32_t lightCount = 1;
+    Renderer::LightState* pLights = &drawContext.sceneState.lights.back();
+    if (drawContext.sceneState.lights.size() > 1) {
+        pLights = &drawContext.sceneState.lights[drawContext.sceneState.lights.size() - 2];
+        lightCount = 2;
+    }
+    size_t writeSize = sizeof(Renderer::LightState) * lightCount;
+    drawContext.sceneState.pLightsBuffer->update(pLights, writeSize);
+
+    size_t writeOffset = writeSize;
+    writeSize = sizeof(lightCount);
+    drawContext.sceneState.pLightsBuffer->update(&lightCount, writeSize, writeOffset);
+
+    writeOffset += writeSize;
+
+    float ambient = 0.2f;
+    writeSize = sizeof(ambient);
+
+    drawContext.sceneState.pLightsBuffer->update(&ambient, writeSize, writeOffset);
+
+    writeOffset += writeSize;
+
+    auto& translationColumn = curCamera.cameraViewMatrix[3];
+    glm::vec3 viewPos(
+        -translationColumn.x,
+        -translationColumn.y,
+        -translationColumn.z);
+
+    writeSize = sizeof(viewPos);
+    drawContext.sceneState.pLightsBuffer->update(&viewPos, writeSize, writeOffset);
+
+    updater.bindDescriptor(1, *drawContext.sceneState.pLightsBuffer);
+    updater.updateDescriptorSet(drawContext.context, pDescriptorSets->at(1));
 }
 
 void vgfx::Drawable::draw(Renderer::DrawContext& drawContext)
 {
+    // TODO sort Drawables by pipeline and only bind once for each unique
+    VkCommandBuffer commandBuffer = drawContext.commandBuffer;
+    vkCmdBindPipeline(
+        commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        m_material.getPipeline().getHandle());
+
     configureDescriptorSets(drawContext, &m_descriptorSets);
 
-    VkCommandBuffer commandBuffer = drawContext.commandBuffer;
     vkCmdBindDescriptorSets(
         commandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -54,7 +98,7 @@ void vgfx::Drawable::draw(Renderer::DrawContext& drawContext)
 
     glm::mat4 pushConstants[2] = {
         m_worldTransform,
-        drawContext.sceneState.pCurrentCameraNode->getView()
+        drawContext.sceneState.views.back().cameraViewMatrix
     };
 
     vkCmdPushConstants(

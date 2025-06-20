@@ -82,7 +82,7 @@ namespace vgfx
 
         virtual ~DescriptorUpdater() = default;
 
-        virtual void write(VkWriteDescriptorSet* pWriteSet) const
+        virtual void update(VkWriteDescriptorSet* pWriteSet) const
         {
             VkWriteDescriptorSet& writeSet = *pWriteSet;
             writeSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -102,7 +102,8 @@ namespace vgfx
         {
         }
 
-        void update(Context& context, const std::map<uint32_t, DescriptorUpdater>& descriptors, VkDescriptorSet descriptorSet);
+        void bindDescriptor(uint32_t bindingIndex, DescriptorUpdater& updater);
+        void updateDescriptorSet(Context& context, VkDescriptorSet descriptorSet);
 
     private:
         std::vector<VkWriteDescriptorSet> m_descriptorWrites;

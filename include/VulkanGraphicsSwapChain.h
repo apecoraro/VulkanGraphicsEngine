@@ -62,7 +62,7 @@ namespace vgfx
         struct Config
         {
             uint32_t imageCount;
-            uint32_t maxFramesInFlight;
+            uint32_t frameBufferingCount;
             VkSurfaceFormatKHR imageFormat;
             VkExtent2D imageExtent;
             VkImageUsageFlags imageUsage;
@@ -80,7 +80,7 @@ namespace vgfx
                 VkPresentModeKHR pm,
                 VkSurfaceTransformFlagBitsKHR pt)
                 : imageCount(ic)
-                , maxFramesInFlight(mfif)
+                , frameBufferingCount(mfif)
                 , imageFormat(isf)
                 , imageExtent(ie)
                 , imageUsage(iu)

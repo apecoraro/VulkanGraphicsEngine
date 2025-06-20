@@ -80,9 +80,9 @@ namespace vgfx
         VkBuffer getHandle() { return m_buffer.handle;  }
         size_t getSize() const { return m_bufferSize; }
 
-        void write(VkWriteDescriptorSet* pWriteSet) override
+        void update(VkWriteDescriptorSet* pWriteSet) override
         {
-            DescriptorUpdater::write(pWriteSet);
+            DescriptorUpdater::update(pWriteSet);
 
             VkWriteDescriptorSet& writeSet = *pWriteSet;
             writeSet.dstArrayElement = 0;

@@ -18,7 +18,7 @@ namespace vgfx
     public:
         SceneNode() = default;
 
-        virtual void draw(Renderer::DrawContext& recorder) = 0;
+        virtual void draw(Renderer::DrawContext& drawContext) = 0;
     };
 
     class GroupNode : public SceneNode
@@ -42,44 +42,6 @@ namespace vgfx
         std::vector<std::unique_ptr<SceneNode>> m_children;
     };
 
-    class CameraNode : public GroupNode
-    {
-    public:
-        CameraNode(Context& context, size_t maxFramesInFlight);
-        CameraNode(Context& context, size_t maxFramesInFlight, const glm::mat4& view, const glm::mat4& proj)
-            : CameraNode(context, maxFramesInFlight)
-        {
-            m_view = view;
-            m_proj = proj;
-        }
-
-        const glm::mat4& getView() const { return m_view; }
-
-        void setView(const glm::mat4& view)
-        {
-            m_view = view;
-        }
-
-        void setProjection(const glm::mat4& proj)
-        {
-            m_proj = proj;
-            m_projUpdated = true;
-        }
-
-        void draw(Renderer::DrawContext& drawState) override;
-
-        Buffer& getProjectionBuffer() { return *m_cameraMatrixBuffers[m_currentBufferIndex].get(); }
-
-    private:
-        std::vector<std::unique_ptr<Buffer>> m_cameraMatrixBuffers;
-        
-        glm::mat4 m_view = glm::identity<glm::mat4>();
-        glm::mat4 m_proj = glm::identity<glm::mat4>();
-        bool m_projUpdated = true;
-
-        size_t m_currentBufferIndex;
-    };
-
     class RenderPassNode : public GroupNode
     {
     public:
@@ -91,7 +53,7 @@ namespace vgfx
         {
         }
 
-        void draw(Renderer::DrawContext& recorder) override;
+        void draw(Renderer::DrawContext& drawContext) override;
     
         const RenderTarget::Config& getRenderTargetConfig() const { return m_renderTargetConfig; }
         const std::optional<const std::map<size_t, VkImageLayout>>& getInputs() const { return m_inputs; }
@@ -105,19 +67,30 @@ namespace vgfx
         std::unique_ptr<RenderTarget> m_spRenderTarget;
     };
 
-    class GraphicsNode : public SceneNode
+    class LightNode : public GroupNode
     {
     public:
-        GraphicsNode(std::unique_ptr<Pipeline>&& spGraphicsPipeline);
+        LightNode(
+            const glm::vec3& position,
+            const glm::vec3& color,
+            const float radius = std::numeric_limits<float>::max())
+            : m_position(position.x, position.y, position.z, 1.0f)
+            , m_color(color)
+            , m_radius(radius) { }
 
-        void addObject(std::unique_ptr<Object>&& newObj);
+        void draw(Renderer::DrawContext& drawContext) override;
 
-        void initRenderingResources(Renderer::renderer& renderer) override;
-        void draw(Renderer::DrawContext& recorder) override;
+        const glm::vec4 getPosition() const { return m_position; }
+        const glm::vec3 getColor() const { return m_color; }
+        float getRadius() const { return m_radius; }
+
+        void setPosition(const glm::vec3& position) { m_position = glm::vec4(position.x, position.y, position.z, 1.0f); }
+        void setColor(const glm::vec3& color) { m_color = color; }
+        void setRadius(float radius) { m_radius = radius; }
 
     private:
-        std::unique_ptr<Pipeline> m_spGraphicsPipeline;
-
-        std::vector<std::unique_ptr<Object>> m_graphicsObjects;
+        glm::vec4 m_position = {};
+        glm::vec3 m_color = {};
+        float m_radius = std::numeric_limits<float>::max();
     };
 }

@@ -112,7 +112,7 @@ namespace vgfx
 
         // initialize global atomic counter to 0
         uint32_t zero = 0u;
-        m_spGlobalCounterUBO->update(&zero, sizeof(zero), 0u, Buffer::MemMap::UnMap);
+        m_spGlobalCounterUBO->updateDescriptorSet(&zero, sizeof(zero), 0u, Buffer::MemMap::UnMap);
     }
 
     void ImageDownsampler::execute(const Image& image, OneTimeCommandsHelper& commandsHelper)
@@ -164,7 +164,7 @@ namespace vgfx
         SamplerDescriptorUpdater samplerUpdater(*m_spSampler.get());
         descriptorUpdaters[4] = &samplerUpdater;
 
-        m_spDescriptorSet->update(m_context, descriptorUpdaters);
+        m_spDescriptorSet->updateDescriptorSet(m_context, descriptorUpdaters);
 
         commandsHelper.execute([&](VkCommandBuffer commandBuffer) {
             // downsample

@@ -58,6 +58,7 @@ namespace vgfx
             uint16_t minMajorVersion = 1u;
             uint16_t minMinorVersion = 0u;
             uint16_t minPatchVersion = 0u;
+            bool enableDebugLayers = false;
             std::vector<std::string> requiredExtensions;
             std::vector<std::string> validationLayers;
         };

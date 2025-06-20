@@ -179,9 +179,9 @@ namespace vgfx
             m_imageViews.push_back(&m_images[imageViewIndex]->getOrCreateView(imageViewCfg));
         }
 
-        uint32_t maxFramesInFlight = std::min(actualImageCount, config.maxFramesInFlight);
-        m_imageAvailableSemaphores.reserve(maxFramesInFlight);
-        for (uint32_t i = 0; i < maxFramesInFlight; ++i) {
+        uint32_t frameBufferingCount = std::min(actualImageCount, config.frameBufferingCount);
+        m_imageAvailableSemaphores.reserve(frameBufferingCount);
+        for (uint32_t i = 0; i < frameBufferingCount; ++i) {
             m_imageAvailableSemaphores.push_back(std::make_unique<Semaphore>(*m_pContext));
         }
     }

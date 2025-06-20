@@ -32,6 +32,7 @@
     <ClCompile Include="src\VulkanGraphicsApplication.cpp" />
     <ClCompile Include="src\VulkanGraphicsSceneNode.cpp" />
     <ClCompile Include="src\VulkanGraphicsPbrDrawable.cpp" />
+    <ClCompile Include="src\VulkanGraphicsSceneLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\VulkanGraphicsContext.h" />
@@ -76,6 +77,7 @@
     <ClInclude Include="include\VulkanGraphicsSceneNode.h" />
     <ClInclude Include="include\VulkanGraphicsCommandBufferFactory.h" />
     <ClInclude Include="include\VulkanGraphicsPbrDrawable.h" />
+    <ClInclude Include="include\VulkanGraphicsSceneLoader.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">

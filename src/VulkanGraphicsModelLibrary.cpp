@@ -260,7 +260,7 @@ namespace vgfx
 
     Drawable& ModelLibrary::getOrCreateDrawable(
         Context& context,
-        const Model& model,
+        const ModelDesc& model,
         const Material& material,
         CommandBufferFactory& commandBufferFactory,
         CommandQueue commandQueue)
@@ -273,7 +273,7 @@ namespace vgfx
         }
 
         // make a copy of the override paths (if any) so that we can add the model file's images if there are some.
-        Model::Images modelImages = model.imageOverrides;
+        ModelDesc::Images modelImages = model.imageOverrides;
        
         std::vector<uint8_t> vertices;
         std::vector<uint32_t> indices;
@@ -337,7 +337,7 @@ namespace vgfx
             context, commandBufferFactory, commandQueue,
             &spVertexBuffer, &spIndexBuffer);
 
-        std::map<Material::ImageType, const Image*> images;
+        std::map<Material::ImageType, std::pair<const ImageView*, const Sampler*>> imageSamplers;
         if (!material.getImageTypes().empty()) {
             for (auto imageType : material.getImageTypes()) {
                 std::string texturePath = context.getAppConfig().dataDirectoryPath + "/" + modelImages[imageType];
@@ -347,7 +347,28 @@ namespace vgfx
                         context,
                         commandBufferFactory,
                         commandQueue);
-                images[imageType] = &image;
+
+                ImageView& imageView =
+                    (image.getOrCreateView(
+                        ImageView::Config(
+                            image.getFormat(), VK_IMAGE_VIEW_TYPE_2D)));
+
+                uint32_t mipLevels =
+                    vgfx::Image::ComputeMipLevels2D(image.getWidth(), image.getHeight());
+                Sampler& sampler =
+                    getOrCreateSampler(
+                        vgfx::Sampler::Config(
+                            VK_FILTER_LINEAR,
+                            VK_FILTER_LINEAR,
+                            VK_SAMPLER_MIPMAP_MODE_LINEAR,
+                            0.0f, // min lod
+                            static_cast<float>(mipLevels),
+                            VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                            VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                            VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                            false, 0),
+                        context); // Last two parameters are for anisotropic filtering
+                imageSamplers[imageType] = std::make_pair<const ImageView*, const Sampler*>(&imageView, &sampler);
             }
         }
         auto& models = m_drawableLibrary[modelPath];
@@ -357,7 +378,7 @@ namespace vgfx
                 std::move(spVertexBuffer),
                 std::move(spIndexBuffer),
                 material,
-                images)));
+                imageSamplers)));
 
         return *models.back().get();
     }

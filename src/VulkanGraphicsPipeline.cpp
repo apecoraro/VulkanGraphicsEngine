@@ -9,13 +9,11 @@ namespace vgfx
 {
     PipelineBuilder::PipelineBuilder(
         const VkViewport& viewport,
-        const RenderPass& renderPass,
-        const DepthStencilBuffer* pDepthStencilBuffer)
+        bool useDepthBuffer)
         : m_viewport(viewport)
-        , m_pRenderPass(&renderPass)
     {
         m_depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        if (pDepthStencilBuffer != nullptr) {
+        if (useDepthBuffer) {
             m_depthStencil.depthTestEnable = VK_TRUE;
             m_depthStencil.depthWriteEnable = VK_TRUE;
             m_depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
@@ -33,7 +31,7 @@ namespace vgfx
             static_cast<uint32_t>(viewport.height)
         };
 
-        RasterizerConfig defaultRasterizerConfig;
+        Pipeline::RasterizerConfig defaultRasterizerConfig;
         configureRasterizer(defaultRasterizerConfig);
 
         m_multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -105,7 +103,7 @@ namespace vgfx
         const VertexBuffer::Config& vertexBufferConfig,
         // TODO probably need to add some way to provide instance based data (i.e. VK_VERTEX_INPUT_RATE_INSTANCE).
         // This would allow for instanced drawing.
-        const InputAssemblyConfig& inputAssemblyConfig)
+        const Pipeline::InputAssemblyConfig& inputAssemblyConfig)
     {
         m_pMaterial = &material;
         const Program& vertexShaderProgram = material.getVertexShader();
@@ -148,14 +146,14 @@ namespace vgfx
 
         m_pushConstantRanges = material.getPushConstantRanges();
 
-        for (const auto& descSetLayoutInfo: material.getDescriptorSetLayouts()) {
-            m_descriptorSetLayouts.push_back(descSetLayoutInfo.spDescriptorSetLayout->getHandle());
+        for (const auto& spDescSetLayout: material.getDescriptorSetLayouts()) {
+            m_descriptorSetLayouts.push_back(spDescSetLayout->getHandle());
         }
 
         return *this;
     }
 
-    PipelineBuilder& PipelineBuilder::configureRasterizer(const RasterizerConfig& config)
+    PipelineBuilder& PipelineBuilder::configureRasterizer(const Pipeline::RasterizerConfig& config)
     {
         m_rasterizer = config.rasterizerInfo;
 

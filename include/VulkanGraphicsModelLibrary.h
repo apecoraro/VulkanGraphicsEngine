@@ -23,7 +23,7 @@ namespace vgfx
 
         ModelLibrary() = default;
 
-        struct Model
+        struct ModelDesc
         {
             std::string modelPathOrShapeName;
             using Images = std::unordered_map<Material::ImageType, std::string>;
@@ -33,7 +33,7 @@ namespace vgfx
 
         Drawable& getOrCreateDrawable(
             Context& context,
-            const Model& model,
+            const ModelDesc& model,
             const Material& material,
             CommandBufferFactory& commandBufferFactory,
             CommandQueue commandQueue);

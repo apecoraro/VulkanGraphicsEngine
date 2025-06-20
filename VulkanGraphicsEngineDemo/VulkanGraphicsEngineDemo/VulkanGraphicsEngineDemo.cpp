@@ -41,22 +41,6 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
     return VK_FALSE;
 }
 
-struct CameraParams {
-    glm::mat4 proj = glm::identity<glm::mat4>();
-};
-
-struct Light
-{
-    glm::vec4 position;
-    glm::vec3 color;
-    float radius;
-};
-
-struct LightingUniforms {
-    Light lights[2];
-    glm::vec4 viewPos;
-};
-
 class Demo
 {
 public:
@@ -168,23 +152,11 @@ public:
         vgfx::MaterialsLibrary::MaterialInfo materialInfo(
             vertexShader,
             vertexShaderEntryPointFunc,
-            vgfx::VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions,
+            vgfx::VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions, // TODO should use reflection for this.
             fragmentShader,
             fragmentShaderEntryPointFunc);
 
         vgfx::Material& material = vgfx::MaterialsLibrary::GetOrLoadMaterial(m_spApplication->getContext(), materialInfo);
-
-        vgfx::DescriptorPoolBuilder poolBuilder;
-        // For each descriptor this will add 3 to the pool of that descriptor's type.
-        poolBuilder.addDescriptorSets(material.getDescriptorSetLayouts(), 3);
-        poolBuilder.addMaxSets(3); // We need to create three copies of this descriptor set for each in flight frame
-
-        // For each descriptor this will add 3 to the pool of that descriptor's type.
-        poolBuilder.addDescriptorSets(m_spImageSharpener->getComputeShader().getDescriptorSetLayouts(), 3);
-        poolBuilder.addMaxSets(3); // We need to create three copies of this descriptor set for each in flight frame
-
-        //poolBuilder.setCreateFlags(VkDescriptorPoolCreateFlags);
-        m_spDescriptorPool = poolBuilder.createPool(m_spApplication->getContext());
 
         // Allocate buffer for camera parameters
         // Allocate descriptor set for camera parameters
@@ -202,18 +174,17 @@ public:
         glm::mat4 modelWorldTransform = glm::identity<glm::mat4>();
         // Rendering to offscreen image at half the resolution requires dynamic viewport and scissor in the
         // graphics pipeline.
-        initGraphicsObject(
-            m_spApplication->getContext(),
-            *m_spDescriptorPool.get(),
-            *m_spCommandBufferFactory,
-            model,
-            material,
-            modelWorldTransform,
-            *m_spModelLibrary);
+        auto& drawable =
+            m_spModelLibrary->getOrCreateDrawable(
+                m_spApplication->getContext(),
+                model,
+                material,
+                *m_spCommandBufferFactory,
+                m_spApplication->getContext().getGraphicsQueue(0));
 
-        m_spImageSharpener->createRenderingResources(*m_spDescriptorPool.get());
+        drawable.setWorldTransform(modelWorldTransform);
 
-        recordCommandBuffers();
+        createScene(m_spApplication->getContext(),drawable);
     }
 
 #ifdef NDEBUG
@@ -228,82 +199,22 @@ public:
 
     std::unique_ptr<vgfx::ImageSharpener> m_spImageSharpener;
 
-    std::unique_ptr<vgfx::CommandBufferFactory> m_spCommandBufferFactory;
+    std::unique_ptr<vgfx::Camera> m_spScene;
 
-    CameraParams m_cameraMatrix;
-    std::vector<std::unique_ptr<vgfx::Buffer>> m_cameraMatrixBuffers;
-
-    std::unique_ptr<vgfx::Buffer> m_spLightingUniformsBuffer;
-
-    std::vector<std::unique_ptr<vgfx::Object>> m_graphicsObjects;
     std::unique_ptr<vgfx::ModelLibrary> m_spModelLibrary;
-    std::unique_ptr<vgfx::Pipeline> m_spGraphicsPipeline;
-    std::unique_ptr<vgfx::DescriptorPool> m_spDescriptorPool;
 
     std::vector<vgfx::WindowRenderer::QueueSubmitInfo> m_queueSubmits;
 
-    bool m_frameBufferResized = false;
-
-    void setFrameBufferResized(bool flag)
-    {
-        m_frameBufferResized = flag;
-    }
-
-    void initGraphicsObject(
+    void createScene(
         vgfx::Context& graphicsContext,
-        vgfx::DescriptorPool& descriptorPool,
-        vgfx::CommandBufferFactory& commandBufferFactory,
-        const vgfx::ModelLibrary::Model& model,
-        const vgfx::Material& material,
-        const glm::mat4& modelWorldTransform,
-        vgfx::ModelLibrary& modelLibrary)
-    {
-        auto& drawable =
-            modelLibrary.getOrCreateDrawable(
-                graphicsContext,
-                model,
-                material,
-                *m_spDescriptorPool.get(),
-                commandBufferFactory,
-                graphicsContext.getGraphicsQueue(0));
-
-        drawable.setWorldTransform(modelWorldTransform);
-
-        initDrawableDescriptorSets(graphicsContext, drawable, modelLibrary);
-
-        std::unique_ptr<vgfx::Object> spModelObject = std::make_unique<vgfx::Object>();
-        spModelObject->addDrawable(drawable);
-
-        // GraphicsPipeline is specific to a material, vertex buffer config,
-        // and input assembly config.
-        vgfx::PipelineBuilder::InputAssemblyConfig inputConfig(
-            drawable.getVertexBuffer().getConfig().primitiveTopology,
-            vgfx::ModelLibrary::GetDefaultIndexBufferConfig().hasPrimitiveRestartValues);
-
-        m_spGraphicsPipeline =
-            createGraphicsPipeline(
-                graphicsContext,
-                *m_spOffscreenSwapChain.get(),
-                m_spApplication->getRenderer().getDepthStencilBuffer(),
-                *m_spOffscreenRenderPass.get(),
-                material,
-                drawable.getVertexBuffer().getConfig(),
-                inputConfig);
-
-        m_graphicsObjects.push_back(std::move(spModelObject));
-    }
-
- 
-    void initDrawableDescriptorSets(
-        vgfx::Context& graphicsContext,
-        vgfx::Drawable& drawable,
-        vgfx::ModelLibrary& modelLibrary)
+        vgfx::Drawable& drawable)
     {
         glm::vec3 viewPos(2.0f, 2.0f, 2.0f);
-        m_cameraMatrix.view = glm::lookAt(
+        glm::mat4 cameraView = glm::lookAt(
             viewPos,
             glm::vec3(0.0f, 0.0f, 0.0f), // center
             glm::vec3(0.0f, 0.0f, 1.0f)); // up
+
         auto& swapChainExtent = m_spApplication->getRenderer().getSwapChain().getImageExtent();
         // Vulkan NDC is different than OpenGL, so use this clip matrix to correct for that.
         const glm::mat4 clip(
@@ -311,113 +222,40 @@ public:
             0.0f, -1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 0.5f, 0.0f,
             0.0f, 0.0f, 0.5f, 1.0f);
-        m_cameraMatrix.proj =
+        glm::mat4 cameraProj =
             clip * glm::perspective(
                     glm::radians(45.0f),
                     static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height),
                     0.1f, // near
                     30.0f); // far
-        vgfx::Buffer::Config cameraMatrixBufferCfg(sizeof(CameraParams));
-        for (uint32_t index = 0; index < m_spApplication->getRenderer().getSwapChain().getImageCount(); ++index) {
-            m_cameraMatrixBuffers.emplace_back(
-                std::make_unique<vgfx::Buffer>(
-                    graphicsContext,
-                    vgfx::Buffer::Type::UniformBuffer,
-                    cameraMatrixBufferCfg));
-            m_cameraMatrixBuffers.back()->update(
-                &m_cameraMatrix,
-                sizeof(m_cameraMatrix));
-        
-            drawable.getDescriptorSetChain().front()->getDescriptorSet(index).update(
-                graphicsContext, {{0, m_cameraMatrixBuffers.back().get()}});
-        }
+        m_spScene = std::make_unique<vgfx::Camera>(
+            graphicsContext,
+            m_spApplication->getRenderer().getSwapChain().getImageCount(),
+            cameraView,
+            cameraProj);
 
-        uint32_t mipLevels =
-            vgfx::Image::ComputeMipLevels2D(
-                drawable.getImage(vgfx::Material::ImageType::Diffuse)->getWidth(),
-                drawable.getImage(vgfx::Material::ImageType::Diffuse)->getHeight());
+        std::unique_ptr<vgfx::LightNode> spLightNode =
+            std::make_unique<vgfx::LightNode>(
+                glm::vec4(1.0f, 100.0f, 500.0f, 1.0f), //position
+                glm::vec3(1.0f, 1.0f, 1.0f), // color
+                150000.0f); // radius
 
-        vgfx::ImageView& imageView =
-            modelLibrary.getOrCreateImageView(
-                vgfx::ImageView::Config(
-                    VK_FORMAT_R8G8B8A8_UNORM,
-                    VK_IMAGE_VIEW_TYPE_2D,
-                    0u, // base mip level
-                    mipLevels),
-                graphicsContext,
-                *drawable.getImage(vgfx::Material::ImageType::Diffuse));
+        m_spScene->addNode(std::move(spLightNode));
 
-        vgfx::Sampler& sampler =
-            modelLibrary.getOrCreateSampler(
-                vgfx::Sampler::Config(
-                    VK_FILTER_LINEAR,
-                    VK_FILTER_LINEAR,
-                    VK_SAMPLER_MIPMAP_MODE_LINEAR,
-                    0.0f, // min lod
-                    static_cast<float>(mipLevels),
-                    VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                    VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                    VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                    false, 0), // Last two parameters are for anisotropic filtering
-                graphicsContext); 
-
-        LightingUniforms lightingUniforms;
-        lightingUniforms.viewPos = glm::vec4(viewPos, 1.0f);
-        lightingUniforms.lights[0] = {
-            glm::vec4(1.0f, 100.0f, 500.0f, 1.0f), //position
-            glm::vec3(1.0f, 1.0f, 1.0f), // color
-            150000.0f, // radius
-        };
-        lightingUniforms.lights[1] = {
+        // TODO multiple lights
+        /*lightingUniforms.lights[1] = {
             glm::vec4(100.0f, 0.0f, 3.0f, 1.0f), //position
             glm::vec3(1.0f, 1.0f, 1.0f), // color
             2000.0f, // radius
-        };
+        };*/
 
-        vgfx::Buffer::Config lightingBufferCfg(sizeof(lightingUniforms));
-        m_spLightingUniformsBuffer =
-            std::make_unique<vgfx::Buffer>(
-                graphicsContext, vgfx::Buffer::Type::UniformBuffer, lightingBufferCfg);
-        m_spLightingUniformsBuffer->update(&lightingUniforms, sizeof(lightingUniforms));
+        std::unique_ptr<vgfx::Object> spGraphicsObject = std::make_unique<vgfx::Object>();
+        spGraphicsObject->addDrawable(drawable);
 
-        vgfx::CombinedImageSamplerDescriptorUpdater descriptorUpdater(imageView,  sampler);
-        // frag shader descriptor set is set index == 1.
-        drawable.getDescriptorSetChain()[1]->getDescriptorSet(0).update(
-            graphicsContext, { {0, &descriptorUpdater}, {1, m_spLightingUniformsBuffer.get()} });
+        spLightNode->addNode(std::move(spGraphicsObject));
     }
 
-    std::unique_ptr<vgfx::Pipeline> createGraphicsPipeline(
-        vgfx::Context& context,
-        const vgfx::SwapChain& swapChain,
-        const vgfx::DepthStencilBuffer* pDepthStencilBuffer,
-        const vgfx::RenderPass& renderPass,
-        const vgfx::Material& material,
-        const vgfx::VertexBuffer::Config& vertexBufferConfig,
-        const vgfx::PipelineBuilder::InputAssemblyConfig& inputConfig)
-    {
-        VkViewport viewport = {
-            0.0f, 0.0f,
-            static_cast<float>(swapChain.getImageExtent().width),
-            static_cast<float>(swapChain.getImageExtent().height),
-            0.0f,
-            1.0f
-        };
-        vgfx::PipelineBuilder builder(viewport, renderPass, pDepthStencilBuffer);
-
-        vgfx::PipelineBuilder::RasterizerConfig rasterizerConfig(
-            VK_POLYGON_MODE_FILL,
-            VK_CULL_MODE_BACK_BIT,
-            VK_FRONT_FACE_COUNTER_CLOCKWISE);
-
-        //std::vector<VkDynamicState> dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
-
-        return builder.configureDrawableInput(material, vertexBufferConfig, inputConfig)
-                      .configureRasterizer(rasterizerConfig)
-                      //.configureDynamicStates(dynamicStates)
-                      .createPipeline(context); 
-    }
-
-    void recordCommandBuffers()
+    /*void recordCommandBuffers()
     {
         m_queueSubmits.clear();
         m_queueSubmits.resize(m_spApplication->getRenderer().getSwapChain().getImageCount());
@@ -461,25 +299,7 @@ public:
 
             m_queueSubmits[swapChainImageIndex].commandBuffers.push_back(commandBuffer);
         }
-    }
-
-    void setViewportAndScissor(VkCommandBuffer commandBuffer, const VkExtent2D& extent)
-    {
-        VkViewport viewport = {};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
-        viewport.width = static_cast<float>(extent.width);
-        viewport.height = static_cast<float>(extent.height);
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-
-        vkCmdSetViewport(commandBuffer, 0u, 1u, &viewport);
-
-        VkRect2D scissor = {};
-        scissor.offset = { 0, 0 };
-        scissor.extent = extent;
-        vkCmdSetScissor(commandBuffer, 0u, 1u, &scissor);
-    }
+    }*/
 
     static constexpr float MILLISECS_IN_SEC = 1000.0f;
     size_t m_curFrame = 0;
@@ -529,21 +349,18 @@ public:
 
         m_graphicsObjects.clear();
 
-        m_spDescriptorPool.reset();
-
         m_spModelLibrary.reset();
 
         vgfx::MaterialsLibrary::UnloadAll();
 
         m_spCommandBufferFactory.reset();
 
-        m_spGraphicsPipeline.reset();
-
         m_spApplication.reset();
     }
 };
 
 static Demo* s_pDemo = nullptr;
+
 
 #ifdef __cplusplus
 extern "C" {

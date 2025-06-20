@@ -24,9 +24,9 @@ namespace vgfx
 
         ~ImageDescriptorUpdater() = default;
 
-        void write(VkWriteDescriptorSet* pWriteSet) override
+        void update(VkWriteDescriptorSet* pWriteSet) override
         {
-            DescriptorUpdater::write(pWriteSet);
+            DescriptorUpdater::update(pWriteSet);
 
             VkWriteDescriptorSet& writeSet = *pWriteSet;
             // TODO should dstArrayElement not be hard coded?
@@ -61,9 +61,9 @@ namespace vgfx
 
         ~ImageArrayDescriptorUpdater() = default;
 
-        void write(VkWriteDescriptorSet* pWriteSet) override
+        void update(VkWriteDescriptorSet* pWriteSet) override
         {
-            DescriptorUpdater::write(pWriteSet);
+            DescriptorUpdater::update(pWriteSet);
 
             VkWriteDescriptorSet& writeSet = *pWriteSet;
             // TODO should dstArrayElement not be hard coded?
@@ -93,9 +93,9 @@ namespace vgfx
 
         ~CombinedImageSamplerDescriptorUpdater() = default;
 
-        void write(VkWriteDescriptorSet* pWriteSet) override
+        void update(VkWriteDescriptorSet* pWriteSet) override
         {
-            DescriptorUpdater::write(pWriteSet);
+            DescriptorUpdater::update(pWriteSet);
 
             VkWriteDescriptorSet& writeSet = *pWriteSet;
             // TODO should dstArrayElement not be hard coded?
@@ -119,9 +119,9 @@ namespace vgfx
 
         ~SamplerDescriptorUpdater() = default;
 
-        void write(VkWriteDescriptorSet * pWriteSet) override
+        void update(VkWriteDescriptorSet * pWriteSet) override
         {
-            DescriptorUpdater::write(pWriteSet);
+            DescriptorUpdater::update(pWriteSet);
 
             VkWriteDescriptorSet& writeSet = *pWriteSet;
             // TODO should dstArrayElement not be hard coded?

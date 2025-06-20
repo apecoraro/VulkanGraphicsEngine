@@ -29,22 +29,6 @@ namespace vgfx
 
         VkPipeline getHandle() const { return m_graphicsPipeline; }
         VkPipelineLayout getLayout() const { return m_pipelineLayout; }
-    private:
-        void destroy();
-
-        Context& m_context;
-        const Material& m_material;
-        VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
-        VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;
-    };
-
-    class PipelineBuilder
-    {
-    public:
-        PipelineBuilder(
-            const VkViewport& viewport,
-            const RenderPass& renderPass,
-            const DepthStencilBuffer* pDepthStencilBuffer = nullptr);
 
         struct InputAssemblyConfig
         {
@@ -57,11 +41,6 @@ namespace vgfx
             VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {};
         };
 
-        PipelineBuilder& configureDrawableInput(
-            const Drawable& drawable,
-            const VertexBuffer::Config& vertexBufferConfig,
-            const InputAssemblyConfig& inputAssemblyConfig);
- 
         struct RasterizerConfig
         {
             RasterizerConfig(
@@ -86,6 +65,27 @@ namespace vgfx
             VkPipelineRasterizationStateCreateInfo rasterizerInfo = {};
         };
 
+    private:
+        void destroy();
+
+        Context& m_context;
+        const Material& m_material;
+        VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
+        VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;
+    };
+
+    class PipelineBuilder
+    {
+    public:
+        PipelineBuilder(
+            const VkViewport& viewport,
+            bool useDepthBuffer = false);
+
+        PipelineBuilder& configureDrawableInput(
+            const Material& material,
+            const VertexBuffer::Config& vertexBufferConfig,
+            const Pipeline::InputAssemblyConfig& inputAssemblyConfig);
+
         // DynamicState allows certain settings to be changed "on the fly" (e.g. viewport & scissor).
         PipelineBuilder& configureDynamicStates(const std::vector<VkDynamicState>& dynamicStateEnables);
 
@@ -108,7 +108,7 @@ namespace vgfx
             return *this;
         }
 
-        PipelineBuilder& configureRasterizer(const RasterizerConfig& config);
+        PipelineBuilder& configureRasterizer(const Pipeline::RasterizerConfig& config);
 
         PipelineBuilder& configureRenderTarget(const RenderTarget::AttachmentViews& attachments);
 

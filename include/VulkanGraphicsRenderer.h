@@ -1,5 +1,6 @@
 #pragma once
 
+#include "VulkanGraphicsBuffer.h"
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsCommandBufferFactory.h"
 #include "VulkanGraphicsFence.h"
@@ -8,19 +9,76 @@
 #include "VulkanGraphicsRenderTarget.h"
 #include "VulkanGraphicsSwapChain.h"
 
+#include <glm/glm.hpp>
+#include <vulkan/vulkan.h>
+
 #include <cassert>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <set>
-#include <vulkan/vulkan.h>
+#include <vector>
 
 namespace vgfx
 {
     class Buffer;
-    class CameraNode;
     class SceneNode;
+
+    class Camera
+    {
+    public:
+        Camera(Context& context, const VkViewport& viewport, size_t frameBufferingCount);
+        Camera(
+            Context& context,
+            size_t frameBufferingCount,
+            const glm::mat4& view,
+            const glm::mat4& proj,
+            const VkViewport& viewport)
+            : Camera(context, viewport, frameBufferingCount)
+        {
+            m_view = view;
+            m_proj = proj;
+        }
+
+        const glm::mat4& getView() const { return m_view; }
+
+        void setView(const glm::mat4& view)
+        {
+            m_view = view;
+        }
+
+        const glm::mat4& getProj() const { return m_proj; }
+
+        void setProjection(const glm::mat4& proj)
+        {
+            m_proj = proj;
+            m_projUpdated = true;
+        }
+
+        Buffer& getProjectionBuffer() { return *m_cameraMatrixBuffers[m_currentBufferIndex].get(); }
+
+        Pipeline::RasterizerConfig getRasterizerConfig() const {
+            return m_rasterizerConfig;
+        }
+
+        VkViewport getViewport() const {
+            return m_viewport;
+        }
+
+        void update();
+
+    private:
+        std::vector<std::unique_ptr<Buffer>> m_cameraMatrixBuffers;
+
+        glm::mat4 m_view = glm::identity<glm::mat4>();
+        glm::mat4 m_proj = glm::identity<glm::mat4>();
+        bool m_projUpdated = true;
+        VkViewport m_viewport = {};
+        Pipeline::RasterizerConfig m_rasterizerConfig;
+
+        size_t m_currentBufferIndex;
+    };
 
     class Renderer
     {
@@ -46,6 +104,10 @@ namespace vgfx
             uint32_t width,
             uint32_t height,
             PickDepthStencilFormatFunc pickFormatFunc);
+
+        virtual std::unique_ptr<Camera> createCamera(
+            Context& context,
+            uint32_t frameBufferingCount) = 0;
 
         // Called by drawScene() right before scene.draw(...)
         virtual void beginDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) = 0;
@@ -95,11 +157,27 @@ namespace vgfx
 
         virtual void init(
             Context& context,
-            uint32_t maxFramesInFlight);
+            uint32_t frameBufferingCount);
 
+        struct ViewState
+        {
+            glm::mat4 cameraViewMatrix;
+            glm::mat4 cameraProjectionMatrix;
+            Buffer* pCameraProjectionBuffer;
+            VkViewport viewport;
+            Pipeline::RasterizerConfig rasterizerConfig;
+        };
+        struct LightState
+        {
+            glm::vec4 position;
+            glm::vec3 color;
+            float radius;
+        };
         struct SceneState
         {
-            CameraNode* pCurrentCameraNode = nullptr;
+            std::vector<ViewState> views;
+            std::vector<LightState> lights;
+            Buffer* pLightsBuffer;
         };
 
         struct DrawContext
@@ -107,23 +185,66 @@ namespace vgfx
             Context& context;
             SceneState sceneState;
             size_t frameIndex;
+            bool depthBufferEnabled;
             VkCommandBuffer commandBuffer;
             DescriptorPool& descriptorPool;
             DrawContext(
                 Context& ctx,
                 size_t fi,
+                bool dbe,
                 VkCommandBuffer cb,
                 DescriptorPool& dp)
                 : context(ctx)
                 , frameIndex(fi)
+                , depthBufferEnabled(dbe)
                 , commandBuffer(cb)
                 , descriptorPool(dp)
-            {}
+            {
+            }
+
+            void pushLight(
+                const glm::vec4& position,
+                const glm::vec3& color,
+                float radius)
+            {
+                this->sceneState.lights.push_back({
+                    .position = position,
+                    .color = color,
+                    .radius = radius });
+            }
+
+            void popLight()
+            {
+                this->sceneState.lights.pop_back();
+            }
+
+            void pushView(
+                const glm::mat4& view,
+                const glm::mat4& proj,
+                Buffer* pBuffer,
+                const VkViewport& viewport,
+                const Pipeline::RasterizerConfig& rasterizerConfig)
+            {
+                this->sceneState.views.push_back({
+                    .cameraViewMatrix = view,
+                    .cameraProjectionMatrix = proj,
+                    .pCameraProjectionBuffer = pBuffer,
+                    .viewport = viewport,
+                    .rasterizerConfig = rasterizerConfig });
+            }
+
+            void popView()
+            {
+                this->sceneState.views.pop_back();
+            }
         };
 
         // Records command buffer(s) to draw the scene in its current state
         // and call presentFrame
         void drawScene(SceneNode& scene);
+
+        const Camera& getCamera() const { return *m_spCamera.get(); }
+        Camera& getCamera() { return *m_spCamera.get(); }
 
     private:
         struct DepthStencilDeleter
@@ -132,16 +253,19 @@ namespace vgfx
             void operator()(DepthStencilBuffer*);
         };
         std::unique_ptr<DepthStencilBuffer, DepthStencilDeleter> m_spDepthStencilBuffer;
+        std::unique_ptr<Camera> m_spCamera;
 
         bool m_requiresPresentQueue = false;
 
-        uint32_t m_maxFramesInFlight = 1u;
+        uint32_t m_frameBufferingCount = 1u;
         QueueSubmitInfo m_gfxQueueSubmitInfo;
 
         size_t m_frameIndex = 0u;
         std::vector<std::unique_ptr<DescriptorPool>> m_descriptorPools;
         std::unique_ptr<CommandBufferFactory> m_spCommandBufferFactory;
         std::vector<VkCommandBuffer> m_commandBuffers;
+
+        std::vector<std::unique_ptr<Buffer>> m_lightsBuffers;
     };
 
     class WindowRenderer : public Renderer
@@ -213,7 +337,11 @@ namespace vgfx
 
         void init(
             Context& context,
-            uint32_t maxFramesInFlight) override;
+            uint32_t frameBufferingCount) override;
+
+        std::unique_ptr<Camera> createCamera(
+            Context& context,
+            uint32_t frameBufferingCount) override;
 
         SwapChain& getSwapChain() { return *m_spSwapChain.get(); }
         const SwapChain& getSwapChain() const { return *m_spSwapChain.get(); }

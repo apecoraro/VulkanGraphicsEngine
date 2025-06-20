@@ -6,6 +6,7 @@
 #include "VulkanGraphicsIndexBuffer.h"
 #include "VulkanGraphicsMaterials.h"
 #include "VulkanGraphicsRenderer.h"
+#include "VulkanGraphicsSampler.h"
 #include "VulkanGraphicsVertexBuffer.h"
 
 #include <cstdint>
@@ -26,11 +27,11 @@ namespace vgfx
             std::unique_ptr<VertexBuffer> spVertexBuffer,
             std::unique_ptr<IndexBuffer> spIndexBuffer,
             const Material& material,
-            const std::map<Material::ImageType, const Image*>& images)
+            const std::map<Material::ImageType, std::pair<const ImageView*, const Sampler*>>& imageSamplers)
             : m_spVertexBuffer(std::move(spVertexBuffer))
             , m_spIndexBuffer(std::move(spIndexBuffer))
             , m_material(material)
-            , m_images(images)
+            , m_imageSamplers(imageSamplers)
         {
             
         }
@@ -44,21 +45,17 @@ namespace vgfx
         IndexBuffer& getIndexBuffer() { return *m_spIndexBuffer.get(); }
 
         const MaterialId& getMaterialId() const { return m_material.getId(); }
+        const Material& getMaterial() const { return m_material; }
  
-        size_t getImageCount() const { return m_images.size(); }
+        size_t getImageCount() const { return m_imageSamplers.size(); }
 
-        const Image* getImage(Material::ImageType imageType) const
+        const std::pair<const ImageView*, const Sampler*>& getImageSampler(Material::ImageType imageType) const
         {
-            const auto& findIt = m_images.find(imageType);
-            if (findIt == m_images.end()) {
-                return nullptr;
+            const auto& findIt = m_imageSamplers.find(imageType);
+            if (findIt == m_imageSamplers.end()) {
+                return std::make_pair<const ImageView*, const Sampler*>(nullptr, nullptr);
             }
             return findIt->second;
-        }
-
-        void setImage(Material::ImageType imageType, const Image* pImage)
-        {
-            m_images[imageType] = pImage;
         }
 
         const glm::mat4& getWorldTransform() const { return m_worldTransform; }
@@ -72,7 +69,7 @@ namespace vgfx
         std::unique_ptr<VertexBuffer> m_spVertexBuffer;
         std::unique_ptr<IndexBuffer> m_spIndexBuffer;
         const Material& m_material;
-        std::map<Material::ImageType, const Image*> m_images;
+        std::map<Material::ImageType, std::pair<const ImageView*, const Sampler*>> m_imageSamplers;
         glm::mat4 m_worldTransform;
         std::vector<VkDescriptorSet> m_descriptorSets;
     };

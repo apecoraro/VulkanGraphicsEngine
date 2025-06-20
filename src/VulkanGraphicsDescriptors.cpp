@@ -69,22 +69,24 @@ namespace vgfx
         }
     }
 
-    void DescriptorSetUpdater::update(
+    void DescriptorSetUpdater::bindDescriptor(
+        uint32_t bindingIndex,
+        DescriptorUpdater& updater)
+    {
+        VkWriteDescriptorSet descriptorWrite = {};
+        descriptorWrite.dstBinding = bindingIndex;
+        updater.update(&descriptorWrite);
+
+        m_descriptorWrites.push_back(descriptorWrite);
+    }
+
+    void DescriptorSetUpdater::updateDescriptorSet(
         Context& context,
-        const std::map<uint32_t, DescriptorUpdater>& descriptors,
         VkDescriptorSet descriptorSet)
     {
-        m_descriptorWrites.resize(descriptors.size());
-
-        size_t dindex = 0u;
-        for (auto& [binding, descriptorUpdater]: descriptors) {
-            VkWriteDescriptorSet& descriptorWrite = m_descriptorWrites[dindex];
-            descriptorWrite = {};
-            descriptorWrite.dstBinding = binding;
+        for (VkWriteDescriptorSet& descriptorWrite: m_descriptorWrites)
+        {
             descriptorWrite.dstSet = descriptorSet;
-
-            descriptorUpdater.write(&descriptorWrite);
-            ++dindex;
         }
 
         vkUpdateDescriptorSets(

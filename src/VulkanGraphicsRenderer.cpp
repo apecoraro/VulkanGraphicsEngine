@@ -4,11 +4,47 @@
 #include "VulkanGraphicsDescriptorPoolBuilder.h"
 #include "VulkanGraphicsSceneNode.h"
 
+#include <glm/glm.hpp>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/matrix_clip_space.hpp>
+
 #include <algorithm>
 #include <stdexcept>
 
 namespace vgfx
 {
+    Camera::Camera(
+        Context& context,
+        const VkViewport& viewport,
+        size_t frameBufferingCount)
+            : m_rasterizerConfig({
+                VK_POLYGON_MODE_FILL,
+                VK_CULL_MODE_BACK_BIT,
+                VK_FRONT_FACE_COUNTER_CLOCKWISE})
+            , m_viewport(viewport)
+    {
+        Buffer::Config cameraMatrixBufferCfg(sizeof(glm::mat4));
+        // Need one buffer each for each frame in flight and one for the current frame
+        for (uint32_t index = 0; index < (frameBufferingCount + 1); ++index) {
+            m_cameraMatrixBuffers.emplace_back(
+                std::make_unique<Buffer>(
+                    context,
+                    Buffer::Type::UniformBuffer,
+                    cameraMatrixBufferCfg));
+        }
+    }
+
+    void Camera::update()
+    {
+        auto& currentBuffer = *m_cameraMatrixBuffers[m_currentBufferIndex];
+        currentBuffer.update(&m_proj, sizeof(glm::mat4));
+
+        ++m_currentBufferIndex;
+        if (m_currentBufferIndex == m_cameraMatrixBuffers.size()) {
+            m_currentBufferIndex = 0u;
+        }
+    }
+
     static bool SurfaceFormatIsSupported(
         const std::vector<VkSurfaceFormatKHR>& supportedFormats,
         VkSurfaceFormatKHR desiredSurfaceFormat)
@@ -245,11 +281,11 @@ namespace vgfx
 
     void WindowRenderer::init(
         Context& context,
-        uint32_t maxFramesInFlight)
+        uint32_t frameBufferingCount)
     {
         SwapChain::Config swapChainConfig(
             m_swapChainConfig.imageCount.value(),
-            maxFramesInFlight,
+            frameBufferingCount,
             m_swapChainConfig.imageFormat.value(),
             m_swapChainConfig.imageExtent.value(),
             m_swapChainConfig.imageUsage.value(),
@@ -261,12 +297,12 @@ namespace vgfx
 
         // Don't know how many images were created until after createRenderingResources completes, so have
         // to query to get this value even though we passed it in.
-        size_t actualMaxFramesInFlight = m_spSwapChain->getImageAvailableSemaphoreCount();
+        size_t frameBufferingCount = m_spSwapChain->getImageAvailableSemaphoreCount();
 
-        Renderer::init(context, actualMaxFramesInFlight);
+        Renderer::init(context, frameBufferingCount);
 
-        m_renderFinishedSemaphores.reserve(actualMaxFramesInFlight);
-        for (size_t i = 0; i < actualMaxFramesInFlight; ++i) {
+        m_renderFinishedSemaphores.reserve(frameBufferingCount);
+        for (size_t i = 0; i < frameBufferingCount; ++i) {
             m_renderFinishedSemaphores.push_back(
                 std::make_unique<Semaphore>(context));
 
@@ -284,6 +320,38 @@ namespace vgfx
         }
 
         m_pContext = &context;
+    }
+
+    std::unique_ptr<Camera> WindowRenderer::createCamera(Context& context, uint32_t frameBufferingCount)
+    {
+        glm::vec3 viewPos(2.0f, 2.0f, 2.0f);
+        glm::mat4 cameraView = glm::lookAt(
+            viewPos,
+            glm::vec3(0.0f, 0.0f, 0.0f), // center
+            glm::vec3(0.0f, 0.0f, 1.0f)); // up
+
+        auto& swapChainExtent = m_spSwapChain->getImageExtent();
+        // Vulkan NDC is different than OpenGL, so use this clip matrix to correct for that.
+        const glm::mat4 clip(
+            1.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, -1.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.5f, 0.0f,
+            0.0f, 0.0f, 0.5f, 1.0f);
+        glm::mat4 cameraProj =
+            clip * glm::perspective(
+                glm::radians(45.0f),
+                static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height),
+                0.1f, // near
+                30.0f); // far
+        VkViewport viewport {
+            .x = 0,
+            .y = 0,
+            .width = swapChainExtent.width,
+            .height = swapChainExtent.height,
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f
+        };
+        return std::make_unique<Camera>(context, cameraView, cameraProj, viewport, frameBufferingCount);
     }
 
     void WindowRenderer::beginDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex)
@@ -446,11 +514,11 @@ namespace vgfx
         return vkQueuePresentKHR(m_pContext->getPresentQueue(0u).queue, &presentInfo);
     }
 
-    void Renderer::init(Context& context, uint32_t maxFramesInFlight)
+    void Renderer::init(Context& context, uint32_t frameBufferingCount)
     {
-        m_maxFramesInFlight = maxFramesInFlight;
+        m_frameBufferingCount = frameBufferingCount;
 
-        vgfx::DescriptorPoolBuilder poolBuilder;
+        DescriptorPoolBuilder poolBuilder;
         poolBuilder.addDescriptors(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100);
         poolBuilder.addDescriptors(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 100);
         poolBuilder.addMaxSets(200);
@@ -460,18 +528,27 @@ namespace vgfx
             std::make_unique<CommandBufferFactory>(
                 context, context.getGraphicsQueueFamilyIndex());
 
-        // Need 1 DescriptorPool and CommandBuffer for the current frame
-        // and 1 of each for each frame in flight.
-        for (size_t i = 0; i < (maxFramesInFlight+1); ++i) {
+        Buffer::Config lightsBufferCfg(
+            (sizeof(LightState) * 2) + sizeof(int) + sizeof(float) + sizeof(glm::vec3));
+        for (size_t i = 0; i < frameBufferingCount; ++i) {
             m_descriptorPools.emplace_back(poolBuilder.createPool(context));
 
             m_commandBuffers.push_back(m_spCommandBufferFactory->createCommandBuffer());
+
+            
+            m_lightsBuffers.emplace_back(
+                std::make_unique<Buffer>(
+                    context,
+                    Buffer::Type::UniformBuffer,
+                    lightsBufferCfg));
         }
+
+        m_spCamera = createCamera(context, frameBufferingCount);
     }
 
     void Renderer::drawScene(SceneNode& scene)
     {
-        size_t frameInFlight = m_frameIndex % m_maxFramesInFlight;
+        size_t frameInFlight = m_frameIndex % m_frameBufferingCount;
         DescriptorPool& descriptorPool = *m_descriptorPools[frameInFlight].get();
         descriptorPool.reset();
 
@@ -486,8 +563,20 @@ namespace vgfx
 
         beginDrawScene(commandBuffer, m_frameIndex);
 
+
         DrawContext drawState(*this->m_pContext, m_frameIndex, commandBuffer, descriptorPool);
+
+        m_spCamera->update();
+        drawState.pushView(
+            m_spCamera->getView(),
+            m_spCamera->getProj(),
+            &m_spCamera->getProjectionBuffer(),
+            m_spCamera->getViewport(),
+            m_spCamera->getRasterizerConfig());
+
         scene.draw(drawState);
+
+        drawState.popView();
 
         endDrawScene(commandBuffer, m_frameIndex);
 

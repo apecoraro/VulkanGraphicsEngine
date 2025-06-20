@@ -1,11 +1,11 @@
 #ifndef VGFX_DEMO_H
 #define VGFX_DEMO_H
 
+#include "VulkanGraphicsSceneNode.h"
+
 #include <vulkan/vulkan.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+    std::unique_ptr<vgfx::SceneNode> LoadScene();
     bool DemoInit(
         void* window,
         VkResult(*createVulkanSurface)(VkInstance, void*, const VkAllocationCallbacks*, VkSurfaceKHR*),

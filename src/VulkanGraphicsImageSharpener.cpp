@@ -115,7 +115,7 @@ namespace vgfx
 
         DescriptorSetUpdater& curDescriptorSet = m_descriptorSets[swapChainImageIndex % m_descriptorSets.size()];
 
-        curDescriptorSet.update(m_context, m_descriptorUpdaters);
+        curDescriptorSet.updateDescriptorSet(m_context, m_descriptorUpdaters);
         
         VkImageMemoryBarrier barrier = {};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
