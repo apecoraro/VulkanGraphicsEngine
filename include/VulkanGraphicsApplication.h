@@ -13,12 +13,11 @@ namespace vgfx
     class Application
     {
     public:
-        Application() = default;
+        Application() = delete;
         Application(
             const Context::AppConfig& appConfig,
             const Context::InstanceConfig& instanceConfig,
-            const Context::DeviceConfig& deviceConfig,
-            std::unique_ptr<Renderer> spRenderer);
+            const Context::DeviceConfig& deviceConfig);
 
         virtual VkBool32 onValidationError(
             VkDebugReportFlagsEXT flags,
@@ -34,16 +33,16 @@ namespace vgfx
 
         virtual void run() = 0;
 
-        Drawable& loadDrawable(
-            const ModelLibrary::ModelDesc& modelDesc,
-            const Material& material);
-
     protected:
-        void init(
+        virtual std::unique_ptr<Renderer> createRenderer(
             const Context::AppConfig& appConfig,
             const Context::InstanceConfig& instanceConfig,
-            const Context::DeviceConfig& deviceConfig,
-            std::unique_ptr<Renderer>&& spRenderer);
+            const Context::DeviceConfig& deviceConfig) = 0;
+
+        virtual void init(
+            const Context::AppConfig& appConfig,
+            const Context::InstanceConfig& instanceConfig,
+            const Context::DeviceConfig& deviceConfig);
 
         Context m_graphicsContext;
         std::unique_ptr<Renderer> m_spRenderer;
@@ -54,34 +53,40 @@ namespace vgfx
     {
     public:
         static const WindowRenderer::SwapChainConfig& CreateSwapChainConfig(
-            uint32_t width, uint32_t height,
+            uint32_t imageCount=3,
+            uint32_t width=0, uint32_t height=0,
             uint32_t imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
             VkSurfaceFormatKHR surfaceFormat = { VK_FORMAT_R16G16B16A16_SFLOAT, VK_COLORSPACE_SRGB_NONLINEAR_KHR },
             const std::vector<VkFormat>& preferredDepthStencilFormats = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT });
 
-        WindowApplication() = default;
+        WindowApplication() = delete;
+
+        using CreateVulkanSurfaceFunc = std::function<VkResult(VkInstance, void*, const VkAllocationCallbacks*, VkSurfaceKHR*)>;
 
         WindowApplication(
             const Context::AppConfig& appConfig,
             const Context::InstanceConfig& instanceConfig,
             const Context::DeviceConfig& deviceConfig,
             const WindowRenderer::SwapChainConfig& swapChainConfig,
-            void* window,
-            const std::function<VkResult(VkInstance, void*, const VkAllocationCallbacks*, VkSurfaceKHR*)>& createVulkanSurface);
+            void* pWindow,
+            CreateVulkanSurfaceFunc createVulkanSurface);
 
         const WindowRenderer& getRenderer() const { return *m_pWindowRenderer; }
         WindowRenderer& getRenderer() { return *m_pWindowRenderer; }
 
     protected:
-        void initWindowApplication(
+        std::unique_ptr<Renderer> createRenderer(
             const Context::AppConfig& appConfig,
             const Context::InstanceConfig& instanceConfig,
-            const Context::DeviceConfig& deviceConfig,
-            const WindowRenderer::SwapChainConfig& swapChainConfig,
-            void* window,
-            const std::function<VkResult(VkInstance, void*, const VkAllocationCallbacks*, VkSurfaceKHR*)>& createVulkanSurface);
+            const Context::DeviceConfig& deviceConfig) override;
+        void init(
+            const Context::AppConfig& appConfig,
+            const Context::InstanceConfig& instanceConfig,
+            const Context::DeviceConfig& deviceConfig) override;
 
-    private:
+        WindowRenderer::SwapChainConfig m_swapChainConfig;
+        void* m_pWindow = nullptr;
+        CreateVulkanSurfaceFunc m_createVulkanSurface;
         WindowRenderer* m_pWindowRenderer;
     };
 }

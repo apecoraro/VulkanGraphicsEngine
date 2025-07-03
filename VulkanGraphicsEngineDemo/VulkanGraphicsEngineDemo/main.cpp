@@ -2,6 +2,15 @@
 //
 
 #include "VulkanGraphicsGLFWApplication.h"
+#include "VulkanGraphicsSceneLoader.h"
+
+#include <vulkan/vulkan.h>
+
+#include <algorithm>
+#include <iostream>
+#include <sstream>
+#include <glm/glm.hpp>
+#include <glm/ext/matrix_transform.hpp>
 
 void LoadScene()
 {
@@ -53,59 +62,6 @@ void LoadScene()
     createScene(m_spApplication->getContext(), drawable);
 }
 
-static GLFWwindow* AppInit(
-    const std::string& dataDirPath,
-    const std::string& modelFilename,
-    const std::string& modelDiffuseTextureName,
-    const std::string& vertShaderFilename,
-    const std::string& fragShaderFilename)
-{
-    GLFWwindow* window = InitWindow();
-    if (window != nullptr)
-    {
-        uint32_t glfwExtensionCount;
-        const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-        bool enableValidationLayers = true;
-        if (!DemoInit(window,
-            CreateWindowSurfaceCallback,
-            GetFrameBufferSizeCallback,
-            glfwExtensionCount,
-            glfwExtensions,
-            enableValidationLayers,
-            dataDirPath.c_str(),
-            modelFilename.c_str(),
-            modelDiffuseTextureName.c_str(),
-            vertShaderFilename.c_str(),
-            fragShaderFilename.c_str()))
-        {
-            glfwDestroyWindow(window);
-            glfwTerminate();
-            window = nullptr;
-        }
-    }
-
-    return window;
-}
-
-static void AppRun(GLFWwindow* window)
-{
-    while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
-        if (!DemoDraw())
-            break;
-    }
-}
-
-static void AppCleanup(GLFWwindow* window)
-{
-    // TODO the main function should handle loading the scene and passing to this Application.
-    DemoCleanUp();
-
-    glfwDestroyWindow(window);
-
-    glfwTerminate();
-}
-
 static void ShowHelpAndExit(const char* pBadOption = nullptr)
 {
     std::ostringstream oss;
@@ -115,10 +71,9 @@ static void ShowHelpAndExit(const char* pBadOption = nullptr)
         oss << "Error parsing \"" << pBadOption << "\"" << std::endl;
     }
     oss << "Options:" << std::endl
-        << "-d           Data directory path." << std::endl
-        << "-m           Input model filename (relative to data directory path)." << std::endl
-        << "-v           Input vertex shader filename (relative to data directory path)." << std::endl
-        << "-f           Input fragment shader (relative to data directory path)." << std::endl;
+        << "-p           Data directory path." << std::endl
+        << "-s           Input scene filename (relative to data directory path)." << std::endl
+        << "-v           Enable validation layers." << std::endl;
 
     if (throwError) {
         throw std::invalid_argument(oss.str());
@@ -131,45 +86,27 @@ static void ShowHelpAndExit(const char* pBadOption = nullptr)
 static void ParseCommandLine(
     int argc, char* argv[],
     std::string* pDataDirPath,
-    std::string* pModelFilename,
-    std::string* pModelDiffuseTextureName,
-    std::string* pVertShaderFilename,
-    std::string* pFragShaderFilename)
+    std::string* pSceneFilename,
+    bool* pEnableValidationLayers)
 {
     std::ostringstream oss;
     for (int i = 1; i < argc; ++i) {
         if (_stricmp(argv[i], "-h") == 0) {
             ShowHelpAndExit();
-        } else if (_stricmp(argv[i], "-m") == 0) {
+        } else if (_stricmp(argv[i], "-s") == 0) {
             if (++i == argc) {
                 ShowHelpAndExit("-m");
             }
-            *pModelFilename = argv[i];
+            *pSceneFilename = argv[i];
             continue;
-        } else if (_stricmp(argv[i], "-i") == 0) {
+        } else if (_stricmp(argv[i], "-p") == 0) {
             if (++i == argc) {
-                ShowHelpAndExit("-m");
-            }
-            *pModelDiffuseTextureName = argv[i];
-            continue;
-        } else if (_stricmp(argv[i], "-v") == 0) {
-            if (++i == argc) {
-                ShowHelpAndExit("-v");
-            }
-            *pVertShaderFilename = argv[i];
-            continue;
-        } else if (_stricmp(argv[i], "-f") == 0) {
-            if (++i == argc) {
-                ShowHelpAndExit("-f");
-            }
-            *pFragShaderFilename = argv[i];
-            continue;
-        } else if (_stricmp(argv[i], "-d") == 0) {
-            if (++i == argc) {
-                ShowHelpAndExit("-d");
+                ShowHelpAndExit("-p");
             }
             *pDataDirPath = argv[i];
             continue;
+        } else if (_stricmp(argv[i], "-v") == 0) {
+            *pEnableValidationLayers = true;
         }
         ShowHelpAndExit(argv[i]);
     }
@@ -178,36 +115,31 @@ static void ParseCommandLine(
 int main(int argc, char** argv)
 {
     std::string dataDirPath = ".";
-    std::string modelFilename;
-    std::string modelDiffuseTextureName;
-    std::string vertexShaderFilename;
-    std::string fragShaderFilename;
+    std::string sceneFilename = "default.vgfx";
+    bool enableValidationLayers = false;
 
     ParseCommandLine(
         argc, argv,
         &dataDirPath,
-        &modelFilename,
-        &modelDiffuseTextureName,
-        &vertexShaderFilename,
-        &fragShaderFilename);
+        &sceneFilename,
+        &enableValidationLayers);
 
-    GLFWwindow* window =
-        AppInit(
-            dataDirPath,
-            modelFilename,
-            modelDiffuseTextureName,
-            vertexShaderFilename,
-            fragShaderFilename);
-    if (window != nullptr)
-    {
-        AppRun(window);
-        AppCleanup(window);
-    }
-    else
-    {
-        std::cerr << "AppInit returned nullptr to window!" << std::endl;
-        return EXIT_FAILURE;
-    }
+    vgfx::Context::AppConfig appConfig("Demo");
+    vgfx::Context::InstanceConfig instanceConfig = {
+        .enableDebugLayers = enableValidationLayers,
+    };
+    vgfx::Context::DeviceConfig deviceConfig;
+    vgfx::WindowRenderer::SwapChainConfig swapChainConfig;
+
+    demo::GLFWApplication app(appConfig, instanceConfig, deviceConfig, swapChainConfig);
+
+    vgfx::SceneLoader sceneLoader(app.getContext());
+
+    std::unique_ptr<vgfx::SceneNode> spScene = sceneLoader.loadScene(sceneFilename);
+
+    app.setScene(std::move(spScene));
+
+    app.run();
 
     return EXIT_SUCCESS;
 }

@@ -15,6 +15,7 @@ namespace demo
             const vgfx::Context::InstanceConfig& instanceConfig,
             const vgfx::Context::DeviceConfig& deviceConfig,
             const vgfx::WindowRenderer::SwapChainConfig& swapChainConfig);
+
         virtual ~GLFWApplication();
 
         void setScene(std::unique_ptr<vgfx::SceneNode>&& spSceneRoot) {
@@ -26,8 +27,17 @@ namespace demo
         }
 
         void run() override;
+    protected:
+        std::unique_ptr<vgfx::Renderer> createRenderer(
+            const vgfx::Context::AppConfig& appConfig,
+            const vgfx::Context::InstanceConfig& instanceConfig,
+            const vgfx::Context::DeviceConfig& deviceConfig) override;
+        void init(
+            const vgfx::Context::AppConfig& appConfig,
+            const vgfx::Context::InstanceConfig& instanceConfig,
+            const vgfx::Context::DeviceConfig& deviceConfig) override;
     private:
-        GLFWwindow* m_pWindow = InitWindow();
+        GLFWwindow* m_pGLFWwindow = nullptr;
         std::unique_ptr<vgfx::SceneNode> m_spSceneRoot;
         bool m_frameBufferResized = false;
     };

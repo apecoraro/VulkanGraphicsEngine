@@ -5,14 +5,16 @@
 using namespace vgfx;
 
 SceneLoader::SceneLoader(Context& graphicsContext)
-    : m_spModelLibrary(std::make_unique<ModelLibrary>())
+    : m_graphicsContext(graphicsContext)
+    , m_spModelLibrary(std::make_unique<ModelLibrary>())
     , m_spCommandBufferFactory(
         std::make_unique<CommandBufferFactory>(
             graphicsContext,
-            graphicsContext.getGraphicsQueueFamilyIndex().value())
+            graphicsContext.getGraphicsQueueFamilyIndex().value()))
 {
 }
 
+// TODO make some sort of scene file
 std::unique_ptr<SceneNode> SceneLoader::loadScene(const std::string&)
 {
     std::unique_ptr<GroupNode> spScene = std::make_unique<GroupNode>();
@@ -37,6 +39,5 @@ std::unique_ptr<SceneNode> SceneLoader::loadScene(const std::string&)
 
     spLightNode->addNode(std::move(spGraphicsObject));
 
-    // TODO compile code
     return std::move(spScene);
 }

@@ -46,13 +46,27 @@ GLFWApplication::GLFWApplication(
     const vgfx::Context::InstanceConfig& instanceConfig,
     const vgfx::Context::DeviceConfig& deviceConfig,
     const vgfx::WindowRenderer::SwapChainConfig& swapChainConfig)
-    : m_pWindow(InitWindow())
+    : WindowApplication(
+        appConfig,
+        instanceConfig,
+        deviceConfig,
+        swapChainConfig,
+        InitWindow(),
+        CreateWindowSurfaceCallback)
 {
-    if (!m_pWindow)
+}
+
+void GLFWApplication::init(
+    const vgfx::Context::AppConfig& appConfig,
+    const vgfx::Context::InstanceConfig& instanceConfig,
+    const vgfx::Context::DeviceConfig& deviceConfig)
+{
+    m_pGLFWwindow = reinterpret_cast<GLFWwindow*>(m_pWindow);
+    if (!m_pGLFWwindow)
         throw std::runtime_error("Failed to init GLFW window!");
 
-    glfwSetWindowUserPointer(m_pWindow, this);
-    glfwSetFramebufferSizeCallback(m_pWindow, FramebufferResizedCallback);
+    glfwSetWindowUserPointer(m_pGLFWwindow, this);
+    glfwSetFramebufferSizeCallback(m_pGLFWwindow, FramebufferResizedCallback);
 
     uint32_t glfwExtensionCount;
     const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -63,33 +77,40 @@ GLFWApplication::GLFWApplication(
         glfwExtensions,
         glfwExtensions + glfwExtensionCount);
 
-    vgfx::Context::DeviceConfig glfwDeviceConfig = deviceConfig;
-    glfwDeviceConfig.graphicsQueueRequired = true;
-    glfwDeviceConfig.requiredDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-
-    int32_t windowWidth, windowHeight;
-    // Current size of window is used as default if SwapChainConfig::imageExtent is not specified.
-    GetFrameBufferSize(m_pWindow, &windowWidth, &windowHeight);
-
-    initWindowApplication(
+    WindowApplication::init(
         appConfig,
         glfwInstanceConfig,
-        deviceConfig,
-        vgfx::WindowApplication::CreateSwapChainConfig(windowWidth, windowHeight),
-        m_pWindow,
-        CreateWindowSurfaceCallback);
+        deviceConfig);
+}
+
+std::unique_ptr<vgfx::Renderer> GLFWApplication::createRenderer(
+    const vgfx::Context::AppConfig& appConfig,
+    const vgfx::Context::InstanceConfig& instanceConfig,
+    const vgfx::Context::DeviceConfig& deviceConfig)
+{
+    vgfx::WindowRenderer::SwapChainConfig& glfwSwapChainConfig = m_swapChainConfig;
+    if (!glfwSwapChainConfig.imageExtent.has_value()) {
+        int32_t windowWidth, windowHeight;
+        // Current size of window is used as default if SwapChainConfig::imageExtent is not specified.
+        GetFrameBufferSize(m_pWindow, &windowWidth, &windowHeight);
+
+        glfwSwapChainConfig.imageExtent->width = windowWidth;
+        glfwSwapChainConfig.imageExtent->height = windowHeight;
+    }
+
+    return WindowApplication::createRenderer(appConfig, instanceConfig, deviceConfig);
 }
 
 GLFWApplication::~GLFWApplication()
 {
-    glfwDestroyWindow(m_pWindow);
+    glfwDestroyWindow(m_pGLFWwindow);
     glfwTerminate();
 }
 
 GLFWApplication::run()
 {
     vgfx::WindowRenderer& renderer = getRenderer();
-    while (!glfwWindowShouldClose(m_pWindow)) {
+    while (!glfwWindowShouldClose(m_pGLFWwindow)) {
         glfwPollEvents();
         if (!renderer.drawScene(*m_spScene.get()))
             break;

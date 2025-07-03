@@ -34,19 +34,16 @@ namespace vgfx
             uint16_t majorVersion = 1u;
             uint16_t minorVersion = 0u;
             uint16_t patchVersion = 0u;
-            std::string dataDirectoryPath = ".";
 
             AppConfig(
                 const std::string& appName,
-                uint16_t major,
-                uint16_t minor,
-                uint16_t patch,
-                const std::string& shaderDirPath)
+                uint16_t major=1u,
+                uint16_t minor=0u,
+                uint16_t patch=0u)
                 : name(appName)
                 , majorVersion(major)
                 , minorVersion(minor)
                 , patchVersion(patch)
-                , dataDirectoryPath(shaderDirPath)
             {
             }
 
