@@ -24,7 +24,7 @@ namespace vgfx
 
         ~ImageDescriptorUpdater() = default;
 
-        void update(VkWriteDescriptorSet* pWriteSet) override
+        void update(VkWriteDescriptorSet* pWriteSet) const override
         {
             DescriptorUpdater::update(pWriteSet);
 
@@ -61,7 +61,7 @@ namespace vgfx
 
         ~ImageArrayDescriptorUpdater() = default;
 
-        void update(VkWriteDescriptorSet* pWriteSet) override
+        void update(VkWriteDescriptorSet* pWriteSet) const override
         {
             DescriptorUpdater::update(pWriteSet);
 
@@ -93,7 +93,7 @@ namespace vgfx
 
         ~CombinedImageSamplerDescriptorUpdater() = default;
 
-        void update(VkWriteDescriptorSet* pWriteSet) override
+        void update(VkWriteDescriptorSet* pWriteSet) const override
         {
             DescriptorUpdater::update(pWriteSet);
 
@@ -119,7 +119,7 @@ namespace vgfx
 
         ~SamplerDescriptorUpdater() = default;
 
-        void update(VkWriteDescriptorSet * pWriteSet) override
+        void update(VkWriteDescriptorSet * pWriteSet) const override
         {
             DescriptorUpdater::update(pWriteSet);
 

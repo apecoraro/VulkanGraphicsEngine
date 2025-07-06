@@ -11,7 +11,6 @@ namespace vgfx
     class Image;
     class ImageView;
     class DepthStencilBuffer;
-    class RenderPass;
 
     // Encapsulates a set of VkFramebuffers, i.e. images and optionally depth buffer that can be
     // used by RenderPass instances.

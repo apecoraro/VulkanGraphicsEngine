@@ -31,6 +31,10 @@ namespace vgfx
         const Context& getContext() const { return m_graphicsContext; }
         Context& getContext() { return m_graphicsContext; }
 
+        void setScene(std::unique_ptr<vgfx::SceneNode>&& spSceneRoot) {
+            m_spSceneRoot = std::move(spSceneRoot);
+        }
+
         virtual void run() = 0;
 
     protected:
@@ -45,8 +49,10 @@ namespace vgfx
             const Context::DeviceConfig& deviceConfig);
 
         Context m_graphicsContext;
+        Context::ValidationLayerFunc m_validationLayerFunc = nullptr;
         std::unique_ptr<Renderer> m_spRenderer;
         std::unique_ptr<CommandBufferFactory> m_spUtilCommandBufferFactory;
+        std::unique_ptr<vgfx::SceneNode> m_spSceneRoot;
     };
 
     class WindowApplication : public Application
@@ -74,6 +80,10 @@ namespace vgfx
         const WindowRenderer& getRenderer() const { return *m_pWindowRenderer; }
         WindowRenderer& getRenderer() { return *m_pWindowRenderer; }
 
+        void setFrameBufferResized(bool flag) {
+            m_frameBufferResized = flag;
+        }
+
     protected:
         std::unique_ptr<Renderer> createRenderer(
             const Context::AppConfig& appConfig,
@@ -87,6 +97,7 @@ namespace vgfx
         WindowRenderer::SwapChainConfig m_swapChainConfig;
         void* m_pWindow = nullptr;
         CreateVulkanSurfaceFunc m_createVulkanSurface;
-        WindowRenderer* m_pWindowRenderer;
+        WindowRenderer* m_pWindowRenderer = nullptr;
+        bool m_frameBufferResized = false;
     };
 }

@@ -13,26 +13,26 @@
 //}
 
 void vgfx::Drawable::configureDescriptorSets(
-    Renderer::DrawContext& drawContext,
+    DrawContext& drawContext,
     std::vector<VkDescriptorSet>* pDescriptorSets)
 {
     pDescriptorSets->clear();
-    pDescriptorSets->resize(m_material.getDescriptorSetLayouts().size());
-    for (size_t index = 0; index < m_material.getDescriptorSetLayouts().size(); ++index) {
-        const auto& spDescSetLayout = m_material.getDescriptorSetLayouts()[index];
+    pDescriptorSets->resize(m_meshEffect.getDescriptorSetLayouts().size());
+    for (size_t index = 0; index < m_meshEffect.getDescriptorSetLayouts().size(); ++index) {
+        const auto& spDescSetLayout = m_meshEffect.getDescriptorSetLayouts()[index];
         
         VkDescriptorSet* pWritePtr = pDescriptorSets->data() + index;
         drawContext.descriptorPool.allocateDescriptorSets(
-            *spDescSetLayout.get(), 1, &pWritePtr);
+            *spDescSetLayout.get(), 1, pWritePtr);
     }
 
-    Renderer::Camera& curCamera = drawContext.sceneState.views.back();
+    auto& curViewState = drawContext.sceneState.views.back();
     // First set is the projection matrix
     DescriptorSetUpdater updater;
-    updater.bindDescriptor(0, *curCamera.pCameraProjectionBuffer);
+    updater.bindDescriptor(0, *curViewState.pCameraProjectionBuffer);
     updater.updateDescriptorSet(drawContext.context, pDescriptorSets->at(0));
 
-    auto& imageSampler = getImageSampler(Material::ImageType::Diffuse);
+    auto& imageSampler = getImageSampler(MeshEffect::ImageType::Diffuse);
 
     CombinedImageSamplerDescriptorUpdater imageSamplerUpdater(*imageSampler.first, *imageSampler.second);
 
@@ -41,12 +41,12 @@ void vgfx::Drawable::configureDescriptorSets(
     updater.updateDescriptorSet(drawContext.context, pDescriptorSets->at(1));
 
     int32_t lightCount = 1;
-    Renderer::LightState* pLights = &drawContext.sceneState.lights.back();
+    auto pLights = &drawContext.sceneState.lights.back();
     if (drawContext.sceneState.lights.size() > 1) {
         pLights = &drawContext.sceneState.lights[drawContext.sceneState.lights.size() - 2];
         lightCount = 2;
     }
-    size_t writeSize = sizeof(Renderer::LightState) * lightCount;
+    size_t writeSize = sizeof(LightState) * lightCount;
     drawContext.sceneState.pLightsBuffer->update(pLights, writeSize);
 
     size_t writeOffset = writeSize;
@@ -62,7 +62,7 @@ void vgfx::Drawable::configureDescriptorSets(
 
     writeOffset += writeSize;
 
-    auto& translationColumn = curCamera.cameraViewMatrix[3];
+    auto& translationColumn = curViewState.cameraViewMatrix[3];
     glm::vec3 viewPos(
         -translationColumn.x,
         -translationColumn.y,
@@ -75,21 +75,21 @@ void vgfx::Drawable::configureDescriptorSets(
     updater.updateDescriptorSet(drawContext.context, pDescriptorSets->at(1));
 }
 
-void vgfx::Drawable::draw(Renderer::DrawContext& drawContext)
+void vgfx::Drawable::draw(DrawContext& drawContext)
 {
     // TODO sort Drawables by pipeline and only bind once for each unique
     VkCommandBuffer commandBuffer = drawContext.commandBuffer;
     vkCmdBindPipeline(
         commandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
-        m_material.getPipeline().getHandle());
+        m_meshEffect.getPipeline().getHandle());
 
     configureDescriptorSets(drawContext, &m_descriptorSets);
 
     vkCmdBindDescriptorSets(
         commandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
-        m_material.getPipeline().getLayout(),
+        m_meshEffect.getPipeline().getLayout(),
         0u, // Offset in descriptor array
         static_cast<uint32_t>(m_descriptorSets.size()),
         m_descriptorSets.data(),
@@ -103,7 +103,7 @@ void vgfx::Drawable::draw(Renderer::DrawContext& drawContext)
 
     vkCmdPushConstants(
         commandBuffer,
-        m_material.getPipeline().getLayout(),
+        m_meshEffect.getPipeline().getLayout(),
         VK_SHADER_STAGE_VERTEX_BIT,
         0,
         sizeof(pushConstants),

@@ -135,7 +135,7 @@ namespace vgfx
     void DescriptorPool::allocateDescriptorSets(
         const DescriptorSetLayout& layout,
         uint32_t count,
-        VkDescriptorSet** ppDescriptorSetHandles)
+        VkDescriptorSet* pDescriptorSetHandles)
     {
         std::vector<VkDescriptorSetLayout> layouts(count, layout.getHandle());
         VkDescriptorSetAllocateInfo allocInfo = {};
@@ -144,7 +144,7 @@ namespace vgfx
         allocInfo.descriptorSetCount = count;
         allocInfo.pSetLayouts = layouts.data();
 
-        VkResult result = vkAllocateDescriptorSets(m_context.getLogicalDevice(), &allocInfo, *ppDescriptorSetHandles);
+        VkResult result = vkAllocateDescriptorSets(m_context.getLogicalDevice(), &allocInfo, pDescriptorSetHandles);
         if (result != VK_SUCCESS) {
             throw std::runtime_error("Failed to allocate descriptor sets!");
         }

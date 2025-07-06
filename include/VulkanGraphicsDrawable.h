@@ -4,7 +4,7 @@
 
 #include "VulkanGraphicsImage.h"
 #include "VulkanGraphicsIndexBuffer.h"
-#include "VulkanGraphicsMaterials.h"
+#include "VulkanGraphicsEffects.h"
 #include "VulkanGraphicsRenderer.h"
 #include "VulkanGraphicsSampler.h"
 #include "VulkanGraphicsVertexBuffer.h"
@@ -14,10 +14,12 @@
 #include <string>
 #include <vector>
 
+#include <glm/ext/matrix_transform.hpp>
 #include <vulkan/vulkan.h>
 
 namespace vgfx
 {
+    using ImageSamplerMap = std::map<MeshEffect::ImageType, std::pair<const ImageView*, const Sampler*>>;
     // Geometry of an single drawable object (vertices and indices).
     class Drawable
     {
@@ -26,17 +28,17 @@ namespace vgfx
             Context& context,
             std::unique_ptr<VertexBuffer> spVertexBuffer,
             std::unique_ptr<IndexBuffer> spIndexBuffer,
-            const Material& material,
-            const std::map<Material::ImageType, std::pair<const ImageView*, const Sampler*>>& imageSamplers)
+            const MeshEffect& meshEffect,
+            const ImageSamplerMap& imageSamplers)
             : m_spVertexBuffer(std::move(spVertexBuffer))
             , m_spIndexBuffer(std::move(spIndexBuffer))
-            , m_material(material)
+            , m_meshEffect(meshEffect)
             , m_imageSamplers(imageSamplers)
         {
             
         }
 
-        void draw(Renderer::DrawContext& recorder);
+        void draw(DrawContext& recorder);
 
         const VertexBuffer& getVertexBuffer() const { return *m_spVertexBuffer.get(); }
         VertexBuffer& getVertexBuffer() { return *m_spVertexBuffer.get(); }
@@ -44,12 +46,11 @@ namespace vgfx
         const IndexBuffer& getIndexBuffer() const { return *m_spIndexBuffer.get(); }
         IndexBuffer& getIndexBuffer() { return *m_spIndexBuffer.get(); }
 
-        const MaterialId& getMaterialId() const { return m_material.getId(); }
-        const Material& getMaterial() const { return m_material; }
+        const MeshEffect& getMeshEffect() const { return m_meshEffect; }
  
         size_t getImageCount() const { return m_imageSamplers.size(); }
 
-        const std::pair<const ImageView*, const Sampler*>& getImageSampler(Material::ImageType imageType) const
+        const std::pair<const ImageView*, const Sampler*>& getImageSampler(MeshEffect::ImageType imageType) const
         {
             const auto& findIt = m_imageSamplers.find(imageType);
             if (findIt == m_imageSamplers.end()) {
@@ -62,15 +63,15 @@ namespace vgfx
         void setWorldTransform(const glm::mat4& worldTransform) { m_worldTransform = worldTransform; }
 
     protected:
-        void configureDescriptorSets(Renderer::DrawContext& drawContext, std::vector<VkDescriptorSet>* pDescriptorSets);
+        void configureDescriptorSets(DrawContext& drawContext, std::vector<VkDescriptorSet>* pDescriptorSets);
 
     private:
 
         std::unique_ptr<VertexBuffer> m_spVertexBuffer;
         std::unique_ptr<IndexBuffer> m_spIndexBuffer;
-        const Material& m_material;
-        std::map<Material::ImageType, std::pair<const ImageView*, const Sampler*>> m_imageSamplers;
-        glm::mat4 m_worldTransform;
+        const MeshEffect& m_meshEffect;
+        std::map<MeshEffect::ImageType, std::pair<const ImageView*, const Sampler*>> m_imageSamplers;
+        glm::mat4 m_worldTransform = glm::identity<glm::mat4>();
         std::vector<VkDescriptorSet> m_descriptorSets;
     };
 }

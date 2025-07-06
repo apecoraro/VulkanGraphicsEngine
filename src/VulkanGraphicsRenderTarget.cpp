@@ -1,8 +1,6 @@
 #include "VulkanGraphicsRenderTarget.h"
 
 #include "VulkanGraphicsDepthStencilBuffer.h"
-#include "VulkanGraphicsRenderPass.h"
-#include "VulkanGraphicsSwapChain.h"
 
 #include <cassert>
 #include <stdexcept>
@@ -40,9 +38,9 @@ namespace vgfx
 
     void RenderTargetBuilder::addAttachmentChain(
             const std::vector<std::unique_ptr<Image>>& imageChain,
-            const DepthStencilBuffer* pOptionalDepthStencilBuffer=nullptr,
-            VkFormat overrideImageRenderFormat = VK_FORMAT_UNDEFINED,
-            VkFormat overrideDepthStencilRenderFormat = VK_FORMAT_UNDEFINED)
+            const DepthStencilBuffer* pOptionalDepthStencilBuffer,
+            VkFormat overrideImageRenderFormat,
+            VkFormat overrideDepthStencilRenderFormat)
     {
         for (const auto& image : imageChain) {
             addRenderImage(*image.get(), overrideImageRenderFormat);

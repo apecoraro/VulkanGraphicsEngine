@@ -7,7 +7,7 @@
 #include "VulkanGraphicsImage.h"
 #include "VulkanGraphicsImageView.h"
 #include "VulkanGraphicsIndexBuffer.h"
-#include "VulkanGraphicsMaterials.h"
+#include "VulkanGraphicsEffects.h"
 #include "VulkanGraphicsSampler.h"
 #include "VulkanGraphicsVertexBuffer.h"
 
@@ -26,7 +26,7 @@ namespace vgfx
         struct ModelDesc
         {
             std::string modelPathOrShapeName;
-            using Images = std::unordered_map<Material::ImageType, std::string>;
+            using Images = std::unordered_map<MeshEffect::ImageType, std::string>;
             // Use imageOverrides to override the images specified by the model, or provide them for a shape.
             Images imageOverrides;
         };
@@ -34,7 +34,7 @@ namespace vgfx
         Drawable& getOrCreateDrawable(
             Context& context,
             const ModelDesc& model,
-            const Material& material,
+            const MeshEffect& material,
             CommandBufferFactory& commandBufferFactory,
             CommandQueue commandQueue);
  
@@ -60,7 +60,7 @@ namespace vgfx
         static VertexBuffer::Config DefaultVertexBufferConfig;
         static IndexBuffer::Config DefaultIndexBufferConfig;
 
-        Drawable* findDrawable(const std::string& modelPath, const Material& material);
+        Drawable* findDrawable(const std::string& modelPath, const MeshEffect& material);
 
         using FilePath = std::string;
 

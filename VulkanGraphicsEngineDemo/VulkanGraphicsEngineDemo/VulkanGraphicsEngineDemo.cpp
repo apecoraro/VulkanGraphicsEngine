@@ -8,7 +8,7 @@
 #include "VulkanGraphicsImageDescriptorUpdaters.h"
 #include "VulkanGraphicsImageSharpener.h"
 #include "VulkanGraphicsImageView.h"
-#include "VulkanGraphicsMaterials.h"
+#include "VulkanGraphicsEffects.h"
 #include "VulkanGraphicsModelLibrary.h"
 #include "VulkanGraphicsRenderTarget.h"
 #include "VulkanGraphicsSampler.h"
@@ -149,14 +149,14 @@ public:
 
         // Create MaterialInfo which is used to create an instance of the material for a particular
         // model by the ModelLibrary.
-        vgfx::MaterialsLibrary::MaterialInfo materialInfo(
+        vgfx::EffectsLibrary::MaterialInfo materialInfo(
             vertexShader,
             vertexShaderEntryPointFunc,
             vgfx::VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions, // TODO should use reflection for this.
             fragmentShader,
             fragmentShaderEntryPointFunc);
 
-        vgfx::Material& material = vgfx::MaterialsLibrary::GetOrLoadMaterial(m_spApplication->getContext(), materialInfo);
+        vgfx::Material& material = vgfx::EffectsLibrary::GetOrLoadEffect(m_spApplication->getContext(), materialInfo);
 
         // Allocate buffer for camera parameters
         // Allocate descriptor set for camera parameters
@@ -351,7 +351,7 @@ public:
 
         m_spModelLibrary.reset();
 
-        vgfx::MaterialsLibrary::UnloadAll();
+        vgfx::EffectsLibrary::UnloadAll();
 
         m_spCommandBufferFactory.reset();
 

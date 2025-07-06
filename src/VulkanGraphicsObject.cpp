@@ -9,7 +9,7 @@ namespace vgfx
         m_drawables.push_back(&drawable);
     }
 
-    void Object::draw(Renderer::DrawContext& drawContext)
+    void Object::draw(DrawContext& drawContext)
     {
         if (m_buildPipelines) {
             buildPipelines(drawContext);
@@ -19,7 +19,7 @@ namespace vgfx
             pDrawable->draw(drawContext);
         }
     }
-    void Object::buildPipelines(Renderer::DrawContext& drawContext)
+    void Object::buildPipelines(DrawContext& drawContext)
     {
         const auto& camera = drawContext.sceneState.views.back();
         vgfx::PipelineBuilder builder(camera.viewport, drawContext.depthBufferEnabled);
@@ -34,7 +34,7 @@ namespace vgfx
 
             // TODO PipelineLibrary
             std::unique_ptr<Pipeline> spPipeline =
-                builder.configureDrawableInput(pDrawable->getMaterial(), pDrawable->getVertexBuffer().getConfig(), inputConfig)
+                builder.configureDrawableInput(pDrawable->getMeshEffect(), pDrawable->getVertexBuffer().getConfig(), inputConfig)
                     .configureRasterizer(camera.rasterizerConfig)
                     //.configureDynamicStates(dynamicStates)
                     .createPipeline(drawContext.context);

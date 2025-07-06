@@ -1,11 +1,5 @@
 #pragma once
 
-#include "VulkanGraphicsBuffer.h"
-#include "VulkanGraphicsObject.h"
-#include "VulkanGraphicsPipeline.h"
-#include "VulkanGraphicsRenderer.h"
-#include "VulkanGraphicsRenderTarget.h"
-
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <memory>
@@ -13,12 +7,14 @@
 
 namespace vgfx
 {
+    struct DrawContext;
+
     class SceneNode
     {
     public:
         SceneNode() = default;
 
-        virtual void draw(Renderer::DrawContext& drawContext) = 0;
+        virtual void draw(DrawContext& drawContext) = 0;
     };
 
     class GroupNode : public SceneNode
@@ -31,7 +27,7 @@ namespace vgfx
             m_children.emplace_back(std::move(addNode));
         }
 
-        void draw(Renderer::DrawContext& drawState) override
+        void draw(DrawContext& drawState) override
         {
             for (auto& spChild : m_children) {
                 spChild->draw(drawState);
@@ -42,7 +38,7 @@ namespace vgfx
         std::vector<std::unique_ptr<SceneNode>> m_children;
     };
 
-    class RenderPassNode : public GroupNode
+    /*class RenderPassNode : public GroupNode
     {
     public:
         RenderPassNode(
@@ -53,7 +49,7 @@ namespace vgfx
         {
         }
 
-        void draw(Renderer::DrawContext& drawContext) override;
+        void draw(DrawContext& drawContext) override;
     
         const RenderTarget::Config& getRenderTargetConfig() const { return m_renderTargetConfig; }
         const std::optional<const std::map<size_t, VkImageLayout>>& getInputs() const { return m_inputs; }
@@ -65,7 +61,7 @@ namespace vgfx
 
         std::unique_ptr<RenderPass> m_spRenderPass;
         std::unique_ptr<RenderTarget> m_spRenderTarget;
-    };
+    };*/
 
     class LightNode : public GroupNode
     {
@@ -78,7 +74,7 @@ namespace vgfx
             , m_color(color)
             , m_radius(radius) { }
 
-        void draw(Renderer::DrawContext& drawContext) override;
+        void draw(DrawContext& drawContext) override;
 
         const glm::vec4 getPosition() const { return m_position; }
         const glm::vec3 getColor() const { return m_color; }

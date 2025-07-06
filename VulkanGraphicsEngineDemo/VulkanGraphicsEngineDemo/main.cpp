@@ -12,56 +12,6 @@
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_transform.hpp>
 
-void LoadScene()
-{
-    m_spCommandBufferFactory =
-        std::make_unique<vgfx::CommandBufferFactory>(
-            m_spApplication->getContext(),
-            m_spApplication->getContext().getGraphicsQueueFamilyIndex().value());
-
-    std::string vertexShaderEntryPointFunc = "main";
-    std::string fragmentShaderEntryPointFunc = "main";
-
-    // Create MaterialInfo which is used to create an instance of the material for a particular
-    // model by the ModelLibrary.
-    vgfx::MaterialsLibrary::MaterialInfo materialInfo(
-        vertexShader,
-        vertexShaderEntryPointFunc,
-        vgfx::VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions, // TODO should use reflection for this.
-        fragmentShader,
-        fragmentShaderEntryPointFunc);
-
-    vgfx::Material& material = vgfx::MaterialsLibrary::GetOrLoadMaterial(m_spApplication->getContext(), materialInfo);
-
-    // Allocate buffer for camera parameters
-    // Allocate descriptor set for camera parameters
-    // Update descriptor set to point at the buffer
-    // Each frame map the buffer and write the new camera data
-
-    m_spModelLibrary = std::make_unique<vgfx::ModelLibrary>();
-
-    vgfx::ModelLibrary::Model model;
-    model.modelPathOrShapeName = modelPath;
-    if (!modelDiffuseTexName.empty()) {
-        model.imageOverrides[vgfx::Material::ImageType::Diffuse] = modelDiffuseTexName;
-    }
-
-    glm::mat4 modelWorldTransform = glm::identity<glm::mat4>();
-    // Rendering to offscreen image at half the resolution requires dynamic viewport and scissor in the
-    // graphics pipeline.
-    auto& drawable =
-        m_spModelLibrary->getOrCreateDrawable(
-            m_spApplication->getContext(),
-            model,
-            material,
-            *m_spCommandBufferFactory,
-            m_spApplication->getContext().getGraphicsQueue(0));
-
-    drawable.setWorldTransform(modelWorldTransform);
-
-    createScene(m_spApplication->getContext(), drawable);
-}
-
 static void ShowHelpAndExit(const char* pBadOption = nullptr)
 {
     std::ostringstream oss;
@@ -125,9 +75,8 @@ int main(int argc, char** argv)
         &enableValidationLayers);
 
     vgfx::Context::AppConfig appConfig("Demo");
-    vgfx::Context::InstanceConfig instanceConfig = {
-        .enableDebugLayers = enableValidationLayers,
-    };
+    appConfig.enableValidationLayers = enableValidationLayers;
+    vgfx::Context::InstanceConfig instanceConfig;
     vgfx::Context::DeviceConfig deviceConfig;
     vgfx::WindowRenderer::SwapChainConfig swapChainConfig;
 

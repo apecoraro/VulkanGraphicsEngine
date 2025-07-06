@@ -1,15 +1,18 @@
 #pragma once
 
 #include "VulkanGraphicsBuffer.h"
+#include "VulkanGraphicsCamera.h"
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsCommandBufferFactory.h"
 #include "VulkanGraphicsFence.h"
 #include "VulkanGraphicsObject.h"
 #include "VulkanGraphicsPipeline.h"
 #include "VulkanGraphicsRenderTarget.h"
+#include "VulkanGraphicsSceneNode.h"
 #include "VulkanGraphicsSwapChain.h"
 
 #include <glm/glm.hpp>
+#include <glm/ext/matrix_transform.hpp>
 #include <vulkan/vulkan.h>
 
 #include <cassert>
@@ -22,62 +25,71 @@
 
 namespace vgfx
 {
-    class Buffer;
-    class SceneNode;
-
-    class Camera
+    struct ViewState
     {
-    public:
-        Camera(Context& context, const VkViewport& viewport, size_t frameBufferingCount);
-        Camera(
-            Context& context,
-            size_t frameBufferingCount,
+        glm::mat4 cameraViewMatrix;
+        glm::mat4 cameraProjectionMatrix;
+        Buffer* pCameraProjectionBuffer;
+        VkViewport viewport;
+        Pipeline::RasterizerConfig rasterizerConfig;
+    };
+    struct LightState
+    {
+        glm::vec4 position;
+        glm::vec3 color;
+        float radius;
+    };
+    struct SceneState
+    {
+        std::vector<ViewState> views;
+        std::vector<LightState> lights;
+        Buffer* pLightsBuffer;
+    };
+
+    struct DrawContext
+    {
+        Context& context;
+        DescriptorPool& descriptorPool;
+        size_t frameIndex;
+        bool depthBufferEnabled;
+        VkCommandBuffer commandBuffer;
+        SceneState sceneState = {};
+
+        void pushLight(
+            const glm::vec4& position,
+            const glm::vec3& color,
+            float radius)
+        {
+            this->sceneState.lights.push_back({
+                .position = position,
+                .color = color,
+                .radius = radius });
+        }
+
+        void popLight()
+        {
+            this->sceneState.lights.pop_back();
+        }
+
+        void pushView(
             const glm::mat4& view,
             const glm::mat4& proj,
-            const VkViewport& viewport)
-            : Camera(context, viewport, frameBufferingCount)
+            Buffer* pBuffer,
+            const VkViewport& viewport,
+            const Pipeline::RasterizerConfig& rasterizerConfig)
         {
-            m_view = view;
-            m_proj = proj;
+            this->sceneState.views.push_back({
+                .cameraViewMatrix = view,
+                .cameraProjectionMatrix = proj,
+                .pCameraProjectionBuffer = pBuffer,
+                .viewport = viewport,
+                .rasterizerConfig = rasterizerConfig });
         }
 
-        const glm::mat4& getView() const { return m_view; }
-
-        void setView(const glm::mat4& view)
+        void popView()
         {
-            m_view = view;
+            this->sceneState.views.pop_back();
         }
-
-        const glm::mat4& getProj() const { return m_proj; }
-
-        void setProjection(const glm::mat4& proj)
-        {
-            m_proj = proj;
-            m_projUpdated = true;
-        }
-
-        Buffer& getProjectionBuffer() { return *m_cameraMatrixBuffers[m_currentBufferIndex].get(); }
-
-        Pipeline::RasterizerConfig getRasterizerConfig() const {
-            return m_rasterizerConfig;
-        }
-
-        VkViewport getViewport() const {
-            return m_viewport;
-        }
-
-        void update();
-
-    private:
-        std::vector<std::unique_ptr<Buffer>> m_cameraMatrixBuffers;
-
-        glm::mat4 m_view = glm::identity<glm::mat4>();
-        glm::mat4 m_proj = glm::identity<glm::mat4>();
-        bool m_projUpdated = true;
-        VkViewport m_viewport = {};
-        Pipeline::RasterizerConfig m_rasterizerConfig;
-
-        size_t m_currentBufferIndex;
     };
 
     class Renderer
@@ -109,10 +121,31 @@ namespace vgfx
             Context& context,
             uint32_t frameBufferingCount) = 0;
 
+        Context* m_pContext = nullptr;
+
+    public:
+
+        Renderer(bool requiresPresentQueue) : m_requiresPresentQueue(requiresPresentQueue) {}
+        virtual ~Renderer() = default;
+
+        // Returns true if this Renderer requires use of a presentation queue.
+        bool requiresPresentQueue() const { return m_requiresPresentQueue; }
+
+        DepthStencilBuffer* getDepthStencilBuffer() { return m_spDepthStencilBuffer.get(); }
+        const DepthStencilBuffer* getDepthStencilBuffer() const { return m_spDepthStencilBuffer.get(); }
+        Context& getContext() { return *m_pContext; }
+
+        virtual void init(
+            Context& context,
+            uint32_t frameBufferingCount);
+
+        // Records command buffer(s) to draw the scene in its current state.
+        VkResult renderFrame(SceneNode& scene);
+
         // Called by drawScene() right before scene.draw(...)
-        virtual void beginDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) = 0;
+        virtual void preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) = 0;
         // Called by drawScene() right after scene.draw(...)
-        virtual void endDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) = 0;
+        virtual void postDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) = 0;
 
         struct QueueSubmitInfo
         {
@@ -137,111 +170,8 @@ namespace vgfx
 
             std::vector<VkSemaphore> signalSemaphores;
         };
-        // Use previously recorded command buffers to render to the
-        // specified swap chain image as specified by the swapChainImageIndex.
-        virtual VkResult presentFrame(QueueSubmitInfo& submitInfo) = 0;
-
-        Context* m_pContext = nullptr;
-
-    public:
-
-        Renderer(bool requiresPresentQueue) : m_requiresPresentQueue(requiresPresentQueue) {}
-        virtual ~Renderer() = default;
-
-        // Returns true if this Renderer requires use of a presentation queue.
-        bool requiresPresentQueue() const { return m_requiresPresentQueue; }
-
-        DepthStencilBuffer* getDepthStencilBuffer() { return m_spDepthStencilBuffer.get(); }
-        const DepthStencilBuffer* getDepthStencilBuffer() const { return m_spDepthStencilBuffer.get(); }
-        Context& getContext() { return *m_pContext; }
-
-        virtual void init(
-            Context& context,
-            uint32_t frameBufferingCount);
-
-        struct ViewState
-        {
-            glm::mat4 cameraViewMatrix;
-            glm::mat4 cameraProjectionMatrix;
-            Buffer* pCameraProjectionBuffer;
-            VkViewport viewport;
-            Pipeline::RasterizerConfig rasterizerConfig;
-        };
-        struct LightState
-        {
-            glm::vec4 position;
-            glm::vec3 color;
-            float radius;
-        };
-        struct SceneState
-        {
-            std::vector<ViewState> views;
-            std::vector<LightState> lights;
-            Buffer* pLightsBuffer;
-        };
-
-        struct DrawContext
-        {
-            Context& context;
-            SceneState sceneState;
-            size_t frameIndex;
-            bool depthBufferEnabled;
-            VkCommandBuffer commandBuffer;
-            DescriptorPool& descriptorPool;
-            DrawContext(
-                Context& ctx,
-                size_t fi,
-                bool dbe,
-                VkCommandBuffer cb,
-                DescriptorPool& dp)
-                : context(ctx)
-                , frameIndex(fi)
-                , depthBufferEnabled(dbe)
-                , commandBuffer(cb)
-                , descriptorPool(dp)
-            {
-            }
-
-            void pushLight(
-                const glm::vec4& position,
-                const glm::vec3& color,
-                float radius)
-            {
-                this->sceneState.lights.push_back({
-                    .position = position,
-                    .color = color,
-                    .radius = radius });
-            }
-
-            void popLight()
-            {
-                this->sceneState.lights.pop_back();
-            }
-
-            void pushView(
-                const glm::mat4& view,
-                const glm::mat4& proj,
-                Buffer* pBuffer,
-                const VkViewport& viewport,
-                const Pipeline::RasterizerConfig& rasterizerConfig)
-            {
-                this->sceneState.views.push_back({
-                    .cameraViewMatrix = view,
-                    .cameraProjectionMatrix = proj,
-                    .pCameraProjectionBuffer = pBuffer,
-                    .viewport = viewport,
-                    .rasterizerConfig = rasterizerConfig });
-            }
-
-            void popView()
-            {
-                this->sceneState.views.pop_back();
-            }
-        };
-
-        // Records command buffer(s) to draw the scene in its current state
-        // and call presentFrame
-        void drawScene(SceneNode& scene);
+        // Submit commands for rendering
+        virtual VkResult endRenderFrame(QueueSubmitInfo& submitInfo) = 0;
 
         const Camera& getCamera() const { return *m_spCamera.get(); }
         Camera& getCamera() { return *m_spCamera.get(); }
@@ -346,12 +276,11 @@ namespace vgfx
         SwapChain& getSwapChain() { return *m_spSwapChain.get(); }
         const SwapChain& getSwapChain() const { return *m_spSwapChain.get(); }
 
-        VkResult presentFrame(
-            QueueSubmitInfo& submitInfo) override;
+        VkResult endRenderFrame(QueueSubmitInfo& submitInfo);
 
     private:
-        void beginDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) override;
-        void endDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) override;
+        void preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) override;
+        void postDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) override;
 
         VkResult acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex);
 

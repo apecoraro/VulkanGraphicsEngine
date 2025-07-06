@@ -14,7 +14,7 @@
     <ClCompile Include="src\VulkanGraphicsOneTimeCommands.cpp" />
     <ClCompile Include="src\VulkanGraphicsPipeline.cpp" />
     <ClCompile Include="src\VulkanGraphicsObject.cpp" />
-    <ClCompile Include="src\VulkanGraphicsMaterials.cpp" />
+    <ClCompile Include="src\VulkanGraphicsEffects.cpp" />
     <ClCompile Include="src\VulkanGraphicsDrawable.cpp" />
     <ClCompile Include="src\VulkanGraphicsDescriptors.cpp" />
     <ClCompile Include="src\VulkanGraphicsSampler.cpp" />
@@ -33,6 +33,7 @@
     <ClCompile Include="src\VulkanGraphicsSceneNode.cpp" />
     <ClCompile Include="src\VulkanGraphicsPbrDrawable.cpp" />
     <ClCompile Include="src\VulkanGraphicsSceneLoader.cpp" />
+    <ClCompile Include="src\VulkanGraphicsCamera.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\VulkanGraphicsContext.h" />
@@ -48,7 +49,7 @@
     <ClInclude Include="include\VulkanGraphicsIndexBuffer.h" />
     <ClInclude Include="include\VulkanGraphicsOneTimeCommands.h" />
     <ClInclude Include="include\VulkanGraphicsDrawable.h" />
-    <ClInclude Include="include\VulkanGraphicsMaterials.h" />
+    <ClInclude Include="include\VulkanGraphicsEffects.h" />
     <ClInclude Include="include\VulkanGraphicsObject.h" />
     <ClInclude Include="include\VulkanGraphicsDescriptors.h" />
     <ClInclude Include="include\VulkanGraphicsImageDescriptorUpdaters.h" />
@@ -78,6 +79,7 @@
     <ClInclude Include="include\VulkanGraphicsCommandBufferFactory.h" />
     <ClInclude Include="include\VulkanGraphicsPbrDrawable.h" />
     <ClInclude Include="include\VulkanGraphicsSceneLoader.h" />
+    <ClInclude Include="include\VulkanGraphicsCamera.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">

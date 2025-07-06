@@ -44,9 +44,8 @@ namespace vgfx
                 VK_SHADER_STAGE_COMPUTE_BIT);
 
         DescriptorSetLayouts descriptorSetLayouts;
-        descriptorSetLayouts.push_back(DescriptorSetLayoutInfo(
-            std::make_unique<DescriptorSetLayout>(context, layoutBindings),
-            swapChainImageCount));
+        descriptorSetLayouts.push_back(
+            std::make_unique<DescriptorSetLayout>(context, layoutBindings));
 
         m_spSharpenCS =
             std::make_unique<ComputeShader>(
@@ -62,10 +61,12 @@ namespace vgfx
 
     void ImageSharpener::createRenderingResources(DescriptorPool& pool)
     {
+        m_descriptorSets.clear();
+        m_descriptorSets.resize(m_swapChainImageCount);
         pool.allocateDescriptorSets(
-            *m_spSharpenCS->getDescriptorSetLayouts().front().spDescriptorSetLayout.get(),
+            *m_spSharpenCS->getDescriptorSetLayouts().front(),
             m_swapChainImageCount,
-            &m_descriptorSets);
+            m_descriptorSets.data());
     }
 
     void ImageSharpener::updateSharpness(float sharpnessVal)
@@ -110,12 +111,13 @@ namespace vgfx
         ImageDescriptorUpdater outputImageUpdater(
             outputImageView, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_IMAGE_LAYOUT_GENERAL);
 
-        m_descriptorUpdaters[0] = &inputImageUpdater;
-        m_descriptorUpdaters[1] = &outputImageUpdater;
+        DescriptorSetUpdater descriptorSetUpdater;
+        descriptorSetUpdater.bindDescriptor(0, inputImageUpdater);
+        descriptorSetUpdater.bindDescriptor(1, outputImageUpdater);
 
-        DescriptorSetUpdater& curDescriptorSet = m_descriptorSets[swapChainImageIndex % m_descriptorSets.size()];
+        VkDescriptorSet& curDescriptorSet = m_descriptorSets[swapChainImageIndex % m_descriptorSets.size()];
 
-        curDescriptorSet.updateDescriptorSet(m_context, m_descriptorUpdaters);
+        descriptorSetUpdater.updateDescriptorSet(m_context, curDescriptorSet);
         
         VkImageMemoryBarrier barrier = {};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -144,7 +146,7 @@ namespace vgfx
         vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_spSharpenPipeline->getHandle());
 
         VkDescriptorSet descriptorSets[] = {
-            curDescriptorSet.getHandle(),
+            curDescriptorSet,
         };
 
         vkCmdBindDescriptorSets(

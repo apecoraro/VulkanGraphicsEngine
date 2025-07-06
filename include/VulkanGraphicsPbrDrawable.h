@@ -18,16 +18,13 @@ namespace vgfx
             Context& context,
             std::unique_ptr<VertexBuffer> spVertexBuffer,
             std::unique_ptr<IndexBuffer> spIndexBuffer,
-            DescriptorPool& descriptorPool,
-            const Material& material,
-            const std::map<Material::ImageType, const Image*>& images)
-            : Drawable(
-                context,
+            const MeshEffect& material,
+            const ImageSamplerMap& imageSamplers)
+            : Drawable(context,
                 std::move(spVertexBuffer),
                 std::move(spIndexBuffer),
-                descriptorPool,
                 material,
-                images)
+                imageSamplers)
         {
         }
     };

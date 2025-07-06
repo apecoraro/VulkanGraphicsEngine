@@ -37,7 +37,7 @@ namespace vgfx
         pipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(m_computeShader.getDescriptorSetLayouts().size());
         std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
         for (const auto& descSetLayoutInfo : m_computeShader.getDescriptorSetLayouts()) {
-            descriptorSetLayouts.push_back(descSetLayoutInfo.spDescriptorSetLayout->getHandle());
+            descriptorSetLayouts.push_back(descSetLayoutInfo->getHandle());
         }
         pipelineLayoutCreateInfo.pSetLayouts = descriptorSetLayouts.data();
 

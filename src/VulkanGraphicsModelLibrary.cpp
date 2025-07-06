@@ -261,13 +261,13 @@ namespace vgfx
     Drawable& ModelLibrary::getOrCreateDrawable(
         Context& context,
         const ModelDesc& model,
-        const Material& material,
+        const MeshEffect& meshEffect,
         CommandBufferFactory& commandBufferFactory,
         CommandQueue commandQueue)
     {
         std::string modelPath = context.getAppConfig().dataDirectoryPath + "/" + model.modelPathOrShapeName;
 
-        Drawable* pDrawable = findDrawable(modelPath, material);
+        Drawable* pDrawable = findDrawable(modelPath, meshEffect);
         if (pDrawable != nullptr) {
             return *pDrawable;
         }
@@ -297,7 +297,7 @@ namespace vgfx
             }
 
             // This is kind of crappy way to do this.
-            if (VertexBuffer::ComputeVertexStride(material.getVertexShaderInputs()) ==
+            if (VertexBuffer::ComputeVertexStride(meshEffect.getVertexShaderInputs()) ==
                     VertexBuffer::ComputeVertexStride(VertexXyzRgbUv::GetConfig().vertexAttrDescriptions)) {
                 CreateVertsFromShapes<VertexXyzRgbUv>(
                     attrib,
@@ -307,7 +307,7 @@ namespace vgfx
                     &indices);
 
                 vertexBufferCfg = VertexXyzRgbUv::GetConfig();
-            } else if (VertexBuffer::ComputeVertexStride(material.getVertexShaderInputs()) ==
+            } else if (VertexBuffer::ComputeVertexStride(meshEffect.getVertexShaderInputs()) ==
                        VertexBuffer::ComputeVertexStride(VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions)) {
                 CreateVertsFromShapes<VertexXyzRgbUvN>(
                     attrib,
@@ -322,8 +322,8 @@ namespace vgfx
             }
 
             if (!materials.empty()) {
-                if (model.imageOverrides.find(Material::ImageType::Diffuse) == model.imageOverrides.end()) {
-                    modelImages[Material::ImageType::Diffuse] = materials.front().diffuse_texname;
+                if (model.imageOverrides.find(MeshEffect::ImageType::Diffuse) == model.imageOverrides.end()) {
+                    modelImages[MeshEffect::ImageType::Diffuse] = materials.front().diffuse_texname;
                 }
                 // TODO support other types of images.
             }
@@ -337,9 +337,9 @@ namespace vgfx
             context, commandBufferFactory, commandQueue,
             &spVertexBuffer, &spIndexBuffer);
 
-        std::map<Material::ImageType, std::pair<const ImageView*, const Sampler*>> imageSamplers;
-        if (!material.getImageTypes().empty()) {
-            for (auto imageType : material.getImageTypes()) {
+        std::map<MeshEffect::ImageType, std::pair<const ImageView*, const Sampler*>> imageSamplers;
+        if (!meshEffect.getImageTypes().empty()) {
+            for (auto imageType : meshEffect.getImageTypes()) {
                 std::string texturePath = context.getAppConfig().dataDirectoryPath + "/" + modelImages[imageType];
                 Image& image =
                     getOrLoadImage(
@@ -377,7 +377,7 @@ namespace vgfx
                 context,
                 std::move(spVertexBuffer),
                 std::move(spIndexBuffer),
-                material,
+                meshEffect,
                 imageSamplers)));
 
         return *models.back().get();
@@ -388,12 +388,12 @@ namespace vgfx
         return DefaultIndexBufferConfig;
     }
 
-    Drawable* ModelLibrary::findDrawable(const std::string& modelPath, const Material& material)
+    Drawable* ModelLibrary::findDrawable(const std::string& modelPath, const MeshEffect& material)
     {
         const auto& findIt = m_drawableLibrary.find(modelPath);
         if (findIt != m_drawableLibrary.end()) {
             for (const auto& spDrawable : findIt->second) {
-                if (spDrawable->getMaterialId() == material.getId()) {
+                if (spDrawable->getMeshEffectId() == material.getId()) {
                     return spDrawable.get();
                 }
             }

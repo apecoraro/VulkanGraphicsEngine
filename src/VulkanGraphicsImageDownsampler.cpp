@@ -66,8 +66,8 @@ namespace vgfx
                 VK_SHADER_STAGE_COMPUTE_BIT);
 
         DescriptorSetLayouts descriptorSetLayouts;
-        descriptorSetLayouts.push_back(DescriptorSetLayoutInfo(
-            std::make_unique<DescriptorSetLayout>(context, layoutBindings)));
+        descriptorSetLayouts.push_back(
+            std::make_unique<DescriptorSetLayout>(context, layoutBindings));
 
         m_spComputeShader =
             std::make_unique<ComputeShader>(
@@ -78,16 +78,14 @@ namespace vgfx
         m_spComputePipeline = std::make_unique<ComputePipeline>(context, *m_spComputeShader.get());
 
         DescriptorPoolBuilder descriptorPoolBuilder;
-        descriptorPoolBuilder.addComputeShaderDescriptorSets(*m_spComputeShader.get());
+        descriptorPoolBuilder.addDescriptorSets(m_spComputeShader->getDescriptorSetLayouts(), 3);
         m_spDescriptorPool = descriptorPoolBuilder.createPool(context);
 
-        std::vector<DescriptorSetUpdater> descriptorSets;
         m_spDescriptorPool->allocateDescriptorSets(
-            *m_spComputeShader->getDescriptorSetLayouts().front().spDescriptorSetLayout.get(),
+            *m_spComputeShader->getDescriptorSetLayouts().front(),
             1u, // Only one copy needed
-            &descriptorSets);
+            &m_descriptorSet);
 
-        m_spDescriptorSet = std::make_unique<DescriptorSetUpdater>(descriptorSets.front());
 
         Sampler::Config samplerConfig(
             VK_FILTER_LINEAR,
@@ -112,7 +110,7 @@ namespace vgfx
 
         // initialize global atomic counter to 0
         uint32_t zero = 0u;
-        m_spGlobalCounterUBO->updateDescriptorSet(&zero, sizeof(zero), 0u, Buffer::MemMap::UnMap);
+        m_spGlobalCounterUBO->update(&zero, sizeof(zero), 0u, Buffer::MemMap::UnMap);
     }
 
     void ImageDownsampler::execute(const Image& image, OneTimeCommandsHelper& commandsHelper)
@@ -135,19 +133,18 @@ namespace vgfx
         }
 
         // update descriptors
-        std::map<uint32_t, DescriptorUpdater*> descriptorUpdaters;
-
         ImageArrayDescriptorUpdater mipImageViewUpdater(
             m_spUAVs, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_IMAGE_LAYOUT_GENERAL);
 
-        descriptorUpdaters[0] = &mipImageViewUpdater;
+        DescriptorSetUpdater descriptorSetUpdater;
+        descriptorSetUpdater.bindDescriptor(0, mipImageViewUpdater);
 
         ImageDescriptorUpdater sixthImageUpdater(
             *m_spUAVs[5].get(), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_IMAGE_LAYOUT_GENERAL);
 
-        descriptorUpdaters[1] = &sixthImageUpdater;
+        descriptorSetUpdater.bindDescriptor(1, sixthImageUpdater);
 
-        descriptorUpdaters[2] = m_spGlobalCounterUBO.get();
+        descriptorSetUpdater.bindDescriptor(2, *m_spGlobalCounterUBO.get());
 
         ImageView::Config sourceCfg(
             image.getFormat(),
@@ -159,12 +156,13 @@ namespace vgfx
         ImageDescriptorUpdater sourceSRVUpdater(
             *m_spSourceSRV.get(), VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-        descriptorUpdaters[3] = &sourceSRVUpdater;
+        descriptorSetUpdater.bindDescriptor(3, sourceSRVUpdater);
 
         SamplerDescriptorUpdater samplerUpdater(*m_spSampler.get());
-        descriptorUpdaters[4] = &samplerUpdater;
 
-        m_spDescriptorSet->updateDescriptorSet(m_context, descriptorUpdaters);
+        descriptorSetUpdater.bindDescriptor(4, samplerUpdater);
+
+        descriptorSetUpdater.updateDescriptorSet(m_context, m_descriptorSet);
 
         commandsHelper.execute([&](VkCommandBuffer commandBuffer) {
             // downsample
@@ -231,7 +229,7 @@ namespace vgfx
             uint32_t dispatchZ = 1u;
 
             VkDescriptorSet descriptorSets[] = {
-                m_spDescriptorSet->getHandle(),
+                m_descriptorSet,
             };
             vkCmdBindDescriptorSets(
                 commandBuffer,

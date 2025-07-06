@@ -22,6 +22,7 @@ Application::Application(
     const Context::AppConfig& appConfig,
     const Context::InstanceConfig& instanceConfig,
     const Context::DeviceConfig& deviceConfig)
+    : m_validationLayerFunc(appConfig.onValidationLayerFunc)
 {
     init(appConfig, instanceConfig, deviceConfig);
 }
@@ -39,16 +40,26 @@ void Application::init(
         deviceConfig,
         m_spRenderer.get());
 
-    if (instanceConfig.enableDebugLayers) {
+    if (appConfig.enableValidationLayers) {
         m_graphicsContext.enableDebugReportCallback(DebugCallback, this);
     }
 }
 
-VkBool32 Application::onValidationError(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objType, uint64_t obj, size_t location, int32_t code, const char* pLayerPrefix, const char* pMsg)
+VkBool32 Application::onValidationError(
+    VkDebugReportFlagsEXT flags,
+    VkDebugReportObjectTypeEXT objType,
+    uint64_t obj,
+    size_t location,
+    int32_t code,
+    const char* pLayerPrefix,
+    const char* pMsg)
 {
-    std::cerr << "Validation layer: " << pMsg << std::endl;
+    if (m_validationLayerFunc == nullptr) {
+        std::cerr << "Validation layer: " << pMsg << std::endl;
+        return VK_FALSE;
+    }
 
-    return VK_FALSE;
+    return m_validationLayerFunc(flags, objType, obj, location, code, pLayerPrefix, pMsg);
 }
 
 const WindowRenderer::SwapChainConfig& WindowApplication::CreateSwapChainConfig(

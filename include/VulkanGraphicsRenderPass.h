@@ -13,7 +13,7 @@
 
 namespace vgfx
 {
-    // Use RenderPassBuilder to construct a RenderPass.
+    /*// Use RenderPassBuilder to construct a RenderPass.
     class RenderPass
     {
     public:
@@ -80,5 +80,5 @@ namespace vgfx
     private:
         Context& m_context;
         std::vector<RenderPass::Config> m_renderPassConfigs;
-    };
+    };*/
 }

@@ -167,10 +167,8 @@ namespace vgfx
         QuerySupportedExtensions(&supportedExtensions);
 
         std::vector<const char*> instanceExtensionsAsCharPtrs;
-
         if (!instanceConfig.requiredExtensions.empty()) {
             checkInstanceExtensionSupport(supportedExtensions, instanceConfig.requiredExtensions);
-
             ContainerOfStringsToCharPtrs(instanceConfig.requiredExtensions, &instanceExtensionsAsCharPtrs);
         }
         // Make sure dynamic rendering is available
@@ -181,22 +179,21 @@ namespace vgfx
             instanceExtensionsAsCharPtrs.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
         }
 
-        std::vector<const char*> validationLayersAsCharPtrs;
-        if (instanceConfig.enableDebugLayers) {
+        std::vector<std::string> supportedValidationLayers;
+        if (appConfig.enableValidationLayers) {
+            checkInstanceExtensionSupport(supportedExtensions, {VK_EXT_DEBUG_REPORT_EXTENSION_NAME});
             instanceExtensionsAsCharPtrs.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
-            validationLayersAsCharPtrs.push_back("VK_LAYER_KHRONOS_validation");
-        }
-
-        std::vector<std::string> requestedAndAvailableLayers;
-        if (!instanceConfig.validationLayers.empty()) {
-            requestedAndAvailableLayers =
-                checkValidationLayerSupport(instanceConfig.validationLayers);
-
-            ContainerOfStringsToCharPtrs(requestedAndAvailableLayers, &validationLayersAsCharPtrs);
+            addSupportedValidationLayers({"VK_LAYER_KHRONOS_validation"}, supportedValidationLayers);
         }
 
         createInfo.ppEnabledExtensionNames = instanceExtensionsAsCharPtrs.data();
         createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensionsAsCharPtrs.size());
+
+        std::vector<const char*> validationLayersAsCharPtrs;
+        if (!instanceConfig.validationLayers.empty()) {
+            addSupportedValidationLayers(instanceConfig.validationLayers, supportedValidationLayers);
+            ContainerOfStringsToCharPtrs(supportedValidationLayers, &validationLayersAsCharPtrs);
+        }
 
         createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayersAsCharPtrs.size());
         createInfo.ppEnabledLayerNames = validationLayersAsCharPtrs.data();
@@ -232,8 +229,9 @@ namespace vgfx
         }
     }
 
-    std::vector<std::string> Context::checkValidationLayerSupport(
-        const std::vector<std::string>& validationLayers)
+    void Context::addSupportedValidationLayers(
+        const std::vector<std::string>& validationLayers,
+        std::vector<std::string>& requestedAndAvailableLayers)
     {
         uint32_t availableLayerCount;
         vkEnumerateInstanceLayerProperties(&availableLayerCount, nullptr);
@@ -244,7 +242,6 @@ namespace vgfx
         std::set<std::string> requestedLayers(
             validationLayers.begin(), validationLayers.end());
 
-        std::vector<std::string> requestedAndAvailableLayers;
         for (const auto& vkLayer : availableLayers) {
             if (requestedLayers.erase(vkLayer.layerName) > 0) {
                 requestedAndAvailableLayers.push_back(vkLayer.layerName);
@@ -254,8 +251,6 @@ namespace vgfx
         for (const auto& requestedLayer : requestedLayers) {
             std::cerr << "Requested validation layer not supported: " << requestedLayer << std::endl;
         }
-
-        return requestedAndAvailableLayers;
     }
 
     void Context::pickPhysicalDevice(
@@ -767,7 +762,9 @@ namespace vgfx
         createInfo.pfnCallback = pfnCallback;
         createInfo.pUserData = pUserData;
 
-        CreateDebugReportCallbackEXT(m_instance, &createInfo, nullptr, &m_debugReportCallback);
+        if (CreateDebugReportCallbackEXT(m_instance, &createInfo, nullptr, &m_debugReportCallback) != VK_SUCCESS) {
+            throw std::runtime_error("Debug report callback is not supported!");
+        }
     }
 
     static void DestroyDebugReportCallbackEXT(

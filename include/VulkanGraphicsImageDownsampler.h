@@ -47,10 +47,10 @@ namespace vgfx
         std::unique_ptr<Program> m_spComputeProgram;
         std::unique_ptr<ComputePipeline> m_spComputePipeline;
         std::unique_ptr<DescriptorPool> m_spDescriptorPool;
-        std::unique_ptr<DescriptorSetUpdater> m_spDescriptorSet;
+        VkDescriptorSet m_descriptorSet = VK_NULL_HANDLE;
+
         std::unique_ptr<Sampler> m_spSampler;
         std::unique_ptr<Buffer> m_spGlobalCounterUBO;
-
         std::vector<std::unique_ptr<ImageView>> m_spUAVs;
         std::unique_ptr<ImageView> m_spSourceSRV;
     };

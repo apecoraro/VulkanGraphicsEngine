@@ -1,7 +1,6 @@
 #include "VulkanGraphicsPipeline.h"
 
 #include "VulkanGraphicsDepthStencilBuffer.h"
-#include "VulkanGraphicsRenderPass.h"
 
 #include <stdexcept>
 
@@ -99,14 +98,14 @@ namespace vgfx
     }
 
     PipelineBuilder& PipelineBuilder::configureDrawableInput(
-        const Material& material,
+        const MeshEffect& meshEffect,
         const VertexBuffer::Config& vertexBufferConfig,
         // TODO probably need to add some way to provide instance based data (i.e. VK_VERTEX_INPUT_RATE_INSTANCE).
         // This would allow for instanced drawing.
         const Pipeline::InputAssemblyConfig& inputAssemblyConfig)
     {
-        m_pMaterial = &material;
-        const Program& vertexShaderProgram = material.getVertexShader();
+        m_pEffect = &meshEffect;
+        const Program& vertexShaderProgram = meshEffect.getVertexShader();
         assert(vertexShaderProgram.getShaderStage() == VK_SHADER_STAGE_VERTEX_BIT);
 
         m_vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -135,7 +134,7 @@ namespace vgfx
 
         m_inputAssembly = inputAssemblyConfig.inputAssemblyInfo;
 
-        const Program& fragmentShaderProgram = material.getFragmentShader();
+        const Program& fragmentShaderProgram = meshEffect.getFragmentShader();
         assert(fragmentShaderProgram.getShaderStage() == VK_SHADER_STAGE_FRAGMENT_BIT);
 
         m_fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -144,9 +143,9 @@ namespace vgfx
         m_fragShaderStageInfo.module = fragmentShaderProgram.getShaderModule();
         m_fragShaderStageInfo.pName = fragmentShaderProgram.getEntryPointFunction().c_str();
 
-        m_pushConstantRanges = material.getPushConstantRanges();
+        m_pushConstantRanges = meshEffect.getPushConstantRanges();
 
-        for (const auto& spDescSetLayout: material.getDescriptorSetLayouts()) {
+        for (const auto& spDescSetLayout: meshEffect.getDescriptorSetLayouts()) {
             m_descriptorSetLayouts.push_back(spDescSetLayout->getHandle());
         }
 
@@ -255,18 +254,18 @@ namespace vgfx
 
         return std::make_unique<Pipeline>(
             context,
-            *m_pMaterial,
+            *m_pEffect,
             pipelineLayout,
             pipelineInfo);
     }
 
     Pipeline::Pipeline(
         Context& context,
-        const Material& material,
+        const Effect& effect,
         VkPipelineLayout pipelineLayout,
         VkGraphicsPipelineCreateInfo pipelineInfo)
         : m_context(context)
-        , m_material(material)
+        , m_effect(effect)
         , m_pipelineLayout(pipelineLayout)
     {
         VkResult result =
@@ -282,7 +281,7 @@ namespace vgfx
             throw std::runtime_error("Failed to create graphics pipeline!");
         }
 
-        m_material.setPipeline(*this);
+        m_effect.setPipeline(*this);
     }
 
     void Pipeline::destroy()

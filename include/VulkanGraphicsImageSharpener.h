@@ -76,8 +76,7 @@ namespace vgfx
         std::unique_ptr<ComputeShader> m_spSharpenCS;
         std::unique_ptr<ComputePipeline> m_spSharpenPipeline;
 
-        std::vector<DescriptorSetUpdater> m_descriptorSets;
-        std::map<uint32_t, DescriptorUpdater*> m_descriptorUpdaters;
+        std::vector<VkDescriptorSet> m_descriptorSets;
 
         float m_sharpnessValue = 0.0f;
         bool m_computeConstants = true;

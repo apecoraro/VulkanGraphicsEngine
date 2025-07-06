@@ -1,4 +1,4 @@
-#include "VulkanGraphicsMaterials.h"
+#include "VulkanGraphicsEffects.h"
 
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_transform.hpp>
@@ -29,7 +29,7 @@ namespace vgfx
         return *shaderProgramsTable[shaderPath];
     }
 
-    static ShaderProgramsTable s_vertexShadersTable;
+    static ShaderProgramsTable s_vertexShadersLibrary;
 
     static Program& GetOrLoadVertexShader(
         Context& context,
@@ -37,14 +37,14 @@ namespace vgfx
         const std::string& vertexShaderEntryPointFunc)
     {
         return GetOrLoadShaderProgram(
-            s_vertexShadersTable,
+            s_vertexShadersLibrary,
             context,
             vertexShaderPath,
             Program::Type::Vertex,
             vertexShaderEntryPointFunc);
     }
 
-    static ShaderProgramsTable s_fragmentShadersTable;
+    static ShaderProgramsTable s_fragmentShadersLibrary;
 
     static Program& GetOrLoadFragmentShader(
         Context& context,
@@ -52,15 +52,15 @@ namespace vgfx
         const std::string& fragmentShaderEntryPointFunc)
     {
         return GetOrLoadShaderProgram(
-            s_fragmentShadersTable,
+            s_fragmentShadersLibrary,
             context,
             fragmentShaderPath,
             Program::Type::Fragment,
             fragmentShaderEntryPointFunc);
     }
 
-    using MaterialsTable = std::map<MaterialId, std::unique_ptr<Material>>;
-    static MaterialsTable s_materialsTable;
+    using MeshEffectsLibrary = std::map<MeshEffectId, std::unique_ptr<MeshEffect>>;
+    static MeshEffectsLibrary s_meshEffectsLibrary;
 
     vgfx::DescriptorSetLayout::DescriptorBindings GetVertShaderDescriptorBindings(
         const std::string&,// shaderPath
@@ -95,41 +95,41 @@ namespace vgfx
         return fragShaderBindings;
     }
 
-    Material& MaterialsLibrary::GetOrLoadMaterial(
+    MeshEffect& EffectsLibrary::GetOrLoadEffect(
         Context& context,
-        const MaterialInfo& materialInfo)
+        const MeshEffectDesc& meshEffectDesc)
     {
         Program& vertexShader =
             GetOrLoadVertexShader(
                 context,
-                materialInfo.vertexShaderPath,
-                materialInfo.vertexShaderEntryPointFunc);
+                meshEffectDesc.vertexShaderPath,
+                meshEffectDesc.vertexShaderEntryPointFunc);
 
         Program& fragmentShader =
             GetOrLoadFragmentShader(
                 context,
-                materialInfo.fragmentShaderPath,
-                materialInfo.fragmentShaderEntryPointFunc);
+                meshEffectDesc.fragmentShaderPath,
+                meshEffectDesc.fragmentShaderEntryPointFunc);
 
-        const auto& materialId = MaterialId(&vertexShader, &fragmentShader);
-        MaterialsTable::iterator findMaterialItr = s_materialsTable.find(materialId);
-        if (findMaterialItr != s_materialsTable.end()) {
-            std::unique_ptr<Material>& spMaterial = findMaterialItr->second;
-            return *spMaterial.get();
+        const auto& effectId = MeshEffectId(&vertexShader, &fragmentShader);
+        MeshEffectsLibrary::iterator findMeshEffectItr = s_meshEffectsLibrary.find(effectId);
+        if (findMeshEffectItr != s_meshEffectsLibrary.end()) {
+            std::unique_ptr<MeshEffect>& spMeshEffect = findMeshEffectItr->second;
+            return *spMeshEffect.get();
         }
 
-        std::unique_ptr<Material>& spMaterial = s_materialsTable[materialId];
+        std::unique_ptr<MeshEffect>& spMeshEffect = s_meshEffectsLibrary[effectId];
 
         uint32_t bindingIndex = 0;
         vgfx::DescriptorSetLayout::DescriptorBindings vertShaderBindings =
-            GetVertShaderDescriptorBindings(materialInfo.vertexShaderPath, materialInfo.vertexShaderEntryPointFunc);
+            GetVertShaderDescriptorBindings(meshEffectDesc.vertexShaderPath, meshEffectDesc.vertexShaderEntryPointFunc);
 
         vgfx::DescriptorSetLayout::DescriptorBindings fragShaderBindings =
-            GetFragShaderDescriptorBindings(materialInfo.fragmentShaderPath, materialInfo.fragmentShaderEntryPointFunc);
+            GetFragShaderDescriptorBindings(meshEffectDesc.fragmentShaderPath, meshEffectDesc.fragmentShaderEntryPointFunc);
 
-        std::vector<std::unique_ptr<vgfx::DescriptorSetLayout>> descriptorSetLayouts = {
-            std::make_unique<vgfx::DescriptorSetLayout>(vertShaderBindings),
-            std::make_unique<vgfx::DescriptorSetLayout>(fragShaderBindings)
+        std::vector<std::unique_ptr<DescriptorSetLayout>> descriptorSetLayouts = {
+            std::make_unique<DescriptorSetLayout>(context, vertShaderBindings),
+            std::make_unique<DescriptorSetLayout>(context, fragShaderBindings)
         };
 
         struct ModelParams {
@@ -144,36 +144,36 @@ namespace vgfx
 
         std::vector<VkPushConstantRange> pushConstantRanges = { pushConstantRange };
 
-        std::vector<vgfx::Material::ImageType> imageTypes = { vgfx::Material::ImageType::Diffuse };
+        std::vector<vgfx::MeshEffect::ImageType> imageTypes = { vgfx::MeshEffect::ImageType::Diffuse };
 
-        spMaterial =
-            std::make_unique<Material>(
+        spMeshEffect =
+            std::make_unique<MeshEffect>(
                 vertexShader,
-                materialInfo.vertexShaderInputs,
+                meshEffectDesc.vertexShaderInputs,
                 fragmentShader,
                 pushConstantRanges,
                 std::move(descriptorSetLayouts),
-                materialInfo.imageTypes);
+                meshEffectDesc.imageTypes);
 
-        return *spMaterial.get();
+        return *spMeshEffect.get();
     }
 
-    void MaterialsLibrary::Optimize()
+    void EffectsLibrary::Optimize()
     {
         // Could probably also destroy descriptor set layouts here too.
-        for (auto& itr : s_vertexShadersTable) {
+        for (auto& itr : s_vertexShadersLibrary) {
             itr.second->destroyShaderModule();
         }
 
-        for (auto& itr : s_fragmentShadersTable) {
+        for (auto& itr : s_fragmentShadersLibrary) {
             itr.second->destroyShaderModule();
         }
     }
 
-    void MaterialsLibrary::UnloadAll()
+    void EffectsLibrary::UnloadAll()
     {
-        s_vertexShadersTable.clear();
-        s_fragmentShadersTable.clear();
-        s_materialsTable.clear();
+        s_vertexShadersLibrary.clear();
+        s_fragmentShadersLibrary.clear();
+        s_meshEffectsLibrary.clear();
     }
 }

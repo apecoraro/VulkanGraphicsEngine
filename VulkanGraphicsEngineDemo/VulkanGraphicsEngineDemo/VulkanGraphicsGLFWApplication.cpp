@@ -32,6 +32,7 @@ static VkResult CreateWindowSurfaceCallback(VkInstance vulkanInstance, void* win
 static void GetFrameBufferSize(void* window, int* pWidth, int* pHeight)
 {
     int width = 0, height = 0;
+    glfwGetFramebufferSize((GLFWwindow*)window, &width, &height);
     while (width == 0 || height == 0) {
         glfwGetFramebufferSize((GLFWwindow*)window, &width, &height);
         glfwWaitEvents();
@@ -107,12 +108,17 @@ GLFWApplication::~GLFWApplication()
     glfwTerminate();
 }
 
-GLFWApplication::run()
+void GLFWApplication::run()
 {
     vgfx::WindowRenderer& renderer = getRenderer();
     while (!glfwWindowShouldClose(m_pGLFWwindow)) {
         glfwPollEvents();
-        if (!renderer.drawScene(*m_spScene.get()))
+        VkResult result = renderer.renderFrame(*m_spSceneRoot.get());
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || m_frameBufferResized) {
+            recreateSwapChain();
+        }
+        else if (result != VK_SUCCESS) {
             break;
+        }
     }
 }

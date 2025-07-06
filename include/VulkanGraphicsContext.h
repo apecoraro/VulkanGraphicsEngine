@@ -28,12 +28,25 @@ namespace vgfx
         Context() = default;
         ~Context() = default;
 
+        using ValidationLayerFunc = std::function<
+            VkBool32(
+                VkDebugReportFlagsEXT flags,
+                VkDebugReportObjectTypeEXT objType,
+                uint64_t obj,
+                size_t location,
+                int32_t code,
+                const char* pLayerPrefix,
+                const char* pMsg)>;
+
         struct AppConfig
         {
             std::string name;
             uint16_t majorVersion = 1u;
             uint16_t minorVersion = 0u;
             uint16_t patchVersion = 0u;
+            bool enableValidationLayers = false;
+            ValidationLayerFunc onValidationLayerFunc = nullptr;
+            std::string dataDirectoryPath = ".";
 
             AppConfig(
                 const std::string& appName,
@@ -55,7 +68,6 @@ namespace vgfx
             uint16_t minMajorVersion = 1u;
             uint16_t minMinorVersion = 0u;
             uint16_t minPatchVersion = 0u;
-            bool enableDebugLayers = false;
             std::vector<std::string> requiredExtensions;
             std::vector<std::string> validationLayers;
         };
@@ -97,26 +109,38 @@ namespace vgfx
         VkAllocationCallbacks* getAllocationCallbacks() { return m_pAllocationCallbacks;  }
         VkDevice getLogicalDevice() { return m_device;  }
 
-        const std::optional<uint32_t>& getGraphicsQueueFamilyIndex() const {
-            return m_queueFamilyIndices.graphicsFamily;
+        const bool hasGraphicsQueueFamily() const {
+            return m_queueFamilyIndices.graphicsFamily.has_value();
+        }
+        const uint32_t getGraphicsQueueFamilyIndex() const {
+            return m_queueFamilyIndices.graphicsFamily.value();
         }
         CommandQueue getGraphicsQueue(uint32_t index);
         uint32_t getGraphicsQueueMaxCount() const;
 
-        const std::optional<uint32_t>& getPresentQueueFamilyIndex() const {
-            return m_queueFamilyIndices.presentFamily;
+        const bool hasPresentQueueFamily() const {
+            return m_queueFamilyIndices.presentFamily.has_value();
+        }
+        const uint32_t getPresentQueueFamilyIndex() const {
+            return m_queueFamilyIndices.presentFamily.value();
         }
         CommandQueue getPresentQueue(uint32_t index);
         uint32_t getPresentQueueMaxCount() const;
 
-        const std::optional<uint32_t>& getDedicatedComputeQueueFamilyIndex() const {
-            return m_queueFamilyIndices.computeFamily;
+        const bool hasDedicatedComputeQueueFamily() const {
+            return m_queueFamilyIndices.computeFamily.has_value();
+        }
+        const uint32_t getDedicatedComputeQueueFamilyIndex() const {
+            return m_queueFamilyIndices.computeFamily.value();
         }
         CommandQueue getDedicatedComputeQueue(uint32_t index);
         uint32_t getDedicatedComputeQueueMaxCount() const;
 
-        const std::optional<uint32_t>& getDedicatedTransferQueueFamilyIndex(uint32_t index) const {
-            return m_queueFamilyIndices.transferFamily;
+        const bool hasDedicatedTransferQueueFamily(uint32_t index) const {
+            return m_queueFamilyIndices.transferFamily.value();
+        }
+        const uint32_t getDedicatedTransferQueueFamilyIndex(uint32_t index) const {
+            return m_queueFamilyIndices.transferFamily.value();
         }
         CommandQueue getDedicatedTransferQueue(uint32_t index);
         uint32_t getDedicatedTransferQueueMaxCount() const;
@@ -145,8 +169,9 @@ namespace vgfx
             const std::vector<VkExtensionProperties>& supportedExtensions,
             const std::vector<std::string>& requiredExtensions);
 
-        std::vector<std::string> checkValidationLayerSupport(
-            const std::vector<std::string>& validationLayers);
+        void addSupportedValidationLayers(
+            const std::vector<std::string>& validationLayers,
+            std::vector<std::string>& requestedAndAvailableLayers);
 
         void pickPhysicalDevice(
             const DeviceConfig& deviceConfig,

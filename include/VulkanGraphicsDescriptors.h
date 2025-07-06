@@ -123,7 +123,7 @@ namespace vgfx
         void allocateDescriptorSets(
             const DescriptorSetLayout& layout,
             uint32_t count,
-            VkDescriptorSet** ppDescriptorSetHandles);
+            VkDescriptorSet* pDescriptorSetHandles);
 
         void freeDescriptorSets(
             std::vector<VkDescriptorSet>& descriptorSetHandles);

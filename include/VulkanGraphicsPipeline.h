@@ -1,7 +1,7 @@
 #pragma once
 
 #include "VulkanGraphicsContext.h"
-#include "VulkanGraphicsMaterials.h"
+#include "VulkanGraphicsEffects.h"
 #include "VulkanGraphicsRenderTarget.h"
 #include "VulkanGraphicsVertexBuffer.h"
 
@@ -18,7 +18,7 @@ namespace vgfx
     public:
         Pipeline(
             Context& context,
-            const Material& material,
+            const Effect& effect,
             VkPipelineLayout pipelineLayout,
             VkGraphicsPipelineCreateInfo pipelineInfo);
 
@@ -69,7 +69,7 @@ namespace vgfx
         void destroy();
 
         Context& m_context;
-        const Material& m_material;
+        const Effect& m_effect;
         VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
         VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;
     };
@@ -82,7 +82,7 @@ namespace vgfx
             bool useDepthBuffer = false);
 
         PipelineBuilder& configureDrawableInput(
-            const Material& material,
+            const MeshEffect& material,
             const VertexBuffer::Config& vertexBufferConfig,
             const Pipeline::InputAssemblyConfig& inputAssemblyConfig);
 
@@ -115,7 +115,7 @@ namespace vgfx
         std::unique_ptr<Pipeline> createPipeline(Context& context);
 
     private:
-        const Material* m_pMaterial = nullptr;
+        const MeshEffect* m_pEffect = nullptr;
         VkPipelineShaderStageCreateInfo m_vertShaderStageInfo = {};
 
         VkVertexInputBindingDescription m_vertexBindingDescription;

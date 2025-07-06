@@ -45,6 +45,7 @@ namespace vgfx
 
         VkPipelineLayout getLayout() const { return m_pipelineLayout; }
         VkPipeline getHandle() const { return m_pipeline; }
+        const ComputeShader& getShader() const { return m_computeShader; }
 
     private:
         Context& m_context;

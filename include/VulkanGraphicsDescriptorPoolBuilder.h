@@ -2,7 +2,7 @@
 
 #include "VulkanGraphicsCompute.h"
 #include "VulkanGraphicsDescriptors.h"
-#include "VulkanGraphicsMaterials.h"
+#include "VulkanGraphicsEffects.h"
 
 #include <map>
 #include <vector>

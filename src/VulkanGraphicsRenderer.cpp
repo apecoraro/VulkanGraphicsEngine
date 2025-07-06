@@ -1,5 +1,6 @@
 #include "VulkanGraphicsRenderer.h"
 
+#include "VulkanGraphicsCamera.h"
 #include "VulkanGraphicsDepthStencilBuffer.h"
 #include "VulkanGraphicsDescriptorPoolBuilder.h"
 #include "VulkanGraphicsSceneNode.h"
@@ -13,36 +14,110 @@
 
 namespace vgfx
 {
-    Camera::Camera(
-        Context& context,
-        const VkViewport& viewport,
-        size_t frameBufferingCount)
-            : m_rasterizerConfig({
-                VK_POLYGON_MODE_FILL,
-                VK_CULL_MODE_BACK_BIT,
-                VK_FRONT_FACE_COUNTER_CLOCKWISE})
-            , m_viewport(viewport)
+    VkResult Renderer::renderFrame(SceneNode& scene)
     {
-        Buffer::Config cameraMatrixBufferCfg(sizeof(glm::mat4));
-        // Need one buffer each for each frame in flight and one for the current frame
-        for (uint32_t index = 0; index < (frameBufferingCount + 1); ++index) {
-            m_cameraMatrixBuffers.emplace_back(
-                std::make_unique<Buffer>(
-                    context,
-                    Buffer::Type::UniformBuffer,
-                    cameraMatrixBufferCfg));
-        }
+        size_t frameInFlight = m_frameIndex % m_frameBufferingCount;
+        DescriptorPool& descriptorPool = *m_descriptorPools[frameInFlight].get();
+        descriptorPool.reset();
+
+        VkCommandBuffer commandBuffer = m_commandBuffers[frameInFlight];
+        vkResetCommandBuffer(commandBuffer, 0);
+
+        VkCommandBufferBeginInfo beginInfo = {};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = 0u;
+        beginInfo.pInheritanceInfo = nullptr; // Optional
+        vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+        preDrawScene(commandBuffer, m_frameIndex);
+
+        DrawContext drawState {
+            .context = *m_pContext,
+            .descriptorPool = descriptorPool,
+            .frameIndex = m_frameIndex,
+            .depthBufferEnabled = true,
+            .commandBuffer = commandBuffer
+        };
+
+        m_spCamera->update();
+        drawState.pushView(
+            m_spCamera->getView(),
+            m_spCamera->getProj(),
+            &m_spCamera->getProjectionBuffer(),
+            m_spCamera->getViewport(),
+            m_spCamera->getRasterizerConfig());
+
+        scene.draw(drawState);
+
+        drawState.popView();
+
+        postDrawScene(commandBuffer, m_frameIndex);
+
+        vkEndCommandBuffer(commandBuffer);
+
+        m_gfxQueueSubmitInfo.clearAll();
+        m_gfxQueueSubmitInfo.commandBuffers.push_back(commandBuffer);
+
+        VkResult retValue = endRenderFrame(m_gfxQueueSubmitInfo);
+
+        ++m_frameIndex;
+
+        return retValue;
     }
 
-    void Camera::update()
+    VkResult WindowRenderer::endRenderFrame(QueueSubmitInfo& submitInfo)
     {
-        auto& currentBuffer = *m_cameraMatrixBuffers[m_currentBufferIndex];
-        currentBuffer.update(&m_proj, sizeof(glm::mat4));
-
-        ++m_currentBufferIndex;
-        if (m_currentBufferIndex == m_cameraMatrixBuffers.size()) {
-            m_currentBufferIndex = 0u;
+        uint32_t swapChainImageIndex = 0u;
+        if (acquireNextSwapChainImage(&swapChainImageIndex) == VK_ERROR_OUT_OF_DATE_KHR) {
+            return VK_ERROR_OUT_OF_DATE_KHR;
         }
+
+        VkSubmitInfo vkSubmitInfo = {};
+        vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+        submitInfo.addWait(m_spSwapChain->getImageAvailableSemaphore(m_syncObjIndex), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+
+        vkSubmitInfo.waitSemaphoreCount = static_cast<uint32_t>(submitInfo.waitSemaphores.size());
+        vkSubmitInfo.pWaitSemaphores = submitInfo.waitSemaphores.data();
+        vkSubmitInfo.pWaitDstStageMask = submitInfo.waitSemaphoreStages.data();
+
+        vkSubmitInfo.commandBufferCount = static_cast<uint32_t>(submitInfo.commandBuffers.size());
+        vkSubmitInfo.pCommandBuffers = submitInfo.commandBuffers.data();
+
+        submitInfo.signalSemaphores.push_back(m_renderFinishedSemaphores[m_syncObjIndex]->getHandle());
+        vkSubmitInfo.signalSemaphoreCount = static_cast<uint32_t>(submitInfo.signalSemaphores.size());
+        vkSubmitInfo.pSignalSemaphores = submitInfo.signalSemaphores.data();
+
+        VkDevice device = m_pContext->getLogicalDevice();
+
+        VkFence fences[] = { m_inFlightFences[m_syncObjIndex]->getHandle() };
+        vkResetFences(device, 1, fences);
+
+        vkQueueSubmit(
+            m_pContext->getGraphicsQueue(0u).queue,
+            1,
+            &vkSubmitInfo,
+            fences[0]);
+
+        ++m_syncObjIndex;
+        if (m_syncObjIndex == m_inFlightFences.size()) {
+            m_syncObjIndex = 0u;
+        }
+
+        VkPresentInfoKHR presentInfo = {};
+        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+        presentInfo.waitSemaphoreCount = 1;
+        presentInfo.pWaitSemaphores = submitInfo.signalSemaphores.data();
+
+        VkSwapchainKHR swapChains[] = { m_spSwapChain->getHandle() };
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = swapChains;
+        presentInfo.pImageIndices = &swapChainImageIndex;
+
+        presentInfo.pResults = nullptr; // Optional
+
+        return vkQueuePresentKHR(m_pContext->getPresentQueue(0u).queue, &presentInfo);
     }
 
     static bool SurfaceFormatIsSupported(
@@ -130,19 +205,19 @@ namespace vgfx
         }
 
         if (m_swapChainConfig.preTransform.has_value()) {
-            if (!m_swapChainConfig.preTransform & supportedTransforms) {
+            if ((m_swapChainConfig.preTransform.value() & supportedTransforms) == 0) {
                 throw std::runtime_error("Swap chain desired transform is not supported.");
             }
         }
 
         if (m_swapChainConfig.compositeAlphaMode.has_value()) {
-            if (!m_swapChainConfig.compositeAlphaMode & supportedCompositeAlphaModes) {
+            if ((m_swapChainConfig.compositeAlphaMode.value() & supportedCompositeAlphaModes) == 0) {
                 throw std::runtime_error("Swap chain desired composite alpha mode is not supported.");
             }
         }
 
         if (m_swapChainConfig.imageUsage.has_value()) {
-            if (!m_swapChainConfig.imageUsage & supportedImageUsageModes) {
+            if ((m_swapChainConfig.imageUsage.value() & supportedImageUsageModes) == 0) {
                 throw std::runtime_error("Swap chain desired desired usage mode is not supported.");
             }
         }
@@ -297,7 +372,7 @@ namespace vgfx
 
         // Don't know how many images were created until after createRenderingResources completes, so have
         // to query to get this value even though we passed it in.
-        size_t frameBufferingCount = m_spSwapChain->getImageAvailableSemaphoreCount();
+        frameBufferingCount = static_cast<uint32_t>(m_spSwapChain->getImageAvailableSemaphoreCount());
 
         Renderer::init(context, frameBufferingCount);
 
@@ -346,15 +421,16 @@ namespace vgfx
         VkViewport viewport {
             .x = 0,
             .y = 0,
-            .width = swapChainExtent.width,
-            .height = swapChainExtent.height,
+            .width = static_cast<float>(swapChainExtent.width),
+            .height = static_cast<float>(swapChainExtent.height),
             .minDepth = 0.0f,
             .maxDepth = 1.0f
         };
-        return std::make_unique<Camera>(context, cameraView, cameraProj, viewport, frameBufferingCount);
+        return std::make_unique<Camera>(
+            context, frameBufferingCount, cameraView, cameraProj, viewport);
     }
 
-    void WindowRenderer::beginDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex)
+    void WindowRenderer::preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex)
     {
         bool imageBarrierNeeded =
             m_pContext->getPresentQueue(0).queue != m_pContext->getGraphicsQueue(0).queue;
@@ -367,8 +443,8 @@ namespace vgfx
             barrierFromPresentToDraw.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
             barrierFromPresentToDraw.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
             barrierFromPresentToDraw.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            barrierFromPresentToDraw.srcQueueFamilyIndex = m_pContext->getPresentQueueFamilyIndex().value();
-            barrierFromPresentToDraw.dstQueueFamilyIndex = m_pContext->getGraphicsQueueFamilyIndex().value();
+            barrierFromPresentToDraw.srcQueueFamilyIndex = m_pContext->getPresentQueueFamilyIndex();
+            barrierFromPresentToDraw.dstQueueFamilyIndex = m_pContext->getGraphicsQueueFamilyIndex();
 
             size_t swapChainImageIndex = frameIndex % m_spSwapChain->getImageCount();
             VkImage swapChainImage = m_spSwapChain->getImage(swapChainImageIndex).getHandle();
@@ -397,7 +473,7 @@ namespace vgfx
         }
     }
 
-    void WindowRenderer::endDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex)
+    void WindowRenderer::postDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex)
     {
         bool imageBarrierNeeded =
             m_pContext->getPresentQueue(0).queue != m_pContext->getGraphicsQueue(0).queue;
@@ -408,8 +484,8 @@ namespace vgfx
             barrierFromDrawToPresent.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
             barrierFromDrawToPresent.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
             barrierFromDrawToPresent.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            barrierFromDrawToPresent.srcQueueFamilyIndex = m_pContext->getGraphicsQueueFamilyIndex().value();
-            barrierFromDrawToPresent.dstQueueFamilyIndex = m_pContext->getPresentQueueFamilyIndex().value();
+            barrierFromDrawToPresent.srcQueueFamilyIndex = m_pContext->getGraphicsQueueFamilyIndex();
+            barrierFromDrawToPresent.dstQueueFamilyIndex = m_pContext->getPresentQueueFamilyIndex();
 
             size_t swapChainImageIndex = frameIndex % m_spSwapChain->getImageCount();
             VkImage swapChainImage = m_spSwapChain->getImage(swapChainImageIndex).getHandle();
@@ -459,61 +535,6 @@ namespace vgfx
             pSwapChainImageIndex);
     }
 
-    VkResult WindowRenderer::presentFrame(QueueSubmitInfo& submitInfo)
-    {
-        uint32_t swapChainImageIndex = 0u;
-        if (acquireNextSwapChainImage(&swapChainImageIndex) == VK_ERROR_OUT_OF_DATE_KHR) {
-            return VK_ERROR_OUT_OF_DATE_KHR;
-        }
-
-        VkSubmitInfo vkSubmitInfo = {};
-        vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-        submitInfo.addWait(m_spSwapChain->getImageAvailableSemaphore(m_syncObjIndex), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-        vkSubmitInfo.waitSemaphoreCount = static_cast<uint32_t>(submitInfo.waitSemaphores.size());
-        vkSubmitInfo.pWaitSemaphores = submitInfo.waitSemaphores.data();
-        vkSubmitInfo.pWaitDstStageMask = submitInfo.waitSemaphoreStages.data();
-
-        vkSubmitInfo.commandBufferCount = static_cast<uint32_t>(submitInfo.commandBuffers.size());
-        vkSubmitInfo.pCommandBuffers = submitInfo.commandBuffers.data();
-
-        submitInfo.signalSemaphores.push_back(m_renderFinishedSemaphores[m_syncObjIndex]->getHandle());
-        vkSubmitInfo.signalSemaphoreCount = static_cast<uint32_t>(submitInfo.signalSemaphores.size());
-        vkSubmitInfo.pSignalSemaphores = submitInfo.signalSemaphores.data();
-
-        VkDevice device = m_pContext->getLogicalDevice();
-
-        VkFence fences[] = { m_inFlightFences[m_syncObjIndex]->getHandle() };
-        vkResetFences(device, 1, fences);
-
-        vkQueueSubmit(
-            m_pContext->getGraphicsQueue(0u).queue,
-            1,
-            &vkSubmitInfo,
-            fences[0]);
-
-        ++m_syncObjIndex;
-        if (m_syncObjIndex == m_inFlightFences.size()) {
-            m_syncObjIndex = 0u;
-        }
-
-        VkPresentInfoKHR presentInfo = {};
-        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-        presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = submitInfo.signalSemaphores.data();
-
-        VkSwapchainKHR swapChains[] = { m_spSwapChain->getHandle() };
-        presentInfo.swapchainCount = 1;
-        presentInfo.pSwapchains = swapChains;
-        presentInfo.pImageIndices = &swapChainImageIndex;
-
-        presentInfo.pResults = nullptr; // Optional
-
-        return vkQueuePresentKHR(m_pContext->getPresentQueue(0u).queue, &presentInfo);
-    }
-
     void Renderer::init(Context& context, uint32_t frameBufferingCount)
     {
         m_frameBufferingCount = frameBufferingCount;
@@ -544,50 +565,6 @@ namespace vgfx
         }
 
         m_spCamera = createCamera(context, frameBufferingCount);
-    }
-
-    void Renderer::drawScene(SceneNode& scene)
-    {
-        size_t frameInFlight = m_frameIndex % m_frameBufferingCount;
-        DescriptorPool& descriptorPool = *m_descriptorPools[frameInFlight].get();
-        descriptorPool.reset();
-
-        VkCommandBuffer commandBuffer = m_commandBuffers[frameInFlight];
-        vkResetCommandBuffer(commandBuffer, 0);
-
-        VkCommandBufferBeginInfo beginInfo = {};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = 0u;
-        beginInfo.pInheritanceInfo = nullptr; // Optional
-        vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-        beginDrawScene(commandBuffer, m_frameIndex);
-
-
-        DrawContext drawState(*this->m_pContext, m_frameIndex, commandBuffer, descriptorPool);
-
-        m_spCamera->update();
-        drawState.pushView(
-            m_spCamera->getView(),
-            m_spCamera->getProj(),
-            &m_spCamera->getProjectionBuffer(),
-            m_spCamera->getViewport(),
-            m_spCamera->getRasterizerConfig());
-
-        scene.draw(drawState);
-
-        drawState.popView();
-
-        endDrawScene(commandBuffer, m_frameIndex);
-
-        vkEndCommandBuffer(commandBuffer);
-
-        m_gfxQueueSubmitInfo.clearAll();
-        m_gfxQueueSubmitInfo.commandBuffers.push_back(commandBuffer);
-
-        presentFrame(m_gfxQueueSubmitInfo);
-
-        ++m_frameIndex;
     }
 
     void Renderer::createDepthStencilBuffer(

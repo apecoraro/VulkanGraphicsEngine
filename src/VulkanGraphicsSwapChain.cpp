@@ -115,8 +115,8 @@ namespace vgfx
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = config.imageUsage;
 
-        uint32_t graphicsQueueFamilyIndex = context.getGraphicsQueueFamilyIndex().value();
-        uint32_t presentQueueFamilyIndex = context.getPresentQueueFamilyIndex().value();
+        uint32_t graphicsQueueFamilyIndex = context.getGraphicsQueueFamilyIndex();
+        uint32_t presentQueueFamilyIndex = context.getPresentQueueFamilyIndex();
 
         uint32_t queueFamilyIndices[] = { graphicsQueueFamilyIndex, presentQueueFamilyIndex };
         //if (graphicsQueueFamilyIndex != presentQueueFamilyIndex) {
