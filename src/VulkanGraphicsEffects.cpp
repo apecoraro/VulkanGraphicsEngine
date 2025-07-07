@@ -127,10 +127,10 @@ namespace vgfx
         vgfx::DescriptorSetLayout::DescriptorBindings fragShaderBindings =
             GetFragShaderDescriptorBindings(meshEffectDesc.fragmentShaderPath, meshEffectDesc.fragmentShaderEntryPointFunc);
 
-        std::vector<std::unique_ptr<DescriptorSetLayout>> descriptorSetLayouts = {
-            std::make_unique<DescriptorSetLayout>(context, vertShaderBindings),
-            std::make_unique<DescriptorSetLayout>(context, fragShaderBindings)
-        };
+        std::vector<std::unique_ptr<DescriptorSetLayout>> descriptorSetLayouts;
+        descriptorSetLayouts.reserve(2);
+        descriptorSetLayouts.emplace_back(std::make_unique<DescriptorSetLayout>(context, vertShaderBindings));
+        descriptorSetLayouts.emplace_back(std::make_unique<DescriptorSetLayout>(context, fragShaderBindings));
 
         struct ModelParams {
             glm::mat4 world = glm::identity<glm::mat4>();

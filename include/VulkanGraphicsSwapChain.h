@@ -51,8 +51,12 @@ namespace vgfx
 
         virtual ~SwapChain()
         {
-            destroy();
+            destroy(m_swapChain);
         }
+
+        // Using recreate instead of deleting and then creating a new SwapChain has some advantages,
+        // for example, full screen exclusive mode can be transferred without unwanted visual effects.
+        void recreate(VkSurfaceKHR surface, const Config& config);
 
         static void GetImageCapabilities(
             VkPhysicalDevice device,
@@ -81,8 +85,6 @@ namespace vgfx
             VkPhysicalDevice device,
             VkSurfaceKHR surface,
             uint32_t queueFamilyIndex);
-
-        void destroy();
 
         size_t getImageAvailableSemaphoreCount() const {
             return m_imageAvailableSemaphores.size();
@@ -128,6 +130,9 @@ namespace vgfx
         VkSampleCountFlagBits getSampleCount() const {
             return m_images[0]->getSampleCount();
         }
+
+    protected:
+        void destroy(VkSwapchainKHR handle);
 
     private:
         Context& m_context;

@@ -154,7 +154,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="VulkanGraphicsEngineDemo.cpp" />
     <ClCompile Include="VulkanGraphicsGLFWApplication.cpp" />
   </ItemGroup>
   <ItemGroup>

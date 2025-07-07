@@ -217,7 +217,7 @@ namespace vgfx
     {
         std::vector<std::unique_ptr<RenderPass>> renderPasses;
         for (const auto& config : m_renderPassConfigs) {
-            renderPasses.push_back(std::make_unique<RenderPass>(m_context, config));
+            renderPasses.emplace_back(std::make_unique<RenderPass>(m_context, config));
         }
 
         return std::move(renderPasses);

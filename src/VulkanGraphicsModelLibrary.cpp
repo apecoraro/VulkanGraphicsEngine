@@ -388,12 +388,12 @@ namespace vgfx
         return DefaultIndexBufferConfig;
     }
 
-    Drawable* ModelLibrary::findDrawable(const std::string& modelPath, const MeshEffect& material)
+    Drawable* ModelLibrary::findDrawable(const std::string& modelPath, const MeshEffect& meshEffect)
     {
         const auto& findIt = m_drawableLibrary.find(modelPath);
         if (findIt != m_drawableLibrary.end()) {
             for (const auto& spDrawable : findIt->second) {
-                if (spDrawable->getMeshEffectId() == material.getId()) {
+                if (spDrawable->getMeshEffect().getId() == meshEffect.getId()) {
                     return spDrawable.get();
                 }
             }

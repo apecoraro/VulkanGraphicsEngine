@@ -18,12 +18,12 @@ namespace vgfx
             Context& context,
             std::unique_ptr<VertexBuffer> spVertexBuffer,
             std::unique_ptr<IndexBuffer> spIndexBuffer,
-            const MeshEffect& material,
+            const MeshEffect& meshEffect,
             const ImageSamplerMap& imageSamplers)
             : Drawable(context,
                 std::move(spVertexBuffer),
                 std::move(spIndexBuffer),
-                material,
+                meshEffect,
                 imageSamplers)
         {
         }

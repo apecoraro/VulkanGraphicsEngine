@@ -5,10 +5,11 @@
 #include "VulkanGraphicsProgram.h"
 #include "VulkanGraphicsVertexBuffer.h"
 
-#include <cassert>
-#include <vector>
-
 #include <vulkan/vulkan.h>
+
+#include <cassert>
+#include <stdexcept>
+#include <vector>
 
 namespace vgfx
 {
@@ -31,7 +32,7 @@ namespace vgfx
     private:
         mutable const Pipeline* m_pPipeline = nullptr;
         friend class Pipeline;
-        // This function called by the Pipeline that gets created from this Material.
+        // This function called by the Pipeline that gets created from this Effect.
         void setPipeline(const Pipeline& pipeline) const { m_pPipeline = &pipeline; }
     };
     // Encapsulates a vertex and fragment shader; the DescriptorSetLayouts should correspond
@@ -129,7 +130,7 @@ namespace vgfx
             Context& context,
             const MeshEffectDesc& effectDesc);
 
-        ComputeEffect& GetOrLoadEffect() {} // TODO
+        //ComputeEffect& GetOrLoadEffect(); // TODO
             //Context& context,
             //const ComputeEffectDesc& effectDesc);
 

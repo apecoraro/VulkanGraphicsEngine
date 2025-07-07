@@ -10,19 +10,24 @@ namespace vgfx
     SwapChain::SwapChain(Context& context, VkSurfaceKHR surface, const Config& config)
         : m_context(context)
     {
+        recreate(surface, config);
+    }
+
+    void SwapChain::recreate(VkSurfaceKHR surface, const Config& config)
+    {
         VkSwapchainCreateInfoKHR createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
         createInfo.surface = surface;
 
         createInfo.minImageCount = config.imageCount.value();
-        createInfo.imageFormat = config.imageFormat.value();
-        createInfo.imageColorSpace = config.imageFormat.colorSpace;
-        createInfo.imageExtent = config.imageExtent;
+        createInfo.imageFormat = config.imageFormat.value().format;
+        createInfo.imageColorSpace = config.imageFormat.value().colorSpace;
+        createInfo.imageExtent = config.imageExtent.value();
         createInfo.imageArrayLayers = 1;
-        createInfo.imageUsage = config.imageUsage;
+        createInfo.imageUsage = config.imageUsage.value();
 
-        uint32_t graphicsQueueFamilyIndex = context.getGraphicsQueueFamilyIndex();
-        uint32_t presentQueueFamilyIndex = context.getPresentQueueFamilyIndex();
+        uint32_t graphicsQueueFamilyIndex = m_context.getGraphicsQueueFamilyIndex();
+        uint32_t presentQueueFamilyIndex = m_context.getPresentQueueFamilyIndex();
 
         uint32_t queueFamilyIndices[] = { graphicsQueueFamilyIndex, presentQueueFamilyIndex };
         //if (graphicsQueueFamilyIndex != presentQueueFamilyIndex) {
@@ -43,25 +48,21 @@ namespace vgfx
 
         createInfo.compositeAlpha = config.compositeAlphaMode.value();
 
-        createInfo.presentMode = config.presentMode;
+        createInfo.presentMode = config.presentMode.value();
         createInfo.clipped = VK_TRUE;
 
-        if (m_swapChain != VK_NULL_HANDLE) {
-            createInfo.oldSwapchain = m_swapChain;
-            destroy();
-        }
-        else {
-            createInfo.oldSwapchain = VK_NULL_HANDLE;
-        }
+        createInfo.oldSwapchain = m_swapChain;
 
-        VkDevice device = context.getLogicalDevice();
-        VkAllocationCallbacks* pAllocationCallbacks = context.getAllocationCallbacks();
+        VkDevice device = m_context.getLogicalDevice();
+        VkAllocationCallbacks* pAllocationCallbacks = m_context.getAllocationCallbacks();
         VkResult result = vkCreateSwapchainKHR(device, &createInfo, pAllocationCallbacks, &m_swapChain);
         if (result != VK_SUCCESS) {
             throw std::runtime_error("failed to create swap chain!");
         }
 
-        m_context = &context;
+        if (createInfo.oldSwapchain != VK_NULL_HANDLE) {
+            destroy(createInfo.oldSwapchain);
+        }
 
         uint32_t actualImageCount = 0u;
         vkGetSwapchainImagesKHR(device, m_swapChain, &actualImageCount, nullptr);
@@ -69,27 +70,28 @@ namespace vgfx
         std::vector<VkImage> imageHandles(actualImageCount);
         vkGetSwapchainImagesKHR(device, m_swapChain, &actualImageCount, imageHandles.data());
 
+        m_images.reserve(actualImageCount);
         for (VkImage imageHandle : imageHandles) {
             Image::Config metadata(
-                config.imageExtent.width,
-                config.imageExtent.height,
-                config.imageFormat.format,
+                config.imageExtent.value().width,
+                config.imageExtent.value().height,
+                config.imageFormat.value().format,
                 VK_IMAGE_TILING_OPTIMAL,
-                config.imageUsage);
-            m_images.emplace_back(std::make_unique<Image>(context, imageHandle, metadata));
+                config.imageUsage.value());
+            m_images.emplace_back(std::make_unique<Image>(m_context, imageHandle, metadata));
         }
 
-        m_imageExtent = config.imageExtent;
+        m_imageExtent = config.imageExtent.value();
 
-        for (size_t imageViewIndex = 0; imageViewIndex < m_images.size(); ++imageViewIndex) {
-            ImageView::Config imageViewCfg(config.imageFormat.format, VK_IMAGE_VIEW_TYPE_2D);
+        m_imageViews.reserve(actualImageCount);
+        for (size_t imageViewIndex = 0; imageViewIndex < actualImageCount; ++imageViewIndex) {
+            ImageView::Config imageViewCfg(config.imageFormat.value().format, VK_IMAGE_VIEW_TYPE_2D);
             m_imageViews.push_back(&m_images[imageViewIndex]->getOrCreateView(imageViewCfg));
         }
 
-        uint32_t frameBufferingCount = std::min(actualImageCount, config.frameBufferingCount);
-        m_imageAvailableSemaphores.reserve(frameBufferingCount);
-        for (uint32_t i = 0; i < frameBufferingCount; ++i) {
-            m_imageAvailableSemaphores.push_back(std::make_unique<Semaphore>(*m_context));
+        m_imageAvailableSemaphores.reserve(actualImageCount);
+        for (uint32_t i = 0; i < actualImageCount; ++i) {
+            m_imageAvailableSemaphores.emplace_back(std::make_unique<Semaphore>(m_context));
         }
     }
 
@@ -167,18 +169,18 @@ namespace vgfx
         return presentSupport != 0;
     }
 
-    void SwapChain::destroy()
+    void SwapChain::destroy(VkSwapchainKHR swapChain)
     {
-        if (m_swapChain != VK_NULL_HANDLE) {
-            VkDevice device = m_context->getLogicalDevice();
+        if (swapChain != VK_NULL_HANDLE) {
+            VkDevice device = m_context.getLogicalDevice();
             assert(device != VK_NULL_HANDLE && "Memory leak in WindowSwapChain!");
 
-            vkDestroySwapchainKHR(device, m_swapChain, m_context->getAllocationCallbacks());
-            m_swapChain = VK_NULL_HANDLE;
+            vkDestroySwapchainKHR(device, swapChain, m_context.getAllocationCallbacks());
+            swapChain = VK_NULL_HANDLE;
 
+            m_imageAvailableSemaphores.clear();
+            m_imageViews.clear();
             m_images.clear();
-
-            m_context = nullptr;
         }
     } 
 }

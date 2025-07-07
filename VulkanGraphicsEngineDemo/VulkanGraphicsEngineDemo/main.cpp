@@ -78,7 +78,7 @@ int main(int argc, char** argv)
     appConfig.enableValidationLayers = enableValidationLayers;
     vgfx::Context::InstanceConfig instanceConfig;
     vgfx::Context::DeviceConfig deviceConfig;
-    vgfx::WindowRenderer::SwapChainConfig swapChainConfig;
+    vgfx::SwapChain::Config swapChainConfig;
 
     demo::GLFWApplication app(appConfig, instanceConfig, deviceConfig, swapChainConfig);
 

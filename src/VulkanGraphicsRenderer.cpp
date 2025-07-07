@@ -543,13 +543,13 @@ namespace vgfx
     {
         m_context.waitForDeviceToIdle();
 
-        VkExtent2D windowWidthHeight{
-            .width = width,
-            .height = height
+        VkExtent2D windowWidthHeight {
+            .width = static_cast<uint32_t>(width),
+            .height = static_cast<uint32_t>(height)
         };
         m_swapChainConfig.imageExtent = windowWidthHeight;
-        m_spSwapChain = std::make_unique<SwapChain>(m_context, m_surface, m_swapChainConfig);
-        m_spCamera = createCamera(static_cast<uint32_t>(m_spSwapChain->getImageAvailableSemaphoreCount()));
+        m_spSwapChain->recreate(m_surface, m_swapChainConfig);
+        m_spCamera = createCamera(static_cast<uint32_t>(m_spSwapChain->getImageCount()));
     }
 
     void Renderer::init(uint32_t frameBufferingCount)

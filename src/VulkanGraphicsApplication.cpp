@@ -114,7 +114,7 @@ std::unique_ptr<Renderer> WindowApplication::createRenderer(
     const Context::InstanceConfig& instanceConfig,
     const Context::DeviceConfig& deviceConfig)
 {
-    return std::make_unique<WindowRenderer>(m_swapChainConfig, m_pWindow, m_createVulkanSurface);
+    return std::make_unique<WindowRenderer>(m_graphicsContext, m_swapChainConfig, m_createVulkanSurface);
 }
 
 // How does this get called? Also the Application needs to set the debug validation layers based on the app config

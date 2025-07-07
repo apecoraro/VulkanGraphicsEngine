@@ -4,6 +4,7 @@
 #include "VulkanGraphicsCamera.h"
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsCommandBufferFactory.h"
+#include "VulkanGraphicsDepthStencilBuffer.h"
 #include "VulkanGraphicsFence.h"
 #include "VulkanGraphicsObject.h"
 #include "VulkanGraphicsPipeline.h"

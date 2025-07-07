@@ -82,7 +82,7 @@ namespace vgfx
             bool useDepthBuffer = false);
 
         PipelineBuilder& configureDrawableInput(
-            const MeshEffect& material,
+            const MeshEffect& meshEffect,
             const VertexBuffer::Config& vertexBufferConfig,
             const Pipeline::InputAssemblyConfig& inputAssemblyConfig);
 

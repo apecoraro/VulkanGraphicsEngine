@@ -34,7 +34,7 @@ namespace vgfx
         Drawable& getOrCreateDrawable(
             Context& context,
             const ModelDesc& model,
-            const MeshEffect& material,
+            const MeshEffect& meshEffect,
             CommandBufferFactory& commandBufferFactory,
             CommandQueue commandQueue);
  
@@ -60,7 +60,7 @@ namespace vgfx
         static VertexBuffer::Config DefaultVertexBufferConfig;
         static IndexBuffer::Config DefaultIndexBufferConfig;
 
-        Drawable* findDrawable(const std::string& modelPath, const MeshEffect& material);
+        Drawable* findDrawable(const std::string& modelPath, const MeshEffect& meshEffect);
 
         using FilePath = std::string;
 

@@ -32,7 +32,7 @@ void vgfx::Drawable::configureDescriptorSets(
     updater.bindDescriptor(0, *curViewState.pCameraProjectionBuffer);
     updater.updateDescriptorSet(drawContext.context, pDescriptorSets->at(0));
 
-    auto& imageSampler = getImageSampler(MeshEffect::ImageType::Diffuse);
+    auto imageSampler = getImageSampler(MeshEffect::ImageType::Diffuse);
 
     CombinedImageSamplerDescriptorUpdater imageSamplerUpdater(*imageSampler.first, *imageSampler.second);
 

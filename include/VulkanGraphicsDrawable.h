@@ -50,7 +50,7 @@ namespace vgfx
  
         size_t getImageCount() const { return m_imageSamplers.size(); }
 
-        const std::pair<const ImageView*, const Sampler*>& getImageSampler(MeshEffect::ImageType imageType) const
+        std::pair<const ImageView*, const Sampler*> getImageSampler(MeshEffect::ImageType imageType) const
         {
             const auto& findIt = m_imageSamplers.find(imageType);
             if (findIt == m_imageSamplers.end()) {
