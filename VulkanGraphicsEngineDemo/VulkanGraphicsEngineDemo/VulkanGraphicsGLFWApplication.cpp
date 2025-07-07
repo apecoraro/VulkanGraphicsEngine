@@ -46,7 +46,7 @@ GLFWApplication::GLFWApplication(
     const vgfx::Context::AppConfig& appConfig,
     const vgfx::Context::InstanceConfig& instanceConfig,
     const vgfx::Context::DeviceConfig& deviceConfig,
-    const vgfx::WindowRenderer::SwapChainConfig& swapChainConfig)
+    const vgfx::SwapChain::Config& swapChainConfig)
     : WindowApplication(
         appConfig,
         instanceConfig,
@@ -89,7 +89,7 @@ std::unique_ptr<vgfx::Renderer> GLFWApplication::createRenderer(
     const vgfx::Context::InstanceConfig& instanceConfig,
     const vgfx::Context::DeviceConfig& deviceConfig)
 {
-    vgfx::WindowRenderer::SwapChainConfig& glfwSwapChainConfig = m_swapChainConfig;
+    vgfx::SwapChain::Config& glfwSwapChainConfig = m_swapChainConfig;
     if (!glfwSwapChainConfig.imageExtent.has_value()) {
         int32_t windowWidth, windowHeight;
         // Current size of window is used as default if SwapChainConfig::imageExtent is not specified.
@@ -115,7 +115,9 @@ void GLFWApplication::run()
         glfwPollEvents();
         VkResult result = renderer.renderFrame(*m_spSceneRoot.get());
         if (result == VK_ERROR_OUT_OF_DATE_KHR || m_frameBufferResized) {
-            recreateSwapChain();
+            int32_t width = 0, height = 0;
+            GetFrameBufferSize(m_pGLFWwindow, &width, &height);
+            resizeWindow(width, height);
         }
         else if (result != VK_SUCCESS) {
             break;

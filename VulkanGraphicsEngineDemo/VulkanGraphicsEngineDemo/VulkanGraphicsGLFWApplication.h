@@ -14,7 +14,7 @@ namespace demo
             const vgfx::Context::AppConfig& appConfig,
             const vgfx::Context::InstanceConfig& instanceConfig,
             const vgfx::Context::DeviceConfig& deviceConfig,
-            const vgfx::WindowRenderer::SwapChainConfig& swapChainConfig);
+            const vgfx::SwapChain::Config& swapChainConfig);
 
         virtual ~GLFWApplication();
 

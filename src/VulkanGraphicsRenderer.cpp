@@ -32,7 +32,7 @@ namespace vgfx
         preDrawScene(commandBuffer, m_frameIndex);
 
         DrawContext drawState {
-            .context = *m_pContext,
+            .context = m_context,
             .descriptorPool = descriptorPool,
             .frameIndex = m_frameIndex,
             .depthBufferEnabled = true,
@@ -88,13 +88,13 @@ namespace vgfx
         vkSubmitInfo.signalSemaphoreCount = static_cast<uint32_t>(submitInfo.signalSemaphores.size());
         vkSubmitInfo.pSignalSemaphores = submitInfo.signalSemaphores.data();
 
-        VkDevice device = m_pContext->getLogicalDevice();
+        VkDevice device = m_context.getLogicalDevice();
 
         VkFence fences[] = { m_inFlightFences[m_syncObjIndex]->getHandle() };
         vkResetFences(device, 1, fences);
 
         vkQueueSubmit(
-            m_pContext->getGraphicsQueue(0u).queue,
+            m_context.getGraphicsQueue(0u).queue,
             1,
             &vkSubmitInfo,
             fences[0]);
@@ -117,7 +117,7 @@ namespace vgfx
 
         presentInfo.pResults = nullptr; // Optional
 
-        return vkQueuePresentKHR(m_pContext->getPresentQueue(0u).queue, &presentInfo);
+        return vkQueuePresentKHR(m_context.getPresentQueue(0u).queue, &presentInfo);
     }
 
     static bool SurfaceFormatIsSupported(
@@ -171,8 +171,9 @@ namespace vgfx
         VkSurfaceTransformFlagBitsKHR currentTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
         VkCompositeAlphaFlagsKHR supportedCompositeAlphaModes = VK_COMPOSITE_ALPHA_FLAG_BITS_MAX_ENUM_KHR;
         VkImageUsageFlags supportedImageUsageModes = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        m_spSwapChain->getImageCapabilities(
+        SwapChain::GetImageCapabilities(
             device,
+            m_surface,
             &minImageCount, &maxImageCount,
             &minImageExtent, &maxImageExtent,
             &curImageExtent,
@@ -223,7 +224,7 @@ namespace vgfx
         }
 
         std::vector<VkSurfaceFormatKHR> supportedFormats;
-        m_spSwapChain->getSupportedImageFormats(device, &supportedFormats);
+        SwapChain::GetSupportedImageFormats(device, m_surface, &supportedFormats);
 
         if (supportedFormats.empty()) {
             throw std::runtime_error("Swap chain does not support any image formats.");
@@ -241,7 +242,7 @@ namespace vgfx
         }
         
         std::vector<VkPresentModeKHR> supportedModes;
-        m_spSwapChain->getSupportedPresentationModes(device, &supportedModes);
+        SwapChain::GetSupportedPresentationModes(device, m_surface, &supportedModes);
 
         if (supportedModes.empty()) {
             throw std::runtime_error("Swap chain does not support any present modes.");
@@ -254,10 +255,10 @@ namespace vgfx
 
     bool WindowRenderer::queueFamilySupportsPresent(VkPhysicalDevice device, uint32_t familyIndex) const
     {
-        return m_spSwapChain->surfaceSupportsQueueFamily(device, familyIndex);
+        return SwapChain::SurfaceSupportsQueueFamily(device, m_surface, familyIndex);
     }
 
-    void WindowRenderer::configureForDevice(VkPhysicalDevice device)
+    void WindowRenderer::configureForDevice(VkPhysicalDevice physicalDevice)
     {
         // Set defaults for all configuration parameters (if not explicitly set already).
         if (!m_swapChainConfig.imageCount.has_value()
@@ -273,8 +274,9 @@ namespace vgfx
             VkSurfaceTransformFlagBitsKHR currentTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
             VkCompositeAlphaFlagsKHR supportedCompositeAlphaModes = VK_COMPOSITE_ALPHA_FLAG_BITS_MAX_ENUM_KHR;
             VkImageUsageFlags supportedImageUsageModes = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-            m_spSwapChain->getImageCapabilities(
-                device,
+            SwapChain::GetImageCapabilities(
+                physicalDevice,
+                m_surface,
                 &minImageCount, &maxImageCount,
                 &minImageExtent, &maxImageExtent,
                 &curImageExtent,
@@ -293,7 +295,8 @@ namespace vgfx
 
             if (!m_swapChainConfig.imageExtent.has_value()) {
                 if (curImageExtent.width == 0xFFFFFFFF && curImageExtent.height == 0xFFFFFFFF) {
-                    m_spSwapChain->getWindowInitialSize(&curImageExtent.width, &curImageExtent.height);
+                    curImageExtent.width = 800;
+                    curImageExtent.height = 600;
                 }
 
                 if (m_chooseWindowExtentFunc != nullptr) {
@@ -320,7 +323,7 @@ namespace vgfx
         if (!m_swapChainConfig.imageFormat.has_value()) {
             // configure the surface renderTargetFormat
             std::vector<VkSurfaceFormatKHR> supportedFormats;
-            m_spSwapChain->getSupportedImageFormats(device, &supportedFormats);
+            SwapChain::GetSupportedImageFormats(physicalDevice, m_surface, &supportedFormats);
 
             if (m_chooseSurfaceFormatFunc != nullptr) {
                 m_swapChainConfig.imageFormat = m_chooseSurfaceFormatFunc(supportedFormats);
@@ -333,7 +336,7 @@ namespace vgfx
                     m_swapChainConfig.imageFormat = supportedFormats[0];
                 }
                 if (!SurfaceUsageIsSupported(
-                        device,
+                        physicalDevice,
                         m_swapChainConfig.imageUsage.value(),
                         m_swapChainConfig.imageFormat.value().format)) {
                     throw std::runtime_error("Default swap chain format does not support custom usage!");
@@ -344,7 +347,7 @@ namespace vgfx
         if (!m_swapChainConfig.presentMode.has_value()) {
             // configure presentation mode
             std::vector<VkPresentModeKHR> supportedModes;
-            m_spSwapChain->getSupportedPresentationModes(device, &supportedModes);
+            SwapChain::GetSupportedPresentationModes(physicalDevice, m_surface, &supportedModes);
 
             if (m_choosePresentModeFunc != nullptr) {
                 m_swapChainConfig.presentMode = m_choosePresentModeFunc(supportedModes);
@@ -352,52 +355,53 @@ namespace vgfx
                 m_swapChainConfig.presentMode = VK_PRESENT_MODE_FIFO_KHR;
             }
         }
+
+        if (!m_swapChainConfig.depthStencilFormat.has_value() && m_swapChainConfig.preferredDepthStencilFormats.has_value()) {
+            const auto& pickDepthStencilFormatFunc = [&](const std::set<VkFormat>& formats) {
+                for (const auto& preferredDepthStencilFormat : m_swapChainConfig.preferredDepthStencilFormats.value()) {
+                    if (formats.find(preferredDepthStencilFormat) != formats.end()) {
+                        return preferredDepthStencilFormat;
+                    }
+                }
+                throw std::runtime_error("Failed to find suitable depth stencil format!");
+                return VK_FORMAT_MAX_ENUM;
+            };
+            m_swapChainConfig.depthStencilFormat = DepthStencilBuffer::PickFormat(physicalDevice, pickDepthStencilFormatFunc);
+        }
     }
 
-    void WindowRenderer::init(
-        Context& context,
-        uint32_t frameBufferingCount)
+    void WindowRenderer::init(uint32_t frameBufferingCount)
     {
-        SwapChain::Config swapChainConfig(
-            m_swapChainConfig.imageCount.value(),
-            frameBufferingCount,
-            m_swapChainConfig.imageFormat.value(),
-            m_swapChainConfig.imageExtent.value(),
-            m_swapChainConfig.imageUsage.value(),
-            m_swapChainConfig.compositeAlphaMode.value(),
-            m_swapChainConfig.presentMode.value(),
-            m_swapChainConfig.preTransform.value());
+        m_spSwapChain =
+            std::make_unique<SwapChain>(m_context, m_surface, m_swapChainConfig);
 
-        m_spSwapChain->createRenderingResources(context, swapChainConfig);
-
-        // Don't know how many images were created until after createRenderingResources completes, so have
+        // Don't know how many images were created until after creation, so have
         // to query to get this value even though we passed it in.
         frameBufferingCount = static_cast<uint32_t>(m_spSwapChain->getImageAvailableSemaphoreCount());
 
-        Renderer::init(context, frameBufferingCount);
+        Renderer::init(frameBufferingCount);
 
         m_renderFinishedSemaphores.reserve(frameBufferingCount);
         for (size_t i = 0; i < frameBufferingCount; ++i) {
             m_renderFinishedSemaphores.push_back(
-                std::make_unique<Semaphore>(context));
+                std::make_unique<Semaphore>(m_context));
 
             m_inFlightFences.push_back(
-                std::make_unique<Fence>(context));
+                std::make_unique<Fence>(m_context));
         }
 
-        if (m_swapChainConfig.pickDepthStencilFormat != nullptr) {
+        if (m_swapChainConfig.depthStencilFormat.has_value()) {
             const auto& swapChainExtent = m_spSwapChain->getImageExtent();
-            createDepthStencilBuffer(
-                context,
+            DepthStencilBuffer::Config dsCfg(
                 swapChainExtent.width,
                 swapChainExtent.height,
-                m_swapChainConfig.pickDepthStencilFormat);
+                m_swapChainConfig.depthStencilFormat.value());
+            m_spDepthStencilBuffer.reset(
+                new DepthStencilBuffer(m_context, dsCfg));
         }
-
-        m_pContext = &context;
     }
 
-    std::unique_ptr<Camera> WindowRenderer::createCamera(Context& context, uint32_t frameBufferingCount)
+    std::unique_ptr<Camera> WindowRenderer::createCamera(uint32_t frameBufferingCount)
     {
         glm::vec3 viewPos(2.0f, 2.0f, 2.0f);
         glm::mat4 cameraView = glm::lookAt(
@@ -427,13 +431,13 @@ namespace vgfx
             .maxDepth = 1.0f
         };
         return std::make_unique<Camera>(
-            context, frameBufferingCount, cameraView, cameraProj, viewport);
+            m_context, frameBufferingCount, cameraView, cameraProj, viewport);
     }
 
     void WindowRenderer::preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex)
     {
         bool imageBarrierNeeded =
-            m_pContext->getPresentQueue(0).queue != m_pContext->getGraphicsQueue(0).queue;
+            m_context.getPresentQueue(0).queue != m_context.getGraphicsQueue(0).queue;
         if (imageBarrierNeeded) {
             // This barrier needed to transfer ownership of the image from the present queue to the
             // graphics queue.
@@ -443,8 +447,8 @@ namespace vgfx
             barrierFromPresentToDraw.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
             barrierFromPresentToDraw.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
             barrierFromPresentToDraw.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            barrierFromPresentToDraw.srcQueueFamilyIndex = m_pContext->getPresentQueueFamilyIndex();
-            barrierFromPresentToDraw.dstQueueFamilyIndex = m_pContext->getGraphicsQueueFamilyIndex();
+            barrierFromPresentToDraw.srcQueueFamilyIndex = m_context.getPresentQueueFamilyIndex();
+            barrierFromPresentToDraw.dstQueueFamilyIndex = m_context.getGraphicsQueueFamilyIndex();
 
             size_t swapChainImageIndex = frameIndex % m_spSwapChain->getImageCount();
             VkImage swapChainImage = m_spSwapChain->getImage(swapChainImageIndex).getHandle();
@@ -476,7 +480,7 @@ namespace vgfx
     void WindowRenderer::postDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex)
     {
         bool imageBarrierNeeded =
-            m_pContext->getPresentQueue(0).queue != m_pContext->getGraphicsQueue(0).queue;
+            m_context.getPresentQueue(0).queue != m_context.getGraphicsQueue(0).queue;
         if (imageBarrierNeeded) {
             VkImageMemoryBarrier barrierFromDrawToPresent = {};
             barrierFromDrawToPresent.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -484,8 +488,8 @@ namespace vgfx
             barrierFromDrawToPresent.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
             barrierFromDrawToPresent.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
             barrierFromDrawToPresent.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            barrierFromDrawToPresent.srcQueueFamilyIndex = m_pContext->getGraphicsQueueFamilyIndex();
-            barrierFromDrawToPresent.dstQueueFamilyIndex = m_pContext->getPresentQueueFamilyIndex();
+            barrierFromDrawToPresent.srcQueueFamilyIndex = m_context.getGraphicsQueueFamilyIndex();
+            barrierFromDrawToPresent.dstQueueFamilyIndex = m_context.getPresentQueueFamilyIndex();
 
             size_t swapChainImageIndex = frameIndex % m_spSwapChain->getImageCount();
             VkImage swapChainImage = m_spSwapChain->getImage(swapChainImageIndex).getHandle();
@@ -517,7 +521,7 @@ namespace vgfx
 
     VkResult WindowRenderer::acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex)
     {
-        VkDevice device = m_pContext->getLogicalDevice();
+        VkDevice device = m_context.getLogicalDevice();
         VkFence fences[] = { m_inFlightFences[m_syncObjIndex]->getHandle() };
         vkWaitForFences(
             device,
@@ -535,7 +539,20 @@ namespace vgfx
             pSwapChainImageIndex);
     }
 
-    void Renderer::init(Context& context, uint32_t frameBufferingCount)
+    void WindowRenderer::resizeWindow(int32_t width, int32_t height)
+    {
+        m_context.waitForDeviceToIdle();
+
+        VkExtent2D windowWidthHeight{
+            .width = width,
+            .height = height
+        };
+        m_swapChainConfig.imageExtent = windowWidthHeight;
+        m_spSwapChain = std::make_unique<SwapChain>(m_context, m_surface, m_swapChainConfig);
+        m_spCamera = createCamera(static_cast<uint32_t>(m_spSwapChain->getImageAvailableSemaphoreCount()));
+    }
+
+    void Renderer::init(uint32_t frameBufferingCount)
     {
         m_frameBufferingCount = frameBufferingCount;
 
@@ -547,62 +564,22 @@ namespace vgfx
 
         m_spCommandBufferFactory =
             std::make_unique<CommandBufferFactory>(
-                context, context.getGraphicsQueueFamilyIndex());
+                m_context, m_context.getGraphicsQueueFamilyIndex());
 
         Buffer::Config lightsBufferCfg(
             (sizeof(LightState) * 2) + sizeof(int) + sizeof(float) + sizeof(glm::vec3));
         for (size_t i = 0; i < frameBufferingCount; ++i) {
-            m_descriptorPools.emplace_back(poolBuilder.createPool(context));
+            m_descriptorPools.emplace_back(poolBuilder.createPool(m_context));
 
             m_commandBuffers.push_back(m_spCommandBufferFactory->createCommandBuffer());
 
-            
             m_lightsBuffers.emplace_back(
                 std::make_unique<Buffer>(
-                    context,
+                    m_context,
                     Buffer::Type::UniformBuffer,
                     lightsBufferCfg));
         }
 
-        m_spCamera = createCamera(context, frameBufferingCount);
-    }
-
-    void Renderer::createDepthStencilBuffer(
-        Context& context,
-        uint32_t width,
-        uint32_t height,
-        PickDepthStencilFormatFunc pickFormatFunc)
-    {
-        VkFormat candidates[] = {
-            VK_FORMAT_D16_UNORM,
-            VK_FORMAT_X8_D24_UNORM_PACK32,
-            VK_FORMAT_D32_SFLOAT,
-            VK_FORMAT_S8_UINT,
-            VK_FORMAT_D16_UNORM_S8_UINT,
-            VK_FORMAT_D24_UNORM_S8_UINT,
-            VK_FORMAT_D32_SFLOAT_S8_UINT,
-        };
-        std::set<VkFormat> supportedDepthStencilFormats;
-        for (VkFormat format : candidates) {
-            VkFormatProperties props;
-            vkGetPhysicalDeviceFormatProperties(context.getPhysicalDevice(), format, &props);
-
-            if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-                supportedDepthStencilFormats.insert(format);
-            }
-        }
-
-        VkFormat selectedFormat = pickFormatFunc(supportedDepthStencilFormats);
-
-        DepthStencilBuffer::Config dsCfg(width, height, selectedFormat);
-        m_spDepthStencilBuffer.reset(
-            new DepthStencilBuffer(context, dsCfg));
-    }
-
-    void Renderer::DepthStencilDeleter::operator()(DepthStencilBuffer * pDSBuffer)
-    {
-        if (pDSBuffer != nullptr) {
-            delete pDSBuffer;
-        }
+        m_spCamera = createCamera(frameBufferingCount);
     }
 }

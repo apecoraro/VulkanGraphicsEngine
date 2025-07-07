@@ -110,34 +110,29 @@ namespace vgfx
         // to setup its configuration based on the capabilities of the device.
         virtual void configureForDevice(VkPhysicalDevice device) = 0;
 
-        using PickDepthStencilFormatFunc = std::function<VkFormat(const std::set<VkFormat>& candidates)>;
-        void createDepthStencilBuffer(
-            Context& context,
-            uint32_t width,
-            uint32_t height,
-            PickDepthStencilFormatFunc pickFormatFunc);
+        virtual std::unique_ptr<Camera> createCamera(uint32_t frameBufferingCount) = 0;
 
-        virtual std::unique_ptr<Camera> createCamera(
-            Context& context,
-            uint32_t frameBufferingCount) = 0;
-
-        Context* m_pContext = nullptr;
+        Context& m_context;
 
     public:
 
-        Renderer(bool requiresPresentQueue) : m_requiresPresentQueue(requiresPresentQueue) {}
+        Renderer(Context& context, bool requiresPresentQueue) : m_context(context), m_requiresPresentQueue(requiresPresentQueue) {}
         virtual ~Renderer() = default;
 
         // Returns true if this Renderer requires use of a presentation queue.
         bool requiresPresentQueue() const { return m_requiresPresentQueue; }
 
+        const Camera& getCamera() const { return *m_spCamera.get(); }
+        Camera& getCamera() { return *m_spCamera.get(); }
+
         DepthStencilBuffer* getDepthStencilBuffer() { return m_spDepthStencilBuffer.get(); }
         const DepthStencilBuffer* getDepthStencilBuffer() const { return m_spDepthStencilBuffer.get(); }
-        Context& getContext() { return *m_pContext; }
 
-        virtual void init(
-            Context& context,
-            uint32_t frameBufferingCount);
+        void setDepthStencilBuffer(std::unique_ptr<DepthStencilBuffer>& spNewBuffer) { return spNewBuffer.swap(m_spDepthStencilBuffer); }
+
+        Context& getContext() { return m_context; }
+
+        virtual void init(uint32_t frameBufferingCount);
 
         // Records command buffer(s) to draw the scene in its current state.
         VkResult renderFrame(SceneNode& scene);
@@ -173,18 +168,11 @@ namespace vgfx
         // Submit commands for rendering
         virtual VkResult endRenderFrame(QueueSubmitInfo& submitInfo) = 0;
 
-        const Camera& getCamera() const { return *m_spCamera.get(); }
-        Camera& getCamera() { return *m_spCamera.get(); }
-
-    private:
-        struct DepthStencilDeleter
-        {
-            DepthStencilDeleter() = default;
-            void operator()(DepthStencilBuffer*);
-        };
-        std::unique_ptr<DepthStencilBuffer, DepthStencilDeleter> m_spDepthStencilBuffer;
+    protected:
+        std::unique_ptr<DepthStencilBuffer> m_spDepthStencilBuffer;
         std::unique_ptr<Camera> m_spCamera;
 
+    private:
         bool m_requiresPresentQueue = false;
 
         uint32_t m_frameBufferingCount = 1u;
@@ -201,32 +189,7 @@ namespace vgfx
     class WindowRenderer : public Renderer
     {
     public:
-        struct SwapChainConfig
-        {
-            // defaults to device's "min(minImageCount + 1, maxImageCount)" or by ChooseImageCountFunc.
-            std::optional<uint32_t> imageCount;
-            // if not specified then defaults determined by ChooseImageExtentFunc, if ChooseImageExtentFunc is not specified
-            // then defaults to max(minExtent, min(maxExtent, curExtent)). If explicitly setting the imageExtent, then to specify
-            // renderTargetFormat without colorSpace, set colorSpace to VK_COLOR_SPACE_MAX_ENUM_KHR, to specify colorSpace without renderTargetFormat,
-            // set renderTargetFormat to VK_FORMAT_UNDEFINED.
-            std::optional<VkExtent2D> imageExtent;
-            // If not specified then determined by ChooseSurfaceFormatFunc, if ChooseSurfaceFormatFunc is null,
-            // then defaults to either VK_FORMAT_B8G8R8A8_SRGB and VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, unless it's not available,
-            // in which case the first supported renderTargetFormat, as returned by vkGetPhysicalDeviceSurfaceFormatsKHR is used.
-            std::optional<VkSurfaceFormatKHR> imageFormat;
-            // If not specified then defaults to VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
-            std::optional<VkImageUsageFlags> imageUsage;
-            // If not specified then defaults to VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR.
-            std::optional<VkCompositeAlphaFlagBitsKHR> compositeAlphaMode;
-            // If not specified then determined by ChoosePresentModeFunc, if ChoosePresentModeFunc is null, then defaults to
-            // VK_PRESENT_MODE_FIFO_KHR.
-            std::optional<VkPresentModeKHR> presentMode;
-            // If not specified then defaults to the current transform as returned by vkGetPhysicalDeviceSurfaceCapabilitiesKHR
-            std::optional<VkSurfaceTransformFlagBitsKHR> preTransform;
-            // If null, then no depth/stencil buffer.
-            PickDepthStencilFormatFunc pickDepthStencilFormat;
-        };
-
+        using CreateVulkanSurfaceFunc = std::function<VkResult(VkInstance, void*, const VkAllocationCallbacks*, VkSurfaceKHR*)>;
         using ChooseImageCountFunc = std::function<uint32_t(uint32_t minImageCount, uint32_t maxImageCount)>;
         using ChooseImageExtentFunc = std::function<VkExtent2D(VkExtent2D minExtent, VkExtent2D maxExtent, VkExtent2D curExtent)>;
         using ChooseSurfaceFormatFunc = std::function<VkSurfaceFormatKHR(const std::vector<VkSurfaceFormatKHR>& supportedFormats)>;
@@ -237,15 +200,16 @@ namespace vgfx
         // is not specified in the SwapChainConfig then the corresponding callback function must 
         // not be nullptr.
         WindowRenderer(
-            const SwapChainConfig& swapChainConfig,
-            std::unique_ptr<SwapChain> spSwapChain,
-            const ChooseImageCountFunc& chooseImageCountFunc = nullptr,
-            const ChooseImageExtentFunc& chooseWindowExtentFunc = nullptr,
-            const ChooseSurfaceFormatFunc& chooseSurfaceFormatFunc = nullptr,
-            const ChoosePresentModeFunc& choosePresentModeFunc = nullptr)
-            : Renderer(true) // requires present queue
+            Context& context,
+            const SwapChain::Config& swapChainConfig,
+            CreateVulkanSurfaceFunc createVulkanSurfaceFunc,
+            ChooseImageCountFunc chooseImageCountFunc = nullptr,
+            ChooseImageExtentFunc chooseWindowExtentFunc = nullptr,
+            ChooseSurfaceFormatFunc chooseSurfaceFormatFunc = nullptr,
+            ChoosePresentModeFunc choosePresentModeFunc = nullptr)
+            : Renderer(context, true) // requires present queue
             , m_swapChainConfig(swapChainConfig)
-            , m_spSwapChain(std::move(spSwapChain))
+            , m_createVulkanSurfaceFunc(createVulkanSurfaceFunc)
             , m_chooseImageCountFunc(chooseImageCountFunc)
             , m_chooseWindowExtentFunc(chooseWindowExtentFunc)
             , m_chooseSurfaceFormatFunc(chooseSurfaceFormatFunc)
@@ -254,7 +218,15 @@ namespace vgfx
         }
 
         void bindToInstance(VkInstance instance, const VkAllocationCallbacks* pAllocationCallbacks) override {
-            m_spSwapChain->createVulkanSurface(instance, pAllocationCallbacks);
+            VkResult result = m_createVulkanSurfaceFunc(
+                instance,
+                m_pWindow,
+                pAllocationCallbacks,
+                &m_surface);
+
+            if (result != VK_SUCCESS) {
+                throw std::runtime_error("Creation of Vulkan surface failed");
+            }
         }
 
         void checkIsDeviceSuitable(VkPhysicalDevice device) const override;
@@ -263,20 +235,18 @@ namespace vgfx
 
         void configureForDevice(VkPhysicalDevice device) override;
 
-        const SwapChainConfig& getSwapChainConfig() const { return m_swapChainConfig; }
+        const SwapChain::Config& getSwapChainConfig() const { return m_swapChainConfig; }
 
-        void init(
-            Context& context,
-            uint32_t frameBufferingCount) override;
+        void init(uint32_t frameBufferingCount) override;
 
-        std::unique_ptr<Camera> createCamera(
-            Context& context,
-            uint32_t frameBufferingCount) override;
+        std::unique_ptr<Camera> createCamera(uint32_t frameBufferingCount) override;
 
         SwapChain& getSwapChain() { return *m_spSwapChain.get(); }
         const SwapChain& getSwapChain() const { return *m_spSwapChain.get(); }
 
         VkResult endRenderFrame(QueueSubmitInfo& submitInfo);
+
+        void resizeWindow(int32_t width, int32_t height);
 
     private:
         void preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) override;
@@ -284,7 +254,10 @@ namespace vgfx
 
         VkResult acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex);
 
-        SwapChainConfig m_swapChainConfig;
+        VkSurfaceKHR m_surface = VK_NULL_HANDLE;
+        SwapChain::Config m_swapChainConfig;
+        void* m_pWindow = nullptr;
+        CreateVulkanSurfaceFunc m_createVulkanSurfaceFunc = nullptr;
         std::unique_ptr<SwapChain> m_spSwapChain;
 
         ChooseImageCountFunc m_chooseImageCountFunc = nullptr;

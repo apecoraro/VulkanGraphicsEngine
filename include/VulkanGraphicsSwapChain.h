@@ -16,29 +16,47 @@ namespace vgfx
     class SwapChain
     {
     public:
-        using CreateVulkanSurfaceFunc = std::function<VkResult(VkInstance, void*, const VkAllocationCallbacks*, VkSurfaceKHR*)>;
+        struct Config
+        {
+            // defaults to device's "min(minImageCount + 1, maxImageCount)" or by ChooseImageCountFunc.
+            std::optional<uint32_t> imageCount;
+            // if not specified then defaults determined by ChooseImageExtentFunc, if ChooseImageExtentFunc is not specified
+            // then defaults to max(minExtent, min(maxExtent, curExtent)). If explicitly setting the imageExtent, then to specify
+            // renderTargetFormat without colorSpace, set colorSpace to VK_COLOR_SPACE_MAX_ENUM_KHR, to specify colorSpace without renderTargetFormat,
+            // set renderTargetFormat to VK_FORMAT_UNDEFINED.
+            std::optional<VkExtent2D> imageExtent;
+            // If not specified then determined by ChooseSurfaceFormatFunc, if ChooseSurfaceFormatFunc is null,
+            // then defaults to either VK_FORMAT_B8G8R8A8_SRGB and VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, unless it's not available,
+            // in which case the first supported renderTargetFormat, as returned by vkGetPhysicalDeviceSurfaceFormatsKHR is used.
+            std::optional<VkSurfaceFormatKHR> imageFormat;
+            // If not specified then defaults to VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+            std::optional<VkColorSpaceKHR> imageColorSpace;
+            // If not specified then defaults to VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+            std::optional<VkImageUsageFlags> imageUsage;
+            // If not specified then defaults to VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR.
+            std::optional<VkCompositeAlphaFlagBitsKHR> compositeAlphaMode;
+            // If not specified then determined by ChoosePresentModeFunc, if ChoosePresentModeFunc is null, then defaults to
+            // VK_PRESENT_MODE_FIFO_KHR.
+            std::optional<VkPresentModeKHR> presentMode;
+            // If not specified then defaults to the current transform as returned by vkGetPhysicalDeviceSurfaceCapabilitiesKHR
+            std::optional<VkSurfaceTransformFlagBitsKHR> preTransform;
+            // Optionally specify a list of preferred formats in order of highest preference to lowest preference. The VkPhysicalDevice
+            // will be queried to pick the most preferred format from formats supported by the device.
+            std::optional<std::vector<VkFormat>> preferredDepthStencilFormats;
+            // If no preferredDepthStencilFormats or explicit depthStencilFormat is specified then no depth stencil buffer is created.
+            std::optional<VkFormat> depthStencilFormat;
+        };
 
-        SwapChain(
-            void* pWindow,
-            uint32_t initWindowWidth,
-            uint32_t initWindowHeight,
-            const CreateVulkanSurfaceFunc& createVulkanSurfaceFunc);
+        SwapChain(Context& context, VkSurfaceKHR surface, const Config& config);
 
         virtual ~SwapChain()
         {
             destroy();
         }
 
-        void createVulkanSurface(VkInstance instance, const VkAllocationCallbacks* pAllocationCallbacks);
-
-        void getWindowInitialSize(uint32_t* pInitialWindowWidth, uint32_t* pInitialWindowHeight) const
-        {
-            *pInitialWindowWidth = m_initWindowWidth;
-            *pInitialWindowHeight = m_initWindowHeight;
-        }
-
-        void getImageCapabilities(
+        static void GetImageCapabilities(
             VkPhysicalDevice device,
+            VkSurfaceKHR surface,
             uint32_t* pMinImageCount,
             uint32_t* pMaxImageCount,
             VkExtent2D* pMinImageExtent,
@@ -47,52 +65,22 @@ namespace vgfx
             VkSurfaceTransformFlagsKHR* pSupportedTransforms,
             VkSurfaceTransformFlagBitsKHR* pCurrentTransform,
             VkCompositeAlphaFlagsKHR* pSupportedCompositeAlpha,
-            VkImageUsageFlags* pSupportedUsageFlags) const;
+            VkImageUsageFlags* pSupportedUsageFlags);
 
-        void getSupportedImageFormats(
+        static void GetSupportedImageFormats(
             VkPhysicalDevice device,
-            std::vector<VkSurfaceFormatKHR>* pSupportedImageFormats) const;
+            VkSurfaceKHR surface,
+            std::vector<VkSurfaceFormatKHR>* pSupportedImageFormats);
 
-        void getSupportedPresentationModes(
+        static void GetSupportedPresentationModes(
             VkPhysicalDevice device,
-            std::vector<VkPresentModeKHR>* pSupportedPresentationModes) const;
+            VkSurfaceKHR surface,
+            std::vector<VkPresentModeKHR>* pSupportedPresentationModes);
 
-        bool surfaceSupportsQueueFamily(VkPhysicalDevice device, uint32_t queueFamilyIndex) const;
-
-        struct Config
-        {
-            uint32_t imageCount;
-            uint32_t frameBufferingCount;
-            VkSurfaceFormatKHR imageFormat;
-            VkExtent2D imageExtent;
-            VkImageUsageFlags imageUsage;
-            VkCompositeAlphaFlagBitsKHR compositeAlphaMode;
-            VkPresentModeKHR presentMode;
-            VkSurfaceTransformFlagBitsKHR preTransform;
-
-            Config(
-                uint32_t ic,
-                uint32_t mfif,
-                VkSurfaceFormatKHR isf,
-                VkExtent2D ie,
-                VkImageUsageFlags iu,
-                VkCompositeAlphaFlagBitsKHR cam,
-                VkPresentModeKHR pm,
-                VkSurfaceTransformFlagBitsKHR pt)
-                : imageCount(ic)
-                , frameBufferingCount(mfif)
-                , imageFormat(isf)
-                , imageExtent(ie)
-                , imageUsage(iu)
-                , compositeAlphaMode(cam)
-                , presentMode(pm)
-                , preTransform(pt)
-            {
-            }
-            Config() = delete;
-        };
-
-        void createRenderingResources(Context& context, const Config& config);
+        static bool SurfaceSupportsQueueFamily(
+            VkPhysicalDevice device,
+            VkSurfaceKHR surface,
+            uint32_t queueFamilyIndex);
 
         void destroy();
 
@@ -142,16 +130,9 @@ namespace vgfx
         }
 
     private:
-        void* m_pWindow = nullptr;
-        uint32_t m_initWindowWidth = 0u;
-        uint32_t m_initWindowHeight = 0u;
-
-        CreateVulkanSurfaceFunc m_createVulkanSurfaceFunc = nullptr;
-        VkSurfaceKHR m_surface = VK_NULL_HANDLE;
+        Context& m_context;
 
         VkSwapchainKHR m_swapChain = VK_NULL_HANDLE;
-
-        Context* m_pContext = nullptr;
 
         std::vector<std::unique_ptr<Image>> m_images;
         std::vector<ImageView*> m_imageViews;

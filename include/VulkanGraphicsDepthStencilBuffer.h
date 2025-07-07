@@ -5,14 +5,21 @@
 #include "VulkanGraphicsImageView.h"
 
 #include <memory>
+#include <set>
 
 #include <vulkan/vulkan.h>
 
 namespace vgfx
 {
+    using PickDepthStencilFormatFunc = std::function<VkFormat(const std::set<VkFormat>& candidates)>;
+
     class DepthStencilBuffer
     {
     public:
+        static VkFormat PickFormat(
+            VkPhysicalDevice physicalDevice,
+            PickDepthStencilFormatFunc pickFormatFunc);
+
         struct Config
         {
             uint32_t width = 0u;

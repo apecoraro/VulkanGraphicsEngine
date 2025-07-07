@@ -62,14 +62,14 @@ VkBool32 Application::onValidationError(
     return m_validationLayerFunc(flags, objType, obj, location, code, pLayerPrefix, pMsg);
 }
 
-const WindowRenderer::SwapChainConfig& WindowApplication::CreateSwapChainConfig(
+SwapChain::Config WindowApplication::CreateSwapChainConfig(
     uint32_t imageCount,
     uint32_t width, uint32_t height,
     uint32_t imageUsageFlags,
     VkSurfaceFormatKHR surfaceFormat,
-    const std::vector<VkFormat>& preferredDepthStencilFormats)
+    std::vector<VkFormat> preferredDepthStencilFormats)
 {
-    WindowRenderer::SwapChainConfig swapChainConfig;
+    SwapChain::Config swapChainConfig;
     if (imageCount > 0u) {
         swapChainConfig.imageCount = imageCount;
     }
@@ -87,16 +87,8 @@ const WindowRenderer::SwapChainConfig& WindowApplication::CreateSwapChainConfig(
 
     swapChainConfig.imageFormat = surfaceFormat;
 
-    swapChainConfig.pickDepthStencilFormat =
-        [preferredDepthStencilFormats](const std::set<VkFormat>& formats) {
-            for (const auto& preferredDepthStencilFormat : preferredDepthStencilFormats) {
-                if (formats.find(preferredDepthStencilFormat) != formats.end()) {
-                    return preferredDepthStencilFormat;
-                }
-            }
-            throw std::runtime_error("Failed to find suitable depth stencil format!");
-            return VK_FORMAT_MAX_ENUM;
-        };
+    swapChainConfig.preferredDepthStencilFormats = preferredDepthStencilFormats;
+
     return swapChainConfig;
 }
 
@@ -104,16 +96,16 @@ WindowApplication::WindowApplication(
     const Context::AppConfig& appConfig,
     const Context::InstanceConfig& instanceConfig,
     const Context::DeviceConfig& deviceConfig,
-    const WindowRenderer::SwapChainConfig& swapChainConfig,
+    const SwapChain::Config& swapChainConfig,
     void* pWindow,
-    CreateVulkanSurfaceFunc createVulkanSurface)
+    CreateVulkanSurfaceFunc createVulkanSurfaceFunc)
     : Application(
         appConfig,
         instanceConfig,
         deviceConfig)
     , m_swapChainConfig(swapChainConfig)
     , m_pWindow(pWindow)
-    , m_createVulkanSurface(createVulkanSurface)
+    , m_createVulkanSurface(createVulkanSurfaceFunc)
 {
 }
 
@@ -122,13 +114,7 @@ std::unique_ptr<Renderer> WindowApplication::createRenderer(
     const Context::InstanceConfig& instanceConfig,
     const Context::DeviceConfig& deviceConfig)
 {
-    return std::make_unique<WindowRenderer>(
-        m_swapChainConfig,
-        std::make_unique<SwapChain>(
-            m_pWindow,
-            m_swapChainConfig.imageExtent.has_value() ? m_swapChainConfig.imageExtent.value().width : 800,
-            m_swapChainConfig.imageExtent.has_value() ? m_swapChainConfig.imageExtent.value().height : 600,
-            m_createVulkanSurface));
+    return std::make_unique<WindowRenderer>(m_swapChainConfig, m_pWindow, m_createVulkanSurface);
 }
 
 // How does this get called? Also the Application needs to set the debug validation layers based on the app config
@@ -144,8 +130,13 @@ void WindowApplication::init(
     Application::init(appConfig, instanceConfig, deviceConfig);
 
     m_pWindowRenderer = reinterpret_cast<WindowRenderer*>(m_spRenderer.get());
-    m_pWindowRenderer->init(
-        m_graphicsContext,
-        m_swapChainConfig.imageCount.value());
+    m_pWindowRenderer->init(m_swapChainConfig.imageCount.value());
+}
+
+void vgfx::WindowApplication::resizeWindow(int32_t width, int32_t height)
+{
+    m_pWindowRenderer->resizeWindow(width, height);
+
+    // TODO somehow notify m_spSceneRoot that resize has happened.
 }
 

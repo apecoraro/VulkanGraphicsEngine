@@ -58,12 +58,12 @@ namespace vgfx
     class WindowApplication : public Application
     {
     public:
-        static const WindowRenderer::SwapChainConfig& CreateSwapChainConfig(
+        static SwapChain::Config CreateSwapChainConfig(
             uint32_t imageCount=3,
             uint32_t width=0, uint32_t height=0,
             uint32_t imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
             VkSurfaceFormatKHR surfaceFormat = { VK_FORMAT_R16G16B16A16_SFLOAT, VK_COLORSPACE_SRGB_NONLINEAR_KHR },
-            const std::vector<VkFormat>& preferredDepthStencilFormats = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT });
+            std::vector<VkFormat> preferredDepthStencilFormats = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT });
 
         WindowApplication() = delete;
 
@@ -73,9 +73,9 @@ namespace vgfx
             const Context::AppConfig& appConfig,
             const Context::InstanceConfig& instanceConfig,
             const Context::DeviceConfig& deviceConfig,
-            const WindowRenderer::SwapChainConfig& swapChainConfig,
+            const SwapChain::Config& swapChainConfig,
             void* pWindow,
-            CreateVulkanSurfaceFunc createVulkanSurface);
+            CreateVulkanSurfaceFunc createVulkanSurfaceFunc);
 
         const WindowRenderer& getRenderer() const { return *m_pWindowRenderer; }
         WindowRenderer& getRenderer() { return *m_pWindowRenderer; }
@@ -94,7 +94,9 @@ namespace vgfx
             const Context::InstanceConfig& instanceConfig,
             const Context::DeviceConfig& deviceConfig) override;
 
-        WindowRenderer::SwapChainConfig m_swapChainConfig;
+        void resizeWindow(int32_t width, int32_t height);
+
+        SwapChain::Config m_swapChainConfig;
         void* m_pWindow = nullptr;
         CreateVulkanSurfaceFunc m_createVulkanSurface;
         WindowRenderer* m_pWindowRenderer = nullptr;
