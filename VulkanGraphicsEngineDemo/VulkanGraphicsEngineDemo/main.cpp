@@ -45,7 +45,7 @@ static void ParseCommandLine(
             ShowHelpAndExit();
         } else if (_stricmp(argv[i], "-s") == 0) {
             if (++i == argc) {
-                ShowHelpAndExit("-m");
+                ShowHelpAndExit("-s");
             }
             *pSceneFilename = argv[i];
             continue;
@@ -57,6 +57,7 @@ static void ParseCommandLine(
             continue;
         } else if (_stricmp(argv[i], "-v") == 0) {
             *pEnableValidationLayers = true;
+            continue;
         }
         ShowHelpAndExit(argv[i]);
     }
