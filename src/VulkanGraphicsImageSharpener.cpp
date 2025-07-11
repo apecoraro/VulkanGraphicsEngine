@@ -59,7 +59,7 @@ namespace vgfx
         updateSharpness(sharpnessVal);
     }
 
-    void ImageSharpener::createRenderingResources(DescriptorPool& pool)
+    void ImageSharpener::init(DescriptorPool& pool)
     {
         m_descriptorSets.clear();
         m_descriptorSets.resize(m_swapChainImageCount);

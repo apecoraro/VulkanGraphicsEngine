@@ -19,20 +19,20 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 }
 
 Application::Application(
+    CreateRendererFunc createRendererFunc,
+    ConfigFunc configFunc,
     const Context::AppConfig& appConfig,
     const Context::InstanceConfig& instanceConfig,
     const Context::DeviceConfig& deviceConfig)
     : m_validationLayerFunc(appConfig.onValidationLayerFunc)
 {
-    init(appConfig, instanceConfig, deviceConfig);
-}
+    Context::AppConfig appConfigFinal = appConfig;
+    Context::InstanceConfig instanceConfigFinal = instanceConfig;
+    Context::DeviceConfig deviceConfigFinal = deviceConfig;
 
-void Application::init(
-    const Context::AppConfig& appConfig,
-    const Context::InstanceConfig& instanceConfig,
-    const Context::DeviceConfig& deviceConfig)
-{
-    m_spRenderer = createRenderer(appConfig, instanceConfig, deviceConfig);
+    m_spRenderer = createRendererFunc(appConfigFinal, instanceConfigFinal, deviceConfigFinal);
+
+    configFunc(appConfigFinal, instanceConfigFinal, deviceConfigFinal);
 
     m_graphicsContext.init(
         appConfig,
@@ -98,8 +98,31 @@ WindowApplication::WindowApplication(
     const Context::DeviceConfig& deviceConfig,
     const SwapChain::Config& swapChainConfig,
     void* pWindow,
-    CreateVulkanSurfaceFunc createVulkanSurfaceFunc)
+    CreateVulkanSurfaceFunc createVulkanSurfaceFunc,
+    CreateWindowRendererFunc createRendererFunc,
+    ConfigFunc configFunc)
     : Application(
+        [&](Context::AppConfig& appConfig,
+            Context::InstanceConfig& instanceConfig,
+            Context::DeviceConfig& deviceConfig) {
+                if (createRendererFunc != nullptr) {
+                    SwapChain::Config swapChainConfigFinal = swapChainConfig;
+                    return createRendererFunc(appConfig, instanceConfig, deviceConfig, swapChainConfigFinal, pWindow, createVulkanSurfaceFunc);
+                }
+                else {
+                    return std::make_unique<WindowRenderer>(m_graphicsContext, swapChainConfig, createVulkanSurfaceFunc);
+                }
+        },
+        [&](Context::AppConfig& appConfig,
+            Context::InstanceConfig& instanceConfig,
+            Context::DeviceConfig& deviceConfig)
+        {
+            deviceConfig.graphicsQueueRequired = true;
+            deviceConfig.requiredDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+            if (configFunc != nullptr) {
+                configFunc(appConfig, instanceConfig, deviceConfig);
+            }
+        },
         appConfig,
         instanceConfig,
         deviceConfig)
@@ -107,30 +130,8 @@ WindowApplication::WindowApplication(
     , m_pWindow(pWindow)
     , m_createVulkanSurface(createVulkanSurfaceFunc)
 {
-}
-
-std::unique_ptr<Renderer> WindowApplication::createRenderer(
-    const Context::AppConfig& appConfig,
-    const Context::InstanceConfig& instanceConfig,
-    const Context::DeviceConfig& deviceConfig)
-{
-    return std::make_unique<WindowRenderer>(m_graphicsContext, m_swapChainConfig, m_createVulkanSurface);
-}
-
-// How does this get called? Also the Application needs to set the debug validation layers based on the app config
-void WindowApplication::init(
-    const Context::AppConfig& appConfig,
-    const Context::InstanceConfig& instanceConfig,
-    const Context::DeviceConfig& deviceConfig)
-{
-    vgfx::Context::DeviceConfig deviceConfigFinal = deviceConfig;
-    deviceConfigFinal.graphicsQueueRequired = true;
-    deviceConfigFinal.requiredDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-
-    Application::init(appConfig, instanceConfig, deviceConfig);
-
     m_pWindowRenderer = reinterpret_cast<WindowRenderer*>(m_spRenderer.get());
-    m_pWindowRenderer->init(m_swapChainConfig.imageCount.value());
+    m_pWindowRenderer->init(swapChainConfig.imageCount.value());
 }
 
 void vgfx::WindowApplication::resizeWindow(int32_t width, int32_t height)

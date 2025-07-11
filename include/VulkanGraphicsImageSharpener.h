@@ -52,7 +52,7 @@ namespace vgfx
 
         const ComputeShader& getComputeShader() const { return *m_spSharpenCS.get(); }
 
-        void createRenderingResources(DescriptorPool& pool);
+        void init(DescriptorPool& pool);
     
         void updateSharpness(float sharpnessVal);
 

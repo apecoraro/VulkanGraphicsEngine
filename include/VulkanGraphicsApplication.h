@@ -14,7 +14,20 @@ namespace vgfx
     {
     public:
         Application() = delete;
+
+        using CreateRendererFunc = std::function<std::unique_ptr<Renderer>(
+            Context::AppConfig& appConfig,
+            Context::InstanceConfig& instanceConfig,
+            Context::DeviceConfig& deviceConfig)>;
+
+        using ConfigFunc = std::function<void(
+            Context::AppConfig& appConfig,
+            Context::InstanceConfig& instanceConfig,
+            Context::DeviceConfig& deviceConfig)>;
+
         Application(
+            CreateRendererFunc createRendererFunc,
+            ConfigFunc initFunc,
             const Context::AppConfig& appConfig,
             const Context::InstanceConfig& instanceConfig,
             const Context::DeviceConfig& deviceConfig);
@@ -38,16 +51,6 @@ namespace vgfx
         virtual void run() = 0;
 
     protected:
-        virtual std::unique_ptr<Renderer> createRenderer(
-            const Context::AppConfig& appConfig,
-            const Context::InstanceConfig& instanceConfig,
-            const Context::DeviceConfig& deviceConfig) = 0;
-
-        virtual void init(
-            const Context::AppConfig& appConfig,
-            const Context::InstanceConfig& instanceConfig,
-            const Context::DeviceConfig& deviceConfig);
-
         Context m_graphicsContext;
         Context::ValidationLayerFunc m_validationLayerFunc = nullptr;
         std::unique_ptr<Renderer> m_spRenderer;
@@ -69,13 +72,23 @@ namespace vgfx
 
         using CreateVulkanSurfaceFunc = std::function<VkResult(VkInstance, void*, const VkAllocationCallbacks*, VkSurfaceKHR*)>;
 
+        using CreateWindowRendererFunc = std::function<std::unique_ptr<WindowRenderer>(
+            Context::AppConfig& appConfig,
+            Context::InstanceConfig& instanceConfig,
+            Context::DeviceConfig& deviceConfig,
+            SwapChain::Config& swapChainConfig,
+            void* pWindow,
+            CreateVulkanSurfaceFunc createVulkanSurfaceFunc)>;
+
         WindowApplication(
             const Context::AppConfig& appConfig,
             const Context::InstanceConfig& instanceConfig,
             const Context::DeviceConfig& deviceConfig,
             const SwapChain::Config& swapChainConfig,
             void* pWindow,
-            CreateVulkanSurfaceFunc createVulkanSurfaceFunc);
+            CreateVulkanSurfaceFunc createVulkanSurfaceFunc,
+            CreateWindowRendererFunc createRendererFunc=nullptr,
+            ConfigFunc configFunc=nullptr);
 
         const WindowRenderer& getRenderer() const { return *m_pWindowRenderer; }
         WindowRenderer& getRenderer() { return *m_pWindowRenderer; }
@@ -88,11 +101,11 @@ namespace vgfx
         std::unique_ptr<Renderer> createRenderer(
             const Context::AppConfig& appConfig,
             const Context::InstanceConfig& instanceConfig,
-            const Context::DeviceConfig& deviceConfig) override;
+            const Context::DeviceConfig& deviceConfig);
         void init(
             const Context::AppConfig& appConfig,
             const Context::InstanceConfig& instanceConfig,
-            const Context::DeviceConfig& deviceConfig) override;
+            const Context::DeviceConfig& deviceConfig);
 
         void resizeWindow(int32_t width, int32_t height);
 
