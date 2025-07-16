@@ -133,7 +133,7 @@ namespace vgfx
 
         Context& getContext() { return m_context; }
 
-        virtual void init(uint32_t frameBufferingCount);
+        void initGraphicsResources(uint32_t frameBufferingCount);
 
         // Records command buffer(s) to draw the scene in its current state.
         VkResult renderFrame(SceneNode& scene);
@@ -203,6 +203,7 @@ namespace vgfx
         WindowRenderer(
             Context& context,
             const SwapChain::Config& swapChainConfig,
+            void* pWindow,
             CreateVulkanSurfaceFunc createVulkanSurfaceFunc,
             ChooseImageCountFunc chooseImageCountFunc = nullptr,
             ChooseImageExtentFunc chooseWindowExtentFunc = nullptr,
@@ -210,6 +211,7 @@ namespace vgfx
             ChoosePresentModeFunc choosePresentModeFunc = nullptr)
             : Renderer(context, true) // requires present queue
             , m_swapChainConfig(swapChainConfig)
+            , m_pWindow(pWindow)
             , m_createVulkanSurfaceFunc(createVulkanSurfaceFunc)
             , m_chooseImageCountFunc(chooseImageCountFunc)
             , m_chooseWindowExtentFunc(chooseWindowExtentFunc)
@@ -238,7 +240,7 @@ namespace vgfx
 
         const SwapChain::Config& getSwapChainConfig() const { return m_swapChainConfig; }
 
-        void init(uint32_t frameBufferingCount) override;
+        void initSwapChain();
 
         std::unique_ptr<Camera> createCamera(uint32_t frameBufferingCount) override;
 
@@ -247,7 +249,7 @@ namespace vgfx
 
         VkResult endRenderFrame(QueueSubmitInfo& submitInfo);
 
-        void resizeWindow(int32_t width, int32_t height);
+        void resizeWindow(uint32_t width, uint32_t height);
 
     private:
         void preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) override;

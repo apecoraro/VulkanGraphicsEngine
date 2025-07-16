@@ -92,7 +92,7 @@ namespace vgfx
         if (outputAttachments.has_value() && inputs.has_value() && inputs.value().size() > 0u) {
             ValidateAttachmentIndices(outputAttachments.value(), inputs.value());
         }
-        // Build the VkAttachmentDescriptions (requires samples, load & store op, init & final layout)
+        // Build the VkAttachmentDescriptions (requires samples, load & store op, initSwapChain & final layout)
         // Build VkAttachmentReferences (requires iteration over swap chain image indices (add support) and depth)
         RenderPass::Config curPass;
         curPass.subpasses.push_back(RenderPass::SubpassDescription());

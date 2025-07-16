@@ -102,12 +102,12 @@ namespace vgfx
             const Context::AppConfig& appConfig,
             const Context::InstanceConfig& instanceConfig,
             const Context::DeviceConfig& deviceConfig);
-        void init(
+        void initSwapChain(
             const Context::AppConfig& appConfig,
             const Context::InstanceConfig& instanceConfig,
             const Context::DeviceConfig& deviceConfig);
 
-        void resizeWindow(int32_t width, int32_t height);
+        void resizeWindow(uint32_t width, uint32_t height);
 
         SwapChain::Config m_swapChainConfig;
         void* m_pWindow = nullptr;

@@ -370,16 +370,16 @@ namespace vgfx
         }
     }
 
-    void WindowRenderer::init(uint32_t frameBufferingCount)
+    void WindowRenderer::initSwapChain()
     {
         m_spSwapChain =
             std::make_unique<SwapChain>(m_context, m_surface, m_swapChainConfig);
 
         // Don't know how many images were created until after creation, so have
         // to query to get this value even though we passed it in.
-        frameBufferingCount = static_cast<uint32_t>(m_spSwapChain->getImageAvailableSemaphoreCount());
+        uint32_t frameBufferingCount = static_cast<uint32_t>(m_spSwapChain->getImageAvailableSemaphoreCount());
 
-        Renderer::init(frameBufferingCount);
+        Renderer::initGraphicsResources(frameBufferingCount);
 
         m_renderFinishedSemaphores.reserve(frameBufferingCount);
         for (size_t i = 0; i < frameBufferingCount; ++i) {
@@ -539,20 +539,20 @@ namespace vgfx
             pSwapChainImageIndex);
     }
 
-    void WindowRenderer::resizeWindow(int32_t width, int32_t height)
+    void WindowRenderer::resizeWindow(uint32_t width, uint32_t height)
     {
         m_context.waitForDeviceToIdle();
 
         VkExtent2D windowWidthHeight {
-            .width = static_cast<uint32_t>(width),
-            .height = static_cast<uint32_t>(height)
+            .width = width,
+            .height = height
         };
         m_swapChainConfig.imageExtent = windowWidthHeight;
         m_spSwapChain->recreate(m_surface, m_swapChainConfig);
         m_spCamera = createCamera(static_cast<uint32_t>(m_spSwapChain->getImageCount()));
     }
 
-    void Renderer::init(uint32_t frameBufferingCount)
+    void Renderer::initGraphicsResources(uint32_t frameBufferingCount)
     {
         m_frameBufferingCount = frameBufferingCount;
 

@@ -35,9 +35,9 @@ Application::Application(
     configFunc(appConfigFinal, instanceConfigFinal, deviceConfigFinal);
 
     m_graphicsContext.init(
-        appConfig,
-        instanceConfig,
-        deviceConfig,
+        appConfigFinal,
+        instanceConfigFinal,
+        deviceConfigFinal,
         m_spRenderer.get());
 
     if (appConfig.enableValidationLayers) {
@@ -110,7 +110,7 @@ WindowApplication::WindowApplication(
                     return createRendererFunc(appConfig, instanceConfig, deviceConfig, swapChainConfigFinal, pWindow, createVulkanSurfaceFunc);
                 }
                 else {
-                    return std::make_unique<WindowRenderer>(m_graphicsContext, swapChainConfig, createVulkanSurfaceFunc);
+                    return std::make_unique<WindowRenderer>(m_graphicsContext, swapChainConfig, pWindow, createVulkanSurfaceFunc);
                 }
         },
         [&](Context::AppConfig& appConfig,
@@ -131,10 +131,12 @@ WindowApplication::WindowApplication(
     , m_createVulkanSurface(createVulkanSurfaceFunc)
 {
     m_pWindowRenderer = reinterpret_cast<WindowRenderer*>(m_spRenderer.get());
-    m_pWindowRenderer->init(swapChainConfig.imageCount.value());
+    // Swap chain creation has to happen after the graphics context is fully
+    // initialized by the Application parent class.
+    m_pWindowRenderer->initSwapChain();
 }
 
-void vgfx::WindowApplication::resizeWindow(int32_t width, int32_t height)
+void vgfx::WindowApplication::resizeWindow(uint32_t width, uint32_t height)
 {
     m_pWindowRenderer->resizeWindow(width, height);
 

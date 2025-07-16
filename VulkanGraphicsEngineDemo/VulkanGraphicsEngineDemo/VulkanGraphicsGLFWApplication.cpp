@@ -29,7 +29,7 @@ static VkResult CreateWindowSurfaceCallback(VkInstance vulkanInstance, void* win
     return glfwCreateWindowSurface(vulkanInstance, (GLFWwindow*)window, pAllocCallbacks, pSurfaceOut);
 }
 
-static void GetFrameBufferSize(void* window, int* pWidth, int* pHeight)
+static void GetFrameBufferSize(void* window, uint32_t* pWidth, uint32_t* pHeight)
 {
     int width = 0, height = 0;
     glfwGetFramebufferSize((GLFWwindow*)window, &width, &height);
@@ -38,8 +38,8 @@ static void GetFrameBufferSize(void* window, int* pWidth, int* pHeight)
         glfwWaitEvents();
     }
 
-    *pWidth = width;
-    *pHeight = height;
+    *pWidth = static_cast<uint32_t>(width);
+    *pHeight = static_cast<uint32_t>(height);
 }
 
 GLFWApplication::GLFWApplication(
@@ -63,15 +63,14 @@ GLFWApplication::GLFWApplication(
         {
             GLFWwindow* pGlfwWindow = reinterpret_cast<GLFWwindow*>(pWindow);
             if (!swapChainConfig.imageExtent.has_value()) {
-                int32_t windowWidth, windowHeight;
+                VkExtent2D windowExtent;
                 // Current size of window is used as default if SwapChainConfig::imageExtent is not specified.
-                GetFrameBufferSize(pGlfwWindow, &windowWidth, &windowHeight);
+                GetFrameBufferSize(pGlfwWindow, &windowExtent.width, &windowExtent.height);
 
-                swapChainConfig.imageExtent->width = windowWidth;
-                swapChainConfig.imageExtent->height = windowHeight;
+                swapChainConfig.imageExtent = windowExtent;
             }
 
-            return std::make_unique<vgfx::WindowRenderer>(m_graphicsContext, swapChainConfig, createVulkanSurfaceFunc);
+            return std::make_unique<vgfx::WindowRenderer>(m_graphicsContext, swapChainConfig, pWindow, createVulkanSurfaceFunc);
         },
         [&](vgfx::Context::AppConfig& appConfig,
             vgfx::Context::InstanceConfig& instanceConfig,
@@ -84,7 +83,6 @@ GLFWApplication::GLFWApplication(
                 instanceConfig.requiredExtensions.end(),
                 glfwExtensions,
                 glfwExtensions + glfwExtensionCount);
-
         })
 {
     m_pGLFWwindow = reinterpret_cast<GLFWwindow*>(m_pWindow);
@@ -109,7 +107,7 @@ void GLFWApplication::run()
         glfwPollEvents();
         VkResult result = renderer.renderFrame(*m_spSceneRoot.get());
         if (result == VK_ERROR_OUT_OF_DATE_KHR || m_frameBufferResized) {
-            int32_t width = 0, height = 0;
+            uint32_t width = 0u, height = 0u;
             GetFrameBufferSize(m_pGLFWwindow, &width, &height);
             resizeWindow(width, height);
         }
