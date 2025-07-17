@@ -126,5 +126,8 @@
     <None Include="shaders\TexturedBlinnPhongDebug.frag">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="shaders\compile.bat">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

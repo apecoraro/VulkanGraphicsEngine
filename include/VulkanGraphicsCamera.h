@@ -38,7 +38,7 @@ namespace vgfx
         void setProjection(const glm::mat4& proj)
         {
             m_proj = proj;
-            m_projUpdated = true;
+            m_projBufferNeedsUpdateCount = m_cameraMatrixBuffers.size();
         }
 
         Buffer& getProjectionBuffer() { return *m_cameraMatrixBuffers[m_currentBufferIndex].get(); }
@@ -55,13 +55,12 @@ namespace vgfx
 
     private:
         std::vector<std::unique_ptr<Buffer>> m_cameraMatrixBuffers;
+        size_t m_currentBufferIndex = 0u;
 
         glm::mat4 m_view = glm::identity<glm::mat4>();
         glm::mat4 m_proj = glm::identity<glm::mat4>();
-        bool m_projUpdated = true;
+        size_t m_projBufferNeedsUpdateCount = 0;
         VkViewport m_viewport = {};
         Pipeline::RasterizerConfig m_rasterizerConfig;
-
-        size_t m_currentBufferIndex = 0u;
     };
 }

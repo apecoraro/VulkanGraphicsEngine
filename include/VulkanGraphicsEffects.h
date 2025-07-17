@@ -116,12 +116,14 @@ namespace vgfx
                 const std::string& vtxShaderEntryPointFunc,
                 const std::vector<VertexBuffer::AttributeDescription>& vtxShaderInputs,
                 const std::string& fragShaderPath,
-                const std::string& fragShaderEntryPointFunc)
+                const std::string& fragShaderEntryPointFunc,
+                const std::vector<MeshEffect::ImageType>& imgTypes)
                 : vertexShaderPath(vtxShaderPath)
                 , vertexShaderEntryPointFunc(vtxShaderEntryPointFunc)
                 , vertexShaderInputs(vtxShaderInputs)
                 , fragmentShaderPath(fragShaderPath)
                 , fragmentShaderEntryPointFunc(fragShaderEntryPointFunc)
+                , imageTypes(imgTypes)
             {
             }
         };

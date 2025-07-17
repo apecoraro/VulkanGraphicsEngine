@@ -33,7 +33,7 @@ void main()
     inColor *= fragColor;
     
     outColor = vec4(0, 0, 0, 1);
-    for(int i = 0; i < lightCount; ++i)
+    for(int i = 0; i < lighting.lightCount; ++i)
     {
         vec3 vecToLight = lighting.lights[i].position.xyz - fragPos;
         // Distance from light to fragment position
@@ -65,5 +65,5 @@ void main()
         }
     }
     // Ambient part
-    outColor += ambient;
+    outColor += lighting.ambient;
 }

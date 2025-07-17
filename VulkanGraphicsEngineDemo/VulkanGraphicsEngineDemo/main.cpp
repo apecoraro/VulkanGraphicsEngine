@@ -77,6 +77,8 @@ int main(int argc, char** argv)
 
     vgfx::Context::AppConfig appConfig("Demo");
     appConfig.enableValidationLayers = enableValidationLayers;
+    appConfig.dataDirectoryPath = dataDirPath;
+
     vgfx::Context::InstanceConfig instanceConfig;
     vgfx::Context::DeviceConfig deviceConfig;
     vgfx::SwapChain::Config swapChainConfig;

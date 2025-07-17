@@ -97,6 +97,7 @@
     <None Include="dependencies\AMD_FidelityEffects\CAS_Shader.glsl" />
     <None Include="dependencies\AMD_FidelityEffects\compile_fidelity_effects.bat" />
     <None Include="dependencies\AMD_FidelityEffects\SPDIntegrationLinearSampler.glsl" />
+    <None Include="shaders\compile.bat" />
     <None Include="shaders\compile.sh" />
     <None Include="shaders\MvpTransform_RgbUv_Out.vert" />
     <None Include="shaders\MvpTransform_XyzRgbUvNormal_Out.vert" />

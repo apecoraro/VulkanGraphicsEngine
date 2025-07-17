@@ -34,7 +34,7 @@ std::unique_ptr<SceneNode> SceneLoader::loadScene(const std::string&)
 
     std::unique_ptr<Object> spGraphicsObject = std::make_unique<Object>();
 
-    std::string dataPath = "../../data";
+    const std::string& dataPath = m_graphicsContext.getAppConfig().dataDirectoryPath;
     std::string modelPath = "SHAPE_SPHERE";
     std::string modelDiffuseTexName = "albedo.png";
     std::string vertexShader = "MvpTransform_XyzRgbUvNormal_Out.vert.spv";
@@ -43,20 +43,21 @@ std::unique_ptr<SceneNode> SceneLoader::loadScene(const std::string&)
     std::string vertexShaderEntryPointFunc = "main";
     std::string fragmentShaderEntryPointFunc = "main";
 
-    vgfx::EffectsLibrary::MeshEffectDesc meshEffectDesc(
+    EffectsLibrary::MeshEffectDesc meshEffectDesc(
         vertexShader,
         vertexShaderEntryPointFunc,
-        vgfx::VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions, // TODO should use reflection for this.
+        VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions, // TODO should use reflection for this.
         fragmentShader,
-        fragmentShaderEntryPointFunc);
+        fragmentShaderEntryPointFunc,
+        { MeshEffect::ImageType::Diffuse });
 
-    vgfx::MeshEffect& meshEffect =
-        vgfx::EffectsLibrary::GetOrLoadEffect(m_graphicsContext, meshEffectDesc);
+    MeshEffect& meshEffect =
+        EffectsLibrary::GetOrLoadEffect(m_graphicsContext, meshEffectDesc);
 
-    vgfx::ModelLibrary::ModelDesc modelDesc;
+    ModelLibrary::ModelDesc modelDesc;
     modelDesc.modelPathOrShapeName = modelPath;
     if (!modelDiffuseTexName.empty()) {
-        modelDesc.imageOverrides[vgfx::MeshEffect::ImageType::Diffuse] = modelDiffuseTexName;
+        modelDesc.imageOverrides[MeshEffect::ImageType::Diffuse] = modelDiffuseTexName;
     }
 
     glm::mat4 modelWorldTransform = glm::identity<glm::mat4>();

@@ -338,38 +338,36 @@ namespace vgfx
             &spVertexBuffer, &spIndexBuffer);
 
         std::map<MeshEffect::ImageType, std::pair<const ImageView*, const Sampler*>> imageSamplers;
-        if (!meshEffect.getImageTypes().empty()) {
-            for (auto imageType : meshEffect.getImageTypes()) {
-                std::string texturePath = context.getAppConfig().dataDirectoryPath + "/" + modelImages[imageType];
-                Image& image =
-                    getOrLoadImage(
-                        texturePath,
-                        context,
-                        commandBufferFactory,
-                        commandQueue);
+        for (auto imageType : meshEffect.getImageTypes()) {
+            std::string texturePath = context.getAppConfig().dataDirectoryPath + "/" + modelImages[imageType];
+            Image& image =
+                getOrLoadImage(
+                    texturePath,
+                    context,
+                    commandBufferFactory,
+                    commandQueue);
 
-                ImageView& imageView =
-                    (image.getOrCreateView(
-                        ImageView::Config(
-                            image.getFormat(), VK_IMAGE_VIEW_TYPE_2D)));
+            ImageView& imageView =
+                (image.getOrCreateView(
+                    ImageView::Config(
+                        image.getFormat(), VK_IMAGE_VIEW_TYPE_2D)));
 
-                uint32_t mipLevels =
-                    vgfx::Image::ComputeMipLevels2D(image.getWidth(), image.getHeight());
-                Sampler& sampler =
-                    getOrCreateSampler(
-                        vgfx::Sampler::Config(
-                            VK_FILTER_LINEAR,
-                            VK_FILTER_LINEAR,
-                            VK_SAMPLER_MIPMAP_MODE_LINEAR,
-                            0.0f, // min lod
-                            static_cast<float>(mipLevels),
-                            VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                            VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                            VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                            false, 0),
-                        context); // Last two parameters are for anisotropic filtering
-                imageSamplers[imageType] = std::make_pair<const ImageView*, const Sampler*>(&imageView, &sampler);
-            }
+            uint32_t mipLevels =
+                vgfx::Image::ComputeMipLevels2D(image.getWidth(), image.getHeight());
+            Sampler& sampler =
+                getOrCreateSampler(
+                    vgfx::Sampler::Config(
+                        VK_FILTER_LINEAR,
+                        VK_FILTER_LINEAR,
+                        VK_SAMPLER_MIPMAP_MODE_LINEAR,
+                        0.0f, // min lod
+                        static_cast<float>(mipLevels),
+                        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                        false, 0),
+                    context); // Last two parameters are for anisotropic filtering
+            imageSamplers[imageType] = std::make_pair<const ImageView*, const Sampler*>(&imageView, &sampler);
         }
         auto& models = m_drawableLibrary[modelPath];
         models.push_back(std::move(

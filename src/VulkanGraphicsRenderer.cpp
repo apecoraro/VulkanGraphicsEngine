@@ -377,7 +377,7 @@ namespace vgfx
 
         // Don't know how many images were created until after creation, so have
         // to query to get this value even though we passed it in.
-        uint32_t frameBufferingCount = static_cast<uint32_t>(m_spSwapChain->getImageAvailableSemaphoreCount());
+        uint32_t frameBufferingCount = m_spSwapChain->getImageCount();
 
         Renderer::initGraphicsResources(frameBufferingCount);
 
