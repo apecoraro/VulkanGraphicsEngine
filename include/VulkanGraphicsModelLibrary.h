@@ -64,7 +64,7 @@ namespace vgfx
 
         using FilePath = std::string;
 
-        using DrawableLibrary = std::unordered_map<FilePath, std::vector<std::unique_ptr<Drawable>>>;
+        using DrawableLibrary = std::unordered_map<FilePath, std::map<MeshEffectId, std::unique_ptr<Drawable>>>;
         DrawableLibrary m_drawableLibrary;
 
         using ImageLibrary = std::unordered_map<FilePath, std::unique_ptr<Image>>;

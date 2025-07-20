@@ -15,7 +15,7 @@ namespace vgfx
     class DescriptorPoolBuilder
     {
     public:
-        DescriptorPoolBuilder() = default;
+        DescriptorPoolBuilder(uint32_t initMaxSets = 1u) : m_maxSets(initMaxSets) {}
 
         DescriptorPoolBuilder& addDescriptors(VkDescriptorType type, uint32_t count);
         DescriptorPoolBuilder& addDescriptorSets(const DescriptorSetLayouts& descriptorSetLayouts, uint32_t perTypeScaleFactor);

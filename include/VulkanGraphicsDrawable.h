@@ -26,12 +26,12 @@ namespace vgfx
     public:
         Drawable(
             Context& context,
-            std::unique_ptr<VertexBuffer> spVertexBuffer,
-            std::unique_ptr<IndexBuffer> spIndexBuffer,
+            VertexBuffer& vertexBuffer,
+            IndexBuffer& indexBuffer,
             const MeshEffect& meshEffect,
             const ImageSamplerMap& imageSamplers)
-            : m_spVertexBuffer(std::move(spVertexBuffer))
-            , m_spIndexBuffer(std::move(spIndexBuffer))
+            : m_vertexBuffer(vertexBuffer)
+            , m_indexBuffer(indexBuffer)
             , m_meshEffect(meshEffect)
             , m_imageSamplers(imageSamplers)
         {
@@ -40,11 +40,11 @@ namespace vgfx
 
         void draw(DrawContext& recorder);
 
-        const VertexBuffer& getVertexBuffer() const { return *m_spVertexBuffer.get(); }
-        VertexBuffer& getVertexBuffer() { return *m_spVertexBuffer.get(); }
+        const VertexBuffer& getVertexBuffer() const { return m_vertexBuffer; }
+        VertexBuffer& getVertexBuffer() { return m_vertexBuffer; }
 
-        const IndexBuffer& getIndexBuffer() const { return *m_spIndexBuffer.get(); }
-        IndexBuffer& getIndexBuffer() { return *m_spIndexBuffer.get(); }
+        const IndexBuffer& getIndexBuffer() const { return m_indexBuffer; }
+        IndexBuffer& getIndexBuffer() { return m_indexBuffer; }
 
         const MeshEffect& getMeshEffect() const { return m_meshEffect; }
  
@@ -67,8 +67,8 @@ namespace vgfx
 
     private:
 
-        std::unique_ptr<VertexBuffer> m_spVertexBuffer;
-        std::unique_ptr<IndexBuffer> m_spIndexBuffer;
+        VertexBuffer& m_vertexBuffer;
+        IndexBuffer& m_indexBuffer;
         const MeshEffect& m_meshEffect;
         std::map<MeshEffect::ImageType, std::pair<const ImageView*, const Sampler*>> m_imageSamplers;
         glm::mat4 m_worldTransform = glm::identity<glm::mat4>();

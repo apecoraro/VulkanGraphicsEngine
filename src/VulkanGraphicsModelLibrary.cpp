@@ -274,68 +274,74 @@ namespace vgfx
 
         // make a copy of the override paths (if any) so that we can add the model file's images if there are some.
         ModelDesc::Images modelImages = model.imageOverrides;
-       
-        std::vector<uint8_t> vertices;
-        std::vector<uint32_t> indices;
-        ShapeType shapeType = ShapeType::NONE;
-        VertexBuffer::Config vertexBufferCfg;
-        if (ModelIsShape(model.modelPathOrShapeName, &shapeType)) {
-            if (!LoadShapeModel(shapeType, &vertices, &indices, &vertexBufferCfg)) {
-                std::string error = "Unknown shape type: " + model.modelPathOrShapeName;
-                throw std::runtime_error(error);
-            }
-        } else {
-            tinyobj::attrib_t attrib;
-            std::vector<tinyobj::shape_t> shapes;
-            std::vector<tinyobj::material_t> materials;
-            std::string warn, err;
 
-            if (!tinyobj::LoadObj(
+        VertexBuffer* pVertexBuffer;
+        IndexBuffer* pIndexBuffer;
+        // TODO implement getModelData
+        if (!getModelData(model.modelPathOrShapeName, &pVertexBuffer, &pIndexBuffer, &modelImages)) {
+
+            std::vector<uint8_t> vertices;
+            std::vector<uint32_t> indices;
+            ShapeType shapeType = ShapeType::NONE;
+            VertexBuffer::Config vertexBufferCfg;
+            if (ModelIsShape(model.modelPathOrShapeName, &shapeType)) {
+                if (!LoadShapeModel(shapeType, &vertices, &indices, &vertexBufferCfg)) {
+                    std::string error = "Unknown shape type: " + model.modelPathOrShapeName;
+                    throw std::runtime_error(error);
+                }
+            }
+            else {
+                tinyobj::attrib_t attrib;
+                std::vector<tinyobj::shape_t> shapes;
+                std::vector<tinyobj::material_t> materials;
+                std::string warn, err;
+
+                if (!tinyobj::LoadObj(
                     &attrib, &shapes, &materials, &warn, &err,
                     modelPath.c_str())) {
-                throw std::runtime_error(warn + err);
-            }
-
-            // This is kind of crappy way to do this.
-            if (VertexBuffer::ComputeVertexStride(meshEffect.getVertexShaderInputs()) ==
-                    VertexBuffer::ComputeVertexStride(VertexXyzRgbUv::GetConfig().vertexAttrDescriptions)) {
-                CreateVertsFromShapes<VertexXyzRgbUv>(
-                    attrib,
-                    shapes,
-                    CreateXyzRgbUv,
-                    &vertices,
-                    &indices);
-
-                vertexBufferCfg = VertexXyzRgbUv::GetConfig();
-            } else if (VertexBuffer::ComputeVertexStride(meshEffect.getVertexShaderInputs()) ==
-                       VertexBuffer::ComputeVertexStride(VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions)) {
-                CreateVertsFromShapes<VertexXyzRgbUvN>(
-                    attrib,
-                    shapes,
-                    CreateXyzRgbUvN,
-                    &vertices,
-                    &indices);
-
-                vertexBufferCfg = VertexXyzRgbUvN::GetConfig();
-            } else {
-                assert(false && "Unkown vertex config.");
-            }
-
-            if (!materials.empty()) {
-                if (model.imageOverrides.find(MeshEffect::ImageType::Diffuse) == model.imageOverrides.end()) {
-                    modelImages[MeshEffect::ImageType::Diffuse] = materials.front().diffuse_texname;
+                    throw std::runtime_error(warn + err);
                 }
-                // TODO support other types of images.
+
+                // This is kind of crappy way to do this.
+                if (VertexBuffer::ComputeVertexStride(meshEffect.getVertexShaderInputs()) ==
+                    VertexBuffer::ComputeVertexStride(VertexXyzRgbUv::GetConfig().vertexAttrDescriptions)) {
+                    CreateVertsFromShapes<VertexXyzRgbUv>(
+                        attrib,
+                        shapes,
+                        CreateXyzRgbUv,
+                        &vertices,
+                        &indices);
+
+                    vertexBufferCfg = VertexXyzRgbUv::GetConfig();
+                }
+                else if (VertexBuffer::ComputeVertexStride(meshEffect.getVertexShaderInputs()) ==
+                    VertexBuffer::ComputeVertexStride(VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions)) {
+                    CreateVertsFromShapes<VertexXyzRgbUvN>(
+                        attrib,
+                        shapes,
+                        CreateXyzRgbUvN,
+                        &vertices,
+                        &indices);
+
+                    vertexBufferCfg = VertexXyzRgbUvN::GetConfig();
+                }
+                else {
+                    assert(false && "Unkown vertex config.");
+                }
+
+                if (!materials.empty()) {
+                    if (model.imageOverrides.find(MeshEffect::ImageType::Diffuse) == model.imageOverrides.end()) {
+                        modelImages[MeshEffect::ImageType::Diffuse] = materials.front().diffuse_texname;
+                    }
+                    // TODO support other types of images.
+                }
             }
+
+            CreateVertexBuffers(
+                vertices, indices, vertexBufferCfg,
+                context, commandBufferFactory, commandQueue,
+                &spVertexBuffer, &spIndexBuffer);
         }
-
-        std::unique_ptr<VertexBuffer> spVertexBuffer;
-        std::unique_ptr<IndexBuffer> spIndexBuffer;
-
-        CreateVertexBuffers(
-            vertices, indices, vertexBufferCfg,
-            context, commandBufferFactory, commandQueue,
-            &spVertexBuffer, &spIndexBuffer);
 
         std::map<MeshEffect::ImageType, std::pair<const ImageView*, const Sampler*>> imageSamplers;
         for (auto imageType : meshEffect.getImageTypes()) {
@@ -369,16 +375,14 @@ namespace vgfx
                     context); // Last two parameters are for anisotropic filtering
             imageSamplers[imageType] = std::make_pair<const ImageView*, const Sampler*>(&imageView, &sampler);
         }
-        auto& models = m_drawableLibrary[modelPath];
-        models.push_back(std::move(
+        auto& modelMap = m_drawableLibrary[modelPath];
+        return *(modelMap[meshEffect.getId()] =
             std::make_unique<Drawable>(
                 context,
-                std::move(spVertexBuffer),
-                std::move(spIndexBuffer),
+                *pVertexBuffer,
+                *pIndexBuffer,
                 meshEffect,
-                imageSamplers)));
-
-        return *models.back().get();
+                imageSamplers)).get();
     }
 
     IndexBuffer::Config& ModelLibrary::GetDefaultIndexBufferConfig()
@@ -388,12 +392,13 @@ namespace vgfx
 
     Drawable* ModelLibrary::findDrawable(const std::string& modelPath, const MeshEffect& meshEffect)
     {
-        const auto& findIt = m_drawableLibrary.find(modelPath);
-        if (findIt != m_drawableLibrary.end()) {
-            for (const auto& spDrawable : findIt->second) {
-                if (spDrawable->getMeshEffect().getId() == meshEffect.getId()) {
-                    return spDrawable.get();
-                }
+        // Drawables are stored by path and MeshEffect
+        const auto& findModels = m_drawableLibrary.find(modelPath);
+        if (findModels != m_drawableLibrary.end()) {
+            // Can reuse previously created Drawable meshes if they use the same MeshEffect
+            const auto& findDrawableMeshEffectMap = findModels->second.find(meshEffect.getId());
+            if (findDrawableMeshEffectMap  != findModels->second.end()) {
+                return findDrawableMeshEffectMap->second.get();
             }
         }
         return nullptr;

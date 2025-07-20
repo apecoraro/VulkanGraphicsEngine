@@ -78,7 +78,7 @@ namespace vgfx
         m_spComputePipeline = std::make_unique<ComputePipeline>(context, *m_spComputeShader.get());
 
         DescriptorPoolBuilder descriptorPoolBuilder;
-        descriptorPoolBuilder.addDescriptorSets(m_spComputeShader->getDescriptorSetLayouts(), 3);
+        descriptorPoolBuilder.addDescriptorSets(m_spComputeShader->getDescriptorSetLayouts(), 1u);
         m_spDescriptorPool = descriptorPoolBuilder.createPool(context);
 
         m_spDescriptorPool->allocateDescriptorSets(

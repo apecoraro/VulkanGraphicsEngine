@@ -21,7 +21,7 @@ namespace vgfx
             for (const auto& descBindingCfg : spDescSetLayout->getDescriptorBindings()) {
                 VkDescriptorPoolSize& poolSize = m_descriptorPoolSizes[descBindingCfg.second.descriptorType];
                 poolSize.type = descBindingCfg.second.descriptorType;
-                poolSize.descriptorCount += perTypeScaleFactor;
+                poolSize.descriptorCount += (descBindingCfg.second.arrayElementCount * perTypeScaleFactor);
             }
         }
         return *this;
