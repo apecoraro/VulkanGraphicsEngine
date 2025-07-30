@@ -289,8 +289,7 @@ namespace vgfx
                     std::string error = "Unknown shape type: " + model.modelPathOrShapeName;
                     throw std::runtime_error(error);
                 }
-            }
-            else {
+            } else {
                 tinyobj::attrib_t attrib;
                 std::vector<tinyobj::shape_t> shapes;
                 std::vector<tinyobj::material_t> materials;
@@ -313,8 +312,7 @@ namespace vgfx
                         &indices);
 
                     vertexBufferCfg = VertexXyzRgbUv::GetConfig();
-                }
-                else if (VertexBuffer::ComputeVertexStride(meshEffect.getVertexShaderInputs()) ==
+                } else if (VertexBuffer::ComputeVertexStride(meshEffect.getVertexShaderInputs()) ==
                     VertexBuffer::ComputeVertexStride(VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions)) {
                     CreateVertsFromShapes<VertexXyzRgbUvN>(
                         attrib,
@@ -324,8 +322,7 @@ namespace vgfx
                         &indices);
 
                     vertexBufferCfg = VertexXyzRgbUvN::GetConfig();
-                }
-                else {
+                } else {
                     assert(false && "Unkown vertex config.");
                 }
 
@@ -337,10 +334,17 @@ namespace vgfx
                 }
             }
 
+            auto& newModelData = m_modelDataLibrary[model.modelPathOrShapeName];
+
             CreateVertexBuffers(
                 vertices, indices, vertexBufferCfg,
                 context, commandBufferFactory, commandQueue,
-                &spVertexBuffer, &spIndexBuffer);
+                &newModelData.spVertexBuffer, &newModelData.spIndexBuffer);
+
+            newModelData.modelImages = modelImages;
+
+            pVertexBuffer = newModelData.spVertexBuffer.get();
+            pIndexBuffer = newModelData.spIndexBuffer.get();
         }
 
         std::map<MeshEffect::ImageType, std::pair<const ImageView*, const Sampler*>> imageSamplers;
@@ -388,6 +392,24 @@ namespace vgfx
     IndexBuffer::Config& ModelLibrary::GetDefaultIndexBufferConfig()
     {
         return DefaultIndexBufferConfig;
+    }
+
+    bool ModelLibrary::getModelData(
+        const std::string& modelPathOrShapeName,
+        VertexBuffer** ppVertexBuffer,
+        IndexBuffer** ppIndexBuffer,
+        ModelDesc::Images* pModelImages) const
+    {
+        auto findIt = m_modelDataLibrary.find(modelPathOrShapeName);
+        if (findIt != m_modelDataLibrary.end()) {
+            *ppVertexBuffer = findIt->second.spVertexBuffer.get();
+            *ppIndexBuffer = findIt->second.spIndexBuffer.get();
+            ModelDesc::Images copy = findIt->second.modelImages;
+            copy.insert(pModelImages->begin(), pModelImages->end());
+            pModelImages->swap(copy);
+            return true;
+        }
+        return false;
     }
 
     Drawable* ModelLibrary::findDrawable(const std::string& modelPath, const MeshEffect& meshEffect)

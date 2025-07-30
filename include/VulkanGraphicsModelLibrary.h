@@ -11,9 +11,9 @@
 #include "VulkanGraphicsSampler.h"
 #include "VulkanGraphicsVertexBuffer.h"
 
-#include <unordered_map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 namespace vgfx
 {
@@ -60,6 +60,12 @@ namespace vgfx
         static VertexBuffer::Config DefaultVertexBufferConfig;
         static IndexBuffer::Config DefaultIndexBufferConfig;
 
+        bool getModelData(
+            const std::string& modelPathOrShapeName,
+            VertexBuffer** ppVertexBuffer,
+            IndexBuffer** ppIndexBuffer,
+            ModelDesc::Images* pModelImages) const;
+
         Drawable* findDrawable(const std::string& modelPath, const MeshEffect& meshEffect);
 
         using FilePath = std::string;
@@ -75,6 +81,15 @@ namespace vgfx
 
         using SamplerLibrary = std::map<Sampler::Config, std::unique_ptr<Sampler>>;
         SamplerLibrary m_samplerLibrary;
+
+        struct ModelData
+        {
+            std::unique_ptr<VertexBuffer> spVertexBuffer;
+            std::unique_ptr<IndexBuffer> spIndexBuffer;
+            ModelDesc::Images modelImages;
+        };
+        using ModelDataLibrary = std::unordered_map<std::string, ModelData>;
+        ModelDataLibrary m_modelDataLibrary;
     };
 }
 

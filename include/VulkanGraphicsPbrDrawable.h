@@ -16,13 +16,13 @@ namespace vgfx
     private:
         PbrDrawable(
             Context& context,
-            std::unique_ptr<VertexBuffer> spVertexBuffer,
-            std::unique_ptr<IndexBuffer> spIndexBuffer,
+            VertexBuffer& vertexBuffer,
+            IndexBuffer& indexBuffer,
             const MeshEffect& meshEffect,
             const ImageSamplerMap& imageSamplers)
             : Drawable(context,
-                std::move(spVertexBuffer),
-                std::move(spIndexBuffer),
+                vertexBuffer,
+                indexBuffer,
                 meshEffect,
                 imageSamplers)
         {

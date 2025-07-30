@@ -109,7 +109,7 @@ void vgfx::Drawable::draw(DrawContext& drawContext)
         sizeof(pushConstants),
         static_cast<void*>(pushConstants));
 
-    VkBuffer vertexBuffers[] = { m_spVertexBuffer->getHandle() };
+    VkBuffer vertexBuffers[] = { m_vertexBuffer.getHandle() };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(
         commandBuffer,
@@ -120,13 +120,13 @@ void vgfx::Drawable::draw(DrawContext& drawContext)
 
     vkCmdBindIndexBuffer(
         commandBuffer,
-        m_spIndexBuffer->getHandle(),
+        m_indexBuffer.getHandle(),
         0, // Offset
-        m_spIndexBuffer->getType());
+        m_indexBuffer.getType());
 
     vkCmdDrawIndexed(
         commandBuffer,
-        m_spIndexBuffer->getCount(),
+        m_indexBuffer.getCount(),
         1, // instance count
         0, // first index
         0, // vertex offset

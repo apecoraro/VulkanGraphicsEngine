@@ -14,6 +14,7 @@
 
 namespace vgfx
 {
+    // TODO test this code
     VkResult Renderer::renderFrame(SceneNode& scene)
     {
         size_t frameInFlight = m_frameIndex % m_frameBufferingCount;
