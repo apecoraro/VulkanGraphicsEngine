@@ -14,7 +14,6 @@
 
 namespace vgfx
 {
-    // TODO test this code
     VkResult Renderer::renderFrame(SceneNode& scene)
     {
         size_t frameInFlight = m_frameIndex % m_frameBufferingCount;
@@ -47,6 +46,8 @@ namespace vgfx
             &m_spCamera->getProjectionBuffer(),
             m_spCamera->getViewport(),
             m_spCamera->getRasterizerConfig());
+
+        drawState.sceneState.pLightsBuffer = m_lightsBuffers[frameInFlight].get();
 
         scene.draw(drawState);
 
@@ -567,8 +568,15 @@ namespace vgfx
             std::make_unique<CommandBufferFactory>(
                 m_context, m_context.getGraphicsQueueFamilyIndex());
 
-        Buffer::Config lightsBufferCfg(
-            (sizeof(LightState) * 2) + sizeof(int) + sizeof(float) + sizeof(glm::vec3));
+        struct LightingUniforms
+        {
+            LightState lights[2];
+            int lightCount;
+            float ambient;
+            glm::vec3 viewPos;
+        };
+
+        Buffer::Config lightsBufferCfg(sizeof(LightingUniforms) * 10);
         for (size_t i = 0; i < frameBufferingCount; ++i) {
             m_descriptorPools.emplace_back(poolBuilder.createPool(m_context));
 

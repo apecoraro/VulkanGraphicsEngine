@@ -34,12 +34,14 @@ namespace vgfx
         VkViewport viewport;
         Pipeline::RasterizerConfig rasterizerConfig;
     };
+
     struct LightState
     {
         glm::vec4 position;
         glm::vec3 color;
         float radius;
     };
+
     struct SceneState
     {
         std::vector<ViewState> views;
@@ -75,14 +77,14 @@ namespace vgfx
         void pushView(
             const glm::mat4& view,
             const glm::mat4& proj,
-            Buffer* pBuffer,
+            Buffer* pCameraProjectionBuffer,
             const VkViewport& viewport,
             const Pipeline::RasterizerConfig& rasterizerConfig)
         {
             this->sceneState.views.push_back({
                 .cameraViewMatrix = view,
                 .cameraProjectionMatrix = proj,
-                .pCameraProjectionBuffer = pBuffer,
+                .pCameraProjectionBuffer = pCameraProjectionBuffer,
                 .viewport = viewport,
                 .rasterizerConfig = rasterizerConfig });
         }
