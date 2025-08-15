@@ -67,11 +67,20 @@ vgfx::Image::~Image()
     }
 }
 
-vgfx::ImageView& vgfx::Image::getOrCreateView(const ImageView::Config& config) const
+vgfx::ImageView& vgfx::Image::getOrCreateView(const ImageView::Config& config, bool setAsDefault) const
 {
     const auto& findIt = m_imageViews.find(config);
     if (findIt == m_imageViews.end()) {
-        return *(m_imageViews[config] = std::move(std::make_unique<ImageView>(m_context, config, *this))).get();
+        vgfx::ImageView& view = *(m_imageViews[config] = std::move(std::make_unique<ImageView>(m_context, config, *this))).get();
+        if (setAsDefault) {
+            m_pDefaultImageView = &view;
+        }
+        return view;
     }
     return *findIt->second.get();
+}
+
+vgfx::ImageView* vgfx::Image::getDefaultImageView() const
+{
+    return m_pDefaultImageView;
 }

@@ -202,6 +202,19 @@ namespace vgfx
         if (result != VK_SUCCESS) {
             throw std::runtime_error("Failed to create instance!");
         }
+
+        if (m_instanceVersion.major <= 1 && m_instanceVersion.minor < 3) {
+            m_vkCmdBeginRendering = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(vkGetInstanceProcAddr(m_instance, "vkCmdBeginRenderingKHR"));
+            m_vkCmdEndRendering = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(vkGetInstanceProcAddr(m_instance, "vkCmdEndRenderingKHR"));
+            if (!m_vkCmdBeginRendering || !m_vkCmdEndRendering) {
+                throw std::runtime_error("Unable to dynamically load vkCmdBeginRenderingKHR and vkCmdEndRenderingKHR");
+            }
+#if VK_HEADER_VERSION >= 313
+        } else {
+            m_vkCmdBeginRendering = vkCmdBeginRendering;
+            m_vkCmdEndRendering = vkCmdEndRendering;
+        }
+#endif
     }
 
     void Context::destroyInstance()

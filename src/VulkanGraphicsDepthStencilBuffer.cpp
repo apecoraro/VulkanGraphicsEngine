@@ -51,6 +51,14 @@ namespace vgfx
         const Config& config)
         : m_spImage(new Image(context, GetImageConfig(config.width, config.height, config.format)))
     {
+        ImageView::Config imageViewConfig(config.format, VK_IMAGE_VIEW_TYPE_2D);
+        // Stencil aspect should only be set on depth + stencil formats (VK_FORMAT_D16_UNORM_S8_UINT..VK_FORMAT_D32_SFLOAT_S8_UINT
+        if (config.format >= VK_FORMAT_D16_UNORM_S8_UINT)
+        {
+            imageViewConfig.imageViewInfo.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        }
+        // Create the default image view
+        getOrCreateImageView(imageViewConfig);
     }
 }
 

@@ -140,6 +140,7 @@ namespace vgfx
         // Records command buffer(s) to draw the scene in its current state.
         VkResult renderFrame(SceneNode& scene);
 
+        virtual Image& getRenderTarget(size_t frameIndex) = 0;
         // Called by drawScene() right before scene.draw(...)
         virtual void preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) = 0;
         // Called by drawScene() right after scene.draw(...)
@@ -254,6 +255,12 @@ namespace vgfx
         void resizeWindow(uint32_t width, uint32_t height);
 
     private:
+        Image& getRenderTarget(size_t frameIndex) override
+        {
+            size_t swapChainImageIndex = frameIndex % m_spSwapChain->getImageCount();
+            return m_spSwapChain->getImage(swapChainImageIndex);
+        }
+
         void preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) override;
         void postDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) override;
 

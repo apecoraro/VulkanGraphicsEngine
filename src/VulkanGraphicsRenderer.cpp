@@ -10,6 +10,7 @@
 #include <glm/ext/matrix_clip_space.hpp>
 
 #include <algorithm>
+#include <array>
 #include <stdexcept>
 
 namespace vgfx
@@ -30,6 +31,49 @@ namespace vgfx
         vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
         preDrawScene(commandBuffer, m_frameIndex);
+
+        VkRenderingAttachmentInfoKHR colorAttachmentInfo = {};
+
+        ImageView& renderTargetView = *getRenderTarget(m_frameIndex).getDefaultImageView();
+        colorAttachmentInfo.imageView = renderTargetView.getHandle();
+
+        colorAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colorAttachmentInfo.resolveMode = VK_RESOLVE_MODE_NONE;
+        colorAttachmentInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        colorAttachmentInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+        VkClearValue clearColor;
+        clearColor.color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+
+        colorAttachmentInfo.clearValue = clearColor;
+
+        VkRenderingAttachmentInfoKHR depthAttachment = {};
+        depthAttachment.imageView = getDepthStencilBuffer()->getDefaultImageView().getHandle();
+        depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+        depthAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
+        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+        VkClearValue clearDepth;
+        clearDepth.depthStencil = { 0.0f, ~0U };
+        depthAttachment.clearValue = clearDepth;
+
+        auto renderArea = VkRect2D{ VkOffset2D{}, VkExtent2D {
+            renderTargetView.getImage().getWidth(), renderTargetView.getImage().getHeight()}
+        };
+
+        VkRenderingInfoKHR renderingInfo = {};
+        renderingInfo.renderArea = renderArea;
+        renderingInfo.colorAttachmentCount = 1;
+        renderingInfo.pColorAttachments = &colorAttachmentInfo;
+        renderingInfo.layerCount = 1;
+        renderingInfo.pDepthAttachment = &depthAttachment;
+
+        if (getDepthStencilBuffer()->hasStencilBuffer()) {
+            renderingInfo.pStencilAttachment = &depthAttachment;
+        }
+
+        m_context.beginRendering(commandBuffer, &renderingInfo);
 
         DrawContext drawState {
             .context = m_context,
@@ -52,6 +96,8 @@ namespace vgfx
         scene.draw(drawState);
 
         drawState.popView();
+
+        m_context.endRendering(commandBuffer);
 
         postDrawScene(commandBuffer, m_frameIndex);
 
@@ -452,8 +498,7 @@ namespace vgfx
             barrierFromPresentToDraw.srcQueueFamilyIndex = m_context.getPresentQueueFamilyIndex();
             barrierFromPresentToDraw.dstQueueFamilyIndex = m_context.getGraphicsQueueFamilyIndex();
 
-            size_t swapChainImageIndex = frameIndex % m_spSwapChain->getImageCount();
-            VkImage swapChainImage = m_spSwapChain->getImage(swapChainImageIndex).getHandle();
+            VkImage swapChainImage = getRenderTarget(frameIndex).getHandle();
 
             barrierFromPresentToDraw.image = swapChainImage;
 
@@ -493,8 +538,7 @@ namespace vgfx
             barrierFromDrawToPresent.srcQueueFamilyIndex = m_context.getGraphicsQueueFamilyIndex();
             barrierFromDrawToPresent.dstQueueFamilyIndex = m_context.getPresentQueueFamilyIndex();
 
-            size_t swapChainImageIndex = frameIndex % m_spSwapChain->getImageCount();
-            VkImage swapChainImage = m_spSwapChain->getImage(swapChainImageIndex).getHandle();
+            VkImage swapChainImage = getRenderTarget(frameIndex).getHandle();
 
             barrierFromDrawToPresent.image = swapChainImage;
 

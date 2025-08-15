@@ -64,8 +64,6 @@ namespace vgfx
         static SwapChain::Config CreateSwapChainConfig(
             uint32_t imageCount=3,
             uint32_t width=0, uint32_t height=0,
-            uint32_t imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-            VkSurfaceFormatKHR surfaceFormat = { VK_FORMAT_R16G16B16A16_SFLOAT, VK_COLORSPACE_SRGB_NONLINEAR_KHR },
             std::vector<VkFormat> preferredDepthStencilFormats = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT });
 
         WindowApplication() = delete;

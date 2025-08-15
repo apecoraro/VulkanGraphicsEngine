@@ -158,6 +158,18 @@ namespace vgfx
 
         const AppConfig& getAppConfig() const { return m_appConfig; }
 
+        inline void beginRendering(
+            VkCommandBuffer commandBuffer,
+            const VkRenderingInfo* pRenderingInfo)
+        {
+            m_vkCmdBeginRendering(commandBuffer, pRenderingInfo);
+        }
+
+        inline void endRendering(VkCommandBuffer commandBuffer)
+        {
+            m_vkCmdEndRendering(commandBuffer);
+        }
+
     private:
         void createInstance(
             const AppConfig& appConfig,
@@ -233,6 +245,9 @@ namespace vgfx
         bool m_descriptorIndexingIsSupported = false;
 
         VkDebugReportCallbackEXT m_debugReportCallback = VK_NULL_HANDLE;
+
+        PFN_vkCmdBeginRenderingKHR m_vkCmdBeginRendering = nullptr;
+        PFN_vkCmdEndRenderingKHR m_vkCmdEndRendering = nullptr;
 
         VkDevice m_device = VK_NULL_HANDLE;
 

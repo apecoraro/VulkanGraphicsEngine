@@ -81,7 +81,7 @@ int main(int argc, char** argv)
 
     vgfx::Context::InstanceConfig instanceConfig;
     vgfx::Context::DeviceConfig deviceConfig;
-    vgfx::SwapChain::Config swapChainConfig;
+    vgfx::SwapChain::Config swapChainConfig = vgfx::WindowApplication::CreateSwapChainConfig();
 
     demo::GLFWApplication app(appConfig, instanceConfig, deviceConfig, swapChainConfig);
 

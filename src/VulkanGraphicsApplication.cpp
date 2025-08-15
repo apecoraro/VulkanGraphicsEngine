@@ -65,8 +65,6 @@ VkBool32 Application::onValidationError(
 SwapChain::Config WindowApplication::CreateSwapChainConfig(
     uint32_t imageCount,
     uint32_t width, uint32_t height,
-    uint32_t imageUsageFlags,
-    VkSurfaceFormatKHR surfaceFormat,
     std::vector<VkFormat> preferredDepthStencilFormats)
 {
     SwapChain::Config swapChainConfig;
@@ -82,10 +80,6 @@ SwapChain::Config WindowApplication::CreateSwapChainConfig(
             static_cast<uint32_t>(height)
         };
     }
-
-    swapChainConfig.imageUsage = imageUsageFlags;
-
-    swapChainConfig.imageFormat = surfaceFormat;
 
     swapChainConfig.preferredDepthStencilFormats = preferredDepthStencilFormats;
 

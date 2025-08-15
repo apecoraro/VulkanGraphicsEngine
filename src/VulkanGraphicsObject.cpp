@@ -21,8 +21,8 @@ namespace vgfx
     }
     void Object::buildPipelines(DrawContext& drawContext)
     {
-        const auto& camera = drawContext.sceneState.views.back();
-        vgfx::PipelineBuilder builder(camera.viewport, drawContext.depthBufferEnabled);
+        const auto& viewState = drawContext.sceneState.views.back();
+        vgfx::PipelineBuilder builder(viewState.viewport, drawContext.depthBufferEnabled);
 
         //std::vector<VkDynamicState> dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 
@@ -35,7 +35,7 @@ namespace vgfx
             // TODO PipelineLibrary
             std::unique_ptr<Pipeline> spPipeline =
                 builder.configureDrawableInput(pDrawable->getMeshEffect(), pDrawable->getVertexBuffer().getConfig(), inputConfig)
-                    .configureRasterizer(camera.rasterizerConfig)
+                    .configureRasterizer(viewState.rasterizerConfig)
                     //.configureDynamicStates(dynamicStates)
                     .createPipeline(drawContext.context);
 

@@ -95,7 +95,9 @@ namespace vgfx
 
         VkImage getHandle() const { return m_handle != VK_NULL_HANDLE ? m_handle : m_image.handle; }
 
-        ImageView& getOrCreateView(const ImageView::Config& config) const;
+        ImageView& getOrCreateView(const ImageView::Config& config, bool setAsDefault=true) const;
+
+        ImageView* getDefaultImageView() const;
 
     private:
         Context& m_context;
@@ -108,6 +110,7 @@ namespace vgfx
         VkImage m_handle = VK_NULL_HANDLE;
 
         mutable std::map<ImageView::Config, std::unique_ptr<ImageView>> m_imageViews;
+        mutable ImageView* m_pDefaultImageView = nullptr;
     };
 }
 
