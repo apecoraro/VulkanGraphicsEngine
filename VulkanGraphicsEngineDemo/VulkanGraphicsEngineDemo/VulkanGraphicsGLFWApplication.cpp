@@ -105,7 +105,9 @@ void GLFWApplication::run()
     vgfx::WindowRenderer& renderer = getRenderer();
     while (!glfwWindowShouldClose(m_pGLFWwindow)) {
         glfwPollEvents();
+        std::cerr << "renderframe" << std::endl;
         VkResult result = renderer.renderFrame(*m_spSceneRoot.get());
+        std::cerr << "renderframe done" << std::endl;
         if (result == VK_ERROR_OUT_OF_DATE_KHR || m_frameBufferResized) {
             uint32_t width = 0u, height = 0u;
             GetFrameBufferSize(m_pGLFWwindow, &width, &height);

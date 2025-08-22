@@ -13,6 +13,8 @@
 #include <array>
 #include <stdexcept>
 
+#include <iostream>
+
 namespace vgfx
 {
     VkResult Renderer::renderFrame(SceneNode& scene)
@@ -73,8 +75,10 @@ namespace vgfx
             renderingInfo.pStencilAttachment = &depthAttachment;
         }
 
+        std::cerr << "beginRendering" << std::endl;
         m_context.beginRendering(commandBuffer, &renderingInfo);
 
+        std::cerr << "setupDrawState" << std::endl;
         DrawContext drawState {
             .context = m_context,
             .descriptorPool = descriptorPool,
@@ -93,10 +97,12 @@ namespace vgfx
 
         drawState.sceneState.pLightsBuffer = m_lightsBuffers[frameInFlight].get();
 
+        std::cerr << "draw" << std::endl;
         scene.draw(drawState);
 
         drawState.popView();
 
+        std::cerr << "endRendering" << std::endl;
         m_context.endRendering(commandBuffer);
 
         postDrawScene(commandBuffer, m_frameIndex);
@@ -106,6 +112,7 @@ namespace vgfx
         m_gfxQueueSubmitInfo.clearAll();
         m_gfxQueueSubmitInfo.commandBuffers.push_back(commandBuffer);
 
+        std::cerr << "endRenderFrame" << std::endl;
         VkResult retValue = endRenderFrame(m_gfxQueueSubmitInfo);
 
         ++m_frameIndex;

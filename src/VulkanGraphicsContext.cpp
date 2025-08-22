@@ -173,8 +173,7 @@ namespace vgfx
         }
         // Make sure dynamic rendering is available
         // (either API v1.3 or greater, or the dynamic rendering extension is required)
-        if (m_instanceVersion.major <= 1 && m_instanceVersion.minor < 3)
-        {
+        if (m_instanceVersion.major < 1 || (m_instanceVersion.major == 1 && m_instanceVersion.minor < 3)) {
             checkInstanceExtensionSupport(supportedExtensions, {VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME});
             instanceExtensionsAsCharPtrs.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
         }
@@ -189,11 +188,12 @@ namespace vgfx
         createInfo.ppEnabledExtensionNames = instanceExtensionsAsCharPtrs.data();
         createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensionsAsCharPtrs.size());
 
-        std::vector<const char*> validationLayersAsCharPtrs;
         if (!instanceConfig.validationLayers.empty()) {
             addSupportedValidationLayers(instanceConfig.validationLayers, supportedValidationLayers);
-            ContainerOfStringsToCharPtrs(supportedValidationLayers, &validationLayersAsCharPtrs);
         }
+
+        std::vector<const char*> validationLayersAsCharPtrs;
+        ContainerOfStringsToCharPtrs(supportedValidationLayers, &validationLayersAsCharPtrs);
 
         createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayersAsCharPtrs.size());
         createInfo.ppEnabledLayerNames = validationLayersAsCharPtrs.data();
@@ -203,9 +203,10 @@ namespace vgfx
             throw std::runtime_error("Failed to create instance!");
         }
 
-        if (m_instanceVersion.major <= 1 && m_instanceVersion.minor < 3) {
+        if (m_instanceVersion.major < 1 || (m_instanceVersion.major == 1 && m_instanceVersion.minor < 3)) {
             m_vkCmdBeginRendering = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(vkGetInstanceProcAddr(m_instance, "vkCmdBeginRenderingKHR"));
             m_vkCmdEndRendering = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(vkGetInstanceProcAddr(m_instance, "vkCmdEndRenderingKHR"));
+            std::cerr << "GetProcAddr" << (void*)m_vkCmdBeginRendering << std::endl;
             if (!m_vkCmdBeginRendering || !m_vkCmdEndRendering) {
                 throw std::runtime_error("Unable to dynamically load vkCmdBeginRenderingKHR and vkCmdEndRenderingKHR");
             }
@@ -213,8 +214,9 @@ namespace vgfx
         } else {
             m_vkCmdBeginRendering = vkCmdBeginRendering;
             m_vkCmdEndRendering = vkCmdEndRendering;
-        }
+            std::cerr << "313: " << (void*)m_vkCmdBeginRendering << std::endl;
 #endif
+        }
     }
 
     void Context::destroyInstance()
@@ -675,8 +677,21 @@ namespace vgfx
         dynRenderingFeatures.dynamicRendering = VK_TRUE;
         dynRenderingFeatures.pNext = nullptr;
 
+        VkPhysicalDeviceDynamicRenderingFeaturesKHR dynRenderingFeaturesKHR{};
+        dynRenderingFeaturesKHR.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
+        dynRenderingFeaturesKHR.dynamicRendering = VK_TRUE;
+        dynRenderingFeaturesKHR.pNext = nullptr;
+
         createInfo.pNext = &physDevFeatures;
-        physDevFeatures.pNext = &dynRenderingFeatures;
+
+        void** ppDevFeaturesNext = nullptr;
+        if (m_instanceVersion.major < 1 || (m_instanceVersion.major == 1 && m_instanceVersion.minor < 3)) {
+            physDevFeatures.pNext = &dynRenderingFeaturesKHR;
+            ppDevFeaturesNext = &dynRenderingFeaturesKHR.pNext;
+        } else {
+            physDevFeatures.pNext = &dynRenderingFeatures;
+            ppDevFeaturesNext = &dynRenderingFeatures.pNext;
+        }
 
         std::vector<const char*> deviceExtensionsAsCharPtrs;
         if (!deviceConfig.requiredDeviceExtensions.empty()) {
@@ -684,7 +699,6 @@ namespace vgfx
             ContainerOfStringsToCharPtrs(deviceConfig.requiredDeviceExtensions, &deviceExtensionsAsCharPtrs);
         }
 
-        void** ppDevFeaturesNext = &physDevFeatures.pNext;
 
         // TODO add way for internal components to register to add extensions and/or features.
         VkPhysicalDevice16BitStorageFeatures storage16BitFeatures = {};
@@ -700,7 +714,7 @@ namespace vgfx
             fp16Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT16_INT8_FEATURES_KHR;
             fp16Features.shaderFloat16 = VK_TRUE;
 
-            physDevFeatures.pNext = &storage16BitFeatures;
+            *ppDevFeaturesNext = &storage16BitFeatures;
             storage16BitFeatures.pNext = &fp16Features;
             ppDevFeaturesNext = &fp16Features.pNext;
         } else {
