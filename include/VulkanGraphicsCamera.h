@@ -16,11 +16,11 @@ namespace vgfx
         Camera(Context& context, const VkViewport& viewport, size_t frameBufferingCount);
         Camera(
             Context& context,
-            size_t frameBufferingCount,
+            size_t framesInFlightPlusOne,
             const glm::mat4& view,
             const glm::mat4& proj,
             const VkViewport& viewport)
-            : Camera(context, viewport, frameBufferingCount)
+            : Camera(context, viewport, framesInFlightPlusOne)
         {
             m_view = view;
             m_proj = proj;

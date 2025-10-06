@@ -3,8 +3,9 @@
 //
 #include "VulkanGraphicsContext.h"
 
-#include "VulkanGraphicsRenderer.h"
 #include "VulkanGraphicsImageDownsampler.h"
+#include "VulkanGraphicsRenderer.h"
+#include "VulkanGraphicsRenderTarget.h"
 
 #include <exception>
 #include <iostream>
@@ -97,6 +98,65 @@ namespace vgfx
                         ImageDownsampler::Precision::FP32));
         }
         return *m_spImageDownsampler.get();
+    }
+
+    void Context::beginRendering(VkCommandBuffer commandBuffer, const RenderTarget& renderTarget)
+    {
+        std::vector<VkRenderingAttachmentInfoKHR> colorAttachments(renderTarget.getAttachmentCount());
+        VkClearValue clearColor;
+        clearColor.color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+        for (size_t i = 0; i < colorAttachments.size(); ++i) {
+            auto& colorAttachmentInfo = colorAttachments[i];
+            colorAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+
+            const ImageView& imageView = renderTarget.getAttachmentView(i);
+            colorAttachmentInfo.imageView = imageView.getHandle();
+
+            colorAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            colorAttachmentInfo.resolveMode = VK_RESOLVE_MODE_NONE;
+            colorAttachmentInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+            colorAttachmentInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+
+            colorAttachmentInfo.clearValue = clearColor;
+        }
+
+        VkRenderingAttachmentInfoKHR depthAttachment = {};
+        depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        if (renderTarget.hasDepthStencilBuffer())
+            depthAttachment.imageView = renderTarget.getDepthStencilView()->getHandle();
+
+        depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+        depthAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
+        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+        VkClearValue clearDepth;
+        clearDepth.depthStencil = { 0.0f, ~0U };
+        depthAttachment.clearValue = clearDepth;
+
+        auto renderArea = VkRect2D{
+            VkOffset2D { },
+            VkExtent2D {
+                renderTarget.getExtent().width,
+                renderTarget.getExtent().height
+            }
+        };
+
+        VkRenderingInfoKHR renderingInfo = {};
+        renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+        renderingInfo.renderArea = renderArea;
+        renderingInfo.colorAttachmentCount = 1;
+        renderingInfo.pColorAttachments = colorAttachments.data();
+        renderingInfo.layerCount = 1;
+        if (renderTarget.hasDepthStencilBuffer()) {
+            renderingInfo.pDepthAttachment = &depthAttachment;
+        }
+
+        //if (renderTarget.hasDepthStencilBuffer()) {
+        //    renderingInfo.pStencilAttachment = &depthAttachment;
+        //}
+        m_vkCmdBeginRendering(commandBuffer, &renderingInfo);
     }
 
     static Context::InstanceVersion QueryInstanceVersion()

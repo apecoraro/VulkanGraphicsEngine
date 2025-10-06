@@ -166,19 +166,19 @@ namespace vgfx
         return *this;
     }
 
-    PipelineBuilder& PipelineBuilder::configureRenderTarget(const RenderTarget::AttachmentViews& attachments)
+    PipelineBuilder& PipelineBuilder::configureRenderTarget(const RenderTarget& renderTarget)
     {
         m_renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
-        m_renderingInfo.colorAttachmentCount = static_cast<uint32_t>(attachments.targetImageViews.size());
+        m_renderingInfo.colorAttachmentCount = static_cast<uint32_t>(renderTarget.getAttachmentCount());
 
-        std::vector<VkFormat> colorAttachmentFormats;
-        for (const auto& pColorImageView : attachments.targetImageViews) {
-            colorAttachmentFormats.push_back(pColorImageView->getFormat());
+        for (size_t i = 0; i < renderTarget.getAttachmentCount(); ++i) {
+            const auto& colorImageView = renderTarget.getAttachmentView(i);
+            m_colorAttachmentFormats.push_back(colorImageView.getFormat());
         }
 
-        m_renderingInfo.pColorAttachmentFormats = colorAttachmentFormats.data();
-        if (attachments.pDepthStencilView != nullptr) {
-            m_renderingInfo.depthAttachmentFormat = attachments.pDepthStencilView->getFormat();
+        m_renderingInfo.pColorAttachmentFormats = m_colorAttachmentFormats.data();
+        if (renderTarget.hasDepthStencilBuffer()) {
+            m_renderingInfo.depthAttachmentFormat = renderTarget.getDepthStencilView()->getFormat();
             m_renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED; // Seems like this should be configurable - TODO
         }
 

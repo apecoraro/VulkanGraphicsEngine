@@ -20,6 +20,7 @@ namespace vgfx
 {
     // Forward declarations
     class Renderer;
+    class RenderTarget;
     class ImageDownsampler;
 
     class Context
@@ -158,12 +159,9 @@ namespace vgfx
 
         const AppConfig& getAppConfig() const { return m_appConfig; }
 
-        inline void beginRendering(
+        void beginRendering(
             VkCommandBuffer commandBuffer,
-            const VkRenderingInfo* pRenderingInfo)
-        {
-            m_vkCmdBeginRendering(commandBuffer, pRenderingInfo);
-        }
+            const RenderTarget& renderingTarget);
 
         inline void endRendering(VkCommandBuffer commandBuffer)
         {

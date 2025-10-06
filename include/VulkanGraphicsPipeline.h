@@ -110,7 +110,7 @@ namespace vgfx
 
         PipelineBuilder& configureRasterizer(const Pipeline::RasterizerConfig& config);
 
-        PipelineBuilder& configureRenderTarget(const RenderTarget::AttachmentViews& attachments);
+        PipelineBuilder& configureRenderTarget(const RenderTarget& renderTarget);
 
         std::unique_ptr<Pipeline> createPipeline(Context& context);
 
@@ -142,6 +142,7 @@ namespace vgfx
 
         std::vector<VkDynamicState> m_dynamicStateEnables;
 
+        std::vector<VkFormat> m_colorAttachmentFormats;
         VkPipelineRenderingCreateInfo m_renderingInfo = {};
 
         uint32_t m_subpass = 0u;

@@ -108,6 +108,10 @@ namespace vgfx
             return *m_images[index].get();
         }
 
+        const std::vector<std::unique_ptr<Image>>& getImages() const {
+            return m_images;
+        }
+
         ImageView& getImageView(size_t index) {
             return *m_imageViews[index];
         }

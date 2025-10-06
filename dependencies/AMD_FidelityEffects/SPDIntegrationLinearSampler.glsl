@@ -41,8 +41,8 @@ layout(push_constant) uniform SpdConstants
 // Texture definitions
 //--------------------------------------------------------------------------------------
 layout(set=0, binding=3) uniform texture2D imgSrc;
-layout(set=0, binding=0, rgba16f) uniform image2D imgDst[12]; // don't access MIP [5]
-layout(set=0, binding=1, rgba16f) coherent uniform image2D imgDst5;
+layout(set=0, binding=0, rgba8) uniform image2D imgDst[12]; // don't access MIP [5]
+layout(set=0, binding=1, rgba8) coherent uniform image2D imgDst5;
 layout(set=0, binding=4) uniform sampler srcSampler;
 //--------------------------------------------------------------------------------------
 // Buffer definitions - global atomic counter

@@ -97,7 +97,7 @@ namespace vgfx
         RenderPass::Config curPass;
         curPass.subpasses.push_back(RenderPass::SubpassDescription());
         curPass.subpasses.back().bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        for (size_t i = 0; i < renderTargetCfg.attachmentChain.front().targetImageViews.size(); ++i) {
+        for (size_t i = 0; i < renderTargetCfg.attachmentChain.front().views.size(); ++i) {
 
             // If output attachmentChain were not provided, then assume all attachmentChain are for output.
             if (!outputAttachments.has_value()
@@ -108,7 +108,7 @@ namespace vgfx
                 curPass.subpasses.back().outputRefs.push_back(outputRef);
             }
 
-            const auto& pImageView = renderTargetCfg.attachmentChain.front().targetImageViews[i];
+            const auto& pImageView = renderTargetCfg.attachmentChain.front().views[i];
 
             curPass.attachments.push_back(VkAttachmentDescription{});
             curPass.attachments.back().samples = pImageView->getImage().getSampleCount();
@@ -122,7 +122,7 @@ namespace vgfx
             curPass.attachments.back().stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         }
 
-        if (!renderTargetCfg.attachmentChain.front().targetImageViews.empty()) {
+        if (!renderTargetCfg.attachmentChain.front().views.empty()) {
             curPass.subpassDeps.resize(2u, VkSubpassDependency{});
             // Dependency at the start of the renderpass does the transition from final to initial layout.
             auto& firstDep = curPass.subpassDeps.front();
@@ -145,7 +145,7 @@ namespace vgfx
 
         if (renderTargetCfg.attachmentChain.front().pDepthStencilView != nullptr) {
             curPass.subpasses.back().depthAttachmentRef.attachment =
-                static_cast<uint32_t>(renderTargetCfg.attachmentChain.front().targetImageViews.size());
+                static_cast<uint32_t>(renderTargetCfg.attachmentChain.front().views.size());
             // TODO it is possible to use a depth only layout and renderTargetFormat with:
             // https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures.html
             curPass.subpasses.back().depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;

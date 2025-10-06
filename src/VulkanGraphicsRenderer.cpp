@@ -3,6 +3,7 @@
 #include "VulkanGraphicsCamera.h"
 #include "VulkanGraphicsDepthStencilBuffer.h"
 #include "VulkanGraphicsDescriptorPoolBuilder.h"
+#include "VulkanGraphicsRenderTarget.h"
 #include "VulkanGraphicsSceneNode.h"
 
 #include <glm/glm.hpp>
@@ -19,11 +20,11 @@ namespace vgfx
 {
     VkResult Renderer::renderFrame(SceneNode& scene)
     {
-        size_t frameInFlight = m_frameIndex % m_frameBufferingCount;
-        DescriptorPool& descriptorPool = *m_descriptorPools[frameInFlight].get();
+        size_t cpuFrameInFlight = m_frameIndex % m_descriptorPools.size();
+        DescriptorPool& descriptorPool = *m_descriptorPools[cpuFrameInFlight].get();
         descriptorPool.reset();
 
-        VkCommandBuffer commandBuffer = m_commandBuffers[frameInFlight];
+        VkCommandBuffer commandBuffer = m_commandBuffers[cpuFrameInFlight];
         vkResetCommandBuffer(commandBuffer, 0);
 
         VkCommandBufferBeginInfo beginInfo = {};
@@ -34,57 +35,17 @@ namespace vgfx
 
         preDrawScene(commandBuffer, m_frameIndex);
 
-        VkRenderingAttachmentInfoKHR colorAttachmentInfo = {};
+        const RenderTarget& renderTarget = getRenderTarget(m_frameIndex);
 
-        ImageView& renderTargetView = *getRenderTarget(m_frameIndex).getDefaultImageView();
-        colorAttachmentInfo.imageView = renderTargetView.getHandle();
+        m_context.beginRendering(commandBuffer, renderTarget);
 
-        colorAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        colorAttachmentInfo.resolveMode = VK_RESOLVE_MODE_NONE;
-        colorAttachmentInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        colorAttachmentInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-
-        VkClearValue clearColor;
-        clearColor.color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-
-        colorAttachmentInfo.clearValue = clearColor;
-
-        VkRenderingAttachmentInfoKHR depthAttachment = {};
-        depthAttachment.imageView = getDepthStencilBuffer()->getDefaultImageView().getHandle();
-        depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-        depthAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
-        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-
-        VkClearValue clearDepth;
-        clearDepth.depthStencil = { 0.0f, ~0U };
-        depthAttachment.clearValue = clearDepth;
-
-        auto renderArea = VkRect2D{ VkOffset2D{}, VkExtent2D {
-            renderTargetView.getImage().getWidth(), renderTargetView.getImage().getHeight()}
-        };
-
-        VkRenderingInfoKHR renderingInfo = {};
-        renderingInfo.renderArea = renderArea;
-        renderingInfo.colorAttachmentCount = 1;
-        renderingInfo.pColorAttachments = &colorAttachmentInfo;
-        renderingInfo.layerCount = 1;
-        renderingInfo.pDepthAttachment = &depthAttachment;
-
-        if (getDepthStencilBuffer()->hasStencilBuffer()) {
-            renderingInfo.pStencilAttachment = &depthAttachment;
-        }
-
-        std::cerr << "beginRendering" << std::endl;
-        m_context.beginRendering(commandBuffer, &renderingInfo);
-
-        std::cerr << "setupDrawState" << std::endl;
-        DrawContext drawState {
+        DrawContext drawState{
             .context = m_context,
             .descriptorPool = descriptorPool,
             .frameIndex = m_frameIndex,
             .depthBufferEnabled = true,
-            .commandBuffer = commandBuffer
+            .commandBuffer = commandBuffer,
+            .renderTarget = renderTarget
         };
 
         m_spCamera->update();
@@ -95,14 +56,12 @@ namespace vgfx
             m_spCamera->getViewport(),
             m_spCamera->getRasterizerConfig());
 
-        drawState.sceneState.pLightsBuffer = m_lightsBuffers[frameInFlight].get();
+        drawState.sceneState.pLightsBuffer = m_lightsBuffers[cpuFrameInFlight].get();
 
-        std::cerr << "draw" << std::endl;
         scene.draw(drawState);
 
         drawState.popView();
 
-        std::cerr << "endRendering" << std::endl;
         m_context.endRendering(commandBuffer);
 
         postDrawScene(commandBuffer, m_frameIndex);
@@ -112,7 +71,6 @@ namespace vgfx
         m_gfxQueueSubmitInfo.clearAll();
         m_gfxQueueSubmitInfo.commandBuffers.push_back(commandBuffer);
 
-        std::cerr << "endRenderFrame" << std::endl;
         VkResult retValue = endRenderFrame(m_gfxQueueSubmitInfo);
 
         ++m_frameIndex;
@@ -437,12 +395,16 @@ namespace vgfx
         Renderer::initGraphicsResources(frameBufferingCount);
 
         m_renderFinishedSemaphores.reserve(frameBufferingCount);
+        m_swapChainRenderTargets.resize(frameBufferingCount);
         for (size_t i = 0; i < frameBufferingCount; ++i) {
+
             m_renderFinishedSemaphores.push_back(
                 std::make_unique<Semaphore>(m_context));
 
             m_inFlightFences.push_back(
                 std::make_unique<Fence>(m_context));
+
+            m_swapChainRenderTargets[i].addRenderImage(m_spSwapChain->getImage(i));
         }
 
         if (m_swapChainConfig.depthStencilFormat.has_value()) {
@@ -453,10 +415,17 @@ namespace vgfx
                 m_swapChainConfig.depthStencilFormat.value());
             m_spDepthStencilBuffer.reset(
                 new DepthStencilBuffer(m_context, dsCfg));
+
+            for (size_t i = 0; i < frameBufferingCount; ++i) {
+                m_swapChainRenderTargets[i].attachDepthStencilBuffer(*m_spDepthStencilBuffer.get());
+            }
+        }
+        else {
+            m_spDepthStencilBuffer.reset();
         }
     }
 
-    std::unique_ptr<Camera> WindowRenderer::createCamera(uint32_t frameBufferingCount)
+    std::unique_ptr<Camera> WindowRenderer::createCamera(uint32_t framesInFlightPlusOne)
     {
         glm::vec3 viewPos(2.0f, 2.0f, 2.0f);
         glm::mat4 cameraView = glm::lookAt(
@@ -486,7 +455,7 @@ namespace vgfx
             .maxDepth = 1.0f
         };
         return std::make_unique<Camera>(
-            m_context, frameBufferingCount, cameraView, cameraProj, viewport);
+            m_context, framesInFlightPlusOne, cameraView, cameraProj, viewport);
     }
 
     void WindowRenderer::preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex)
@@ -505,7 +474,7 @@ namespace vgfx
             barrierFromPresentToDraw.srcQueueFamilyIndex = m_context.getPresentQueueFamilyIndex();
             barrierFromPresentToDraw.dstQueueFamilyIndex = m_context.getGraphicsQueueFamilyIndex();
 
-            VkImage swapChainImage = getRenderTarget(frameIndex).getHandle();
+            VkImage swapChainImage = getSwapChainImage(frameIndex).getHandle();
 
             barrierFromPresentToDraw.image = swapChainImage;
 
@@ -545,7 +514,7 @@ namespace vgfx
             barrierFromDrawToPresent.srcQueueFamilyIndex = m_context.getGraphicsQueueFamilyIndex();
             barrierFromDrawToPresent.dstQueueFamilyIndex = m_context.getPresentQueueFamilyIndex();
 
-            VkImage swapChainImage = getRenderTarget(frameIndex).getHandle();
+            VkImage swapChainImage = getSwapChainImage(frameIndex).getHandle();
 
             barrierFromDrawToPresent.image = swapChainImage;
 
@@ -627,8 +596,9 @@ namespace vgfx
             glm::vec3 viewPos;
         };
 
-        Buffer::Config lightsBufferCfg(sizeof(LightingUniforms) * 10);
-        for (size_t i = 0; i < frameBufferingCount; ++i) {
+        Buffer::Config lightsBufferCfg(sizeof(LightingUniforms) * 10); // Support up to 10 lights
+        size_t framesInFlightPlusOne = frameBufferingCount + 1;
+        for (size_t i = 0; i < framesInFlightPlusOne; ++i) {
             m_descriptorPools.emplace_back(poolBuilder.createPool(m_context));
 
             m_commandBuffers.push_back(m_spCommandBufferFactory->createCommandBuffer());
@@ -640,6 +610,6 @@ namespace vgfx
                     lightsBufferCfg));
         }
 
-        m_spCamera = createCamera(frameBufferingCount);
+        m_spCamera = createCamera(static_cast<uint32_t>(framesInFlightPlusOne));
     }
 }

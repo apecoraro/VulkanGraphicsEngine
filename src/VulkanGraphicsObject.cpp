@@ -37,6 +37,7 @@ namespace vgfx
                 builder.configureDrawableInput(pDrawable->getMeshEffect(), pDrawable->getVertexBuffer().getConfig(), inputConfig)
                     .configureRasterizer(viewState.rasterizerConfig)
                     //.configureDynamicStates(dynamicStates)
+                    .configureRenderTarget(drawContext.renderTarget)
                     .createPipeline(drawContext.context);
 
             m_pipelines.emplace_back(std::move(spPipeline));

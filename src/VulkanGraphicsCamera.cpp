@@ -7,9 +7,9 @@ namespace vgfx
     Camera::Camera(
         Context& context,
         const VkViewport& viewport,
-        size_t frameBufferingCount)
-        : m_currentBufferIndex(frameBufferingCount - 1u)
-        , m_projBufferNeedsUpdateCount(frameBufferingCount)
+        size_t framesInFlightPlusOne)
+        : m_currentBufferIndex(framesInFlightPlusOne - 1u)
+        , m_projBufferNeedsUpdateCount(framesInFlightPlusOne)
         , m_rasterizerConfig({
             VK_POLYGON_MODE_FILL,
             VK_CULL_MODE_BACK_BIT,
@@ -18,7 +18,7 @@ namespace vgfx
     {
         Buffer::Config cameraMatrixBufferCfg(sizeof(glm::mat4));
         // Need one buffer each for each frame in flight and one for the current frame
-        for (uint32_t index = 0; index < frameBufferingCount; ++index) {
+        for (uint32_t index = 0; index < framesInFlightPlusOne; ++index) {
             m_cameraMatrixBuffers.emplace_back(
                 std::make_unique<Buffer>(
                     context,
