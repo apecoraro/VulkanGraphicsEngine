@@ -312,14 +312,15 @@ namespace vgfx
                         };
                     }
 
-                    RecordImageMemBarrierCommand(
-                        commandBuffer,
-                        image.getHandle(),
-                        0u, // base mip level
-                        image.getMipLevels(),
-                        VK_IMAGE_LAYOUT_UNDEFINED,
-                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
                 }
+                RecordImageMemBarrierCommand(
+                    commandBuffer,
+                    image.getHandle(),
+                    0u, // base mip level
+                    image.getMipLevels(),
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    //VK_IMAGE_LAYOUT_UNDEFINED,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             });
 
         runner.submit(m_commandQueue);

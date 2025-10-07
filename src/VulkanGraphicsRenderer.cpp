@@ -419,6 +419,8 @@ namespace vgfx
             for (size_t i = 0; i < frameBufferingCount; ++i) {
                 m_swapChainRenderTargets[i].attachDepthStencilBuffer(*m_spDepthStencilBuffer.get());
             }
+
+
         }
         else {
             m_spDepthStencilBuffer.reset();

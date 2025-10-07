@@ -132,7 +132,7 @@ namespace vgfx
         depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
         VkClearValue clearDepth;
-        clearDepth.depthStencil = { 0.0f, ~0U };
+        clearDepth.depthStencil = { 1.0f, ~0U };
         depthAttachment.clearValue = clearDepth;
 
         auto renderArea = VkRect2D{

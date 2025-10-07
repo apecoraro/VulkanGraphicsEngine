@@ -66,4 +66,5 @@ void main()
     }
     // Ambient part
     outColor += lighting.ambient;
+    outColor += vec4(1, 0, 0, 1);
 }

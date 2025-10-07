@@ -51,6 +51,7 @@ vgfx::Image::Image(
     OneTimeCommandsHelper::GenerateMips genMips =
         context.areShaderSubgroupsSupported() && context.isDescriptorIndexingSupported() ?
             OneTimeCommandsHelper::GenerateMips::No : OneTimeCommandsHelper::GenerateMips::Yes;
+    genMips = OneTimeCommandsHelper::GenerateMips::Yes;
     helper.copyDataToImage(*this, pImageData, imageDataSize, genMips);
     if (genMips == OneTimeCommandsHelper::GenerateMips::No) {
         ImageDownsampler& downsampler = context.getOrCreateImageDownsampler();
