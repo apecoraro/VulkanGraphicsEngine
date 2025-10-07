@@ -12,8 +12,10 @@ struct Light
 
 layout (set = 1, binding = 1) uniform LightingUniforms
 {
+    vec3 viewPos;
+    float ambient;
     Light lights[2];
-    vec4 viewPos;
+    int lightCount;
 } lighting;
 
 
@@ -28,9 +30,6 @@ void main()
 {
     vec3 inColor = texture(texSampler, fragTexCoord).rgb;
 
-    #define lightCount 2
-    #define ambient 0.2
-    
     inColor *= fragColor;
     
     //for(int i = 0; i < lightCount; ++i)

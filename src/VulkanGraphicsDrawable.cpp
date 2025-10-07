@@ -40,36 +40,33 @@ void vgfx::Drawable::configureDescriptorSets(
     updater.bindDescriptor(0, imageSamplerUpdater);
     updater.updateDescriptorSet(drawContext.context, pDescriptorSets->at(1));
 
-    int32_t lightCount = 1;
-    auto pLights = &drawContext.sceneState.lights.back();
-    if (drawContext.sceneState.lights.size() > 1) {
-        pLights = &drawContext.sceneState.lights[drawContext.sceneState.lights.size() - 2];
-        lightCount = 2;
-    }
-    size_t writeSize = sizeof(LightState) * lightCount;
-    drawContext.sceneState.pLightsBuffer->update(pLights, writeSize);
-
-    size_t writeOffset = writeSize;
-    writeSize = sizeof(lightCount);
-    drawContext.sceneState.pLightsBuffer->update(&lightCount, writeSize, writeOffset);
-
-    writeOffset += writeSize;
-
-    float ambient = 0.2f;
-    writeSize = sizeof(ambient);
-
-    drawContext.sceneState.pLightsBuffer->update(&ambient, writeSize, writeOffset);
-
-    writeOffset += writeSize;
-
     auto& translationColumn = curViewState.cameraViewMatrix[3];
     glm::vec3 viewPos(
         -translationColumn.x,
         -translationColumn.y,
         -translationColumn.z);
 
-    writeSize = sizeof(viewPos);
+    size_t writeSize = sizeof(viewPos);
+    size_t writeOffset = 0;
     drawContext.sceneState.pLightsBuffer->update(&viewPos, writeSize, writeOffset);
+
+    writeOffset += writeSize;
+
+    float ambient = 0.02f;
+    writeSize = sizeof(ambient);
+    drawContext.sceneState.pLightsBuffer->update(&ambient, writeSize, writeOffset);
+
+    writeOffset += writeSize;
+
+    auto pLights = drawContext.sceneState.lights.data();
+    writeSize = sizeof(LightState) * 2;
+    drawContext.sceneState.pLightsBuffer->update(pLights, writeSize, writeOffset);
+
+    writeOffset += writeSize;
+
+    int32_t lightCount = drawContext.sceneState.lights.size() > 2 ? 2u : drawContext.sceneState.lights.size();
+    writeSize = sizeof(lightCount);
+    drawContext.sceneState.pLightsBuffer->update(&lightCount, writeSize, writeOffset);
 
     updater.bindDescriptor(1, *drawContext.sceneState.pLightsBuffer);
     updater.updateDescriptorSet(drawContext.context, pDescriptorSets->at(1));

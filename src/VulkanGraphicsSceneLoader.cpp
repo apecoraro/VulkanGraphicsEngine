@@ -19,11 +19,11 @@ std::unique_ptr<SceneNode> SceneLoader::loadScene(const std::string&)
 {
     std::unique_ptr<GroupNode> spScene = std::make_unique<GroupNode>();
 
+    glm::vec3 position(1.0f, 10.0f, 10.0f);
+    glm::vec3 color(1.0f, 1.0f, 1.0f);
+    float radius = 150.0f;
     std::unique_ptr<LightNode> spLightNode =
-        std::make_unique<LightNode>(
-            glm::vec4(1.0f, 100.0f, 500.0f, 1.0f), //position
-            glm::vec3(1.0f, 1.0f, 1.0f), // color
-            150000.0f); // radius
+        std::make_unique<LightNode>(position, color, radius);
 
     // TODO multiple lights
     /*lightingUniforms.lights[1] = {
@@ -36,7 +36,7 @@ std::unique_ptr<SceneNode> SceneLoader::loadScene(const std::string&)
 
     const std::string& dataPath = m_graphicsContext.getAppConfig().dataDirectoryPath;
     std::string modelPath = "SHAPE_SPHERE";
-    std::string modelDiffuseTexName = "albedo.png";
+    std::string modelDiffuseTexName = "wood.png";
     std::string vertexShader = "MvpTransform_XyzRgbUvNormal_Out.vert.spv";
     std::string fragmentShader = "TexturedBlinnPhong.frag.spv";
 

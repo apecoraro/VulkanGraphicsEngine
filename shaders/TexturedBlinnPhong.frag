@@ -12,12 +12,11 @@ struct Light
 
 layout (set = 1, binding = 1) uniform LightingUniforms
 {
+    vec3 viewPos;
+    float ambient;
     Light lights[2];
     int lightCount;
-    float ambient;
-    vec3 viewPos;
 } lighting;
-
 
 layout(location = 0) in vec3 fragPos;
 layout(location = 1) in vec3 fragColor;
@@ -66,5 +65,4 @@ void main()
     }
     // Ambient part
     outColor += lighting.ambient;
-    outColor += vec4(1, 0, 0, 1);
 }
