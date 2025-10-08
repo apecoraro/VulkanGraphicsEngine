@@ -61,7 +61,6 @@ namespace vgfx
         VertexBuffer(
             Context& context,
             CommandBufferFactory& commandBufferFactory,
-            CommandQueue& commandQueue,
             const Config& config,
             const VertexData* pVertexData,
             size_t vertexDataSizeBytes);

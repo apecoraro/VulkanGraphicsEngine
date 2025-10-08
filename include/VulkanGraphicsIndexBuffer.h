@@ -36,7 +36,6 @@ namespace vgfx
         IndexBuffer(
             Context& context,
             CommandBufferFactory& commandBufferFactory,
-            CommandQueue& commandQueue,
             const Config& config,
             const void* pIndices,
             uint32_t numIndices);

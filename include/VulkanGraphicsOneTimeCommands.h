@@ -36,8 +36,7 @@ namespace vgfx
     public:
         OneTimeCommandsHelper(
             Context& context,
-            CommandBufferFactory& commandBufferFactory,
-            CommandQueue& commandQueue);
+            CommandBufferFactory& commandBufferFactory);
         ~OneTimeCommandsHelper();
 
         void execute(const OneTimeCommandsRunner::RecordCommandsFunc& drawFunc) {
@@ -68,6 +67,15 @@ namespace vgfx
             const void* pData,
             VkDeviceSize dataSizeBytes,
             GenerateMips genMips);
+
+        void recordImageMemBarrierCommand(
+            VkImage image,
+            VkImageLayout oldLayout,
+            VkImageLayout newLayout,
+            uint32_t baseMipLevel = 0u,
+            uint32_t levelCount = VK_REMAINING_MIP_LEVELS,
+            uint32_t baseArrayLayer = 0u,
+            uint32_t layerCount = VK_REMAINING_ARRAY_LAYERS);
 
     private:
         Context& m_context;

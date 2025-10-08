@@ -8,13 +8,13 @@
 
 namespace vgfx
 {
-    CommandBufferFactory::CommandBufferFactory(Context& context, uint32_t queueFamilyIndex)
+    CommandBufferFactory::CommandBufferFactory(Context& context, CommandQueue commandQueue)
         : m_context(context)
-        , m_queueFamilyIndex(queueFamilyIndex)
+        , m_commandQueue(commandQueue)
     {
         VkCommandPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        poolInfo.queueFamilyIndex = m_queueFamilyIndex;
+        poolInfo.queueFamilyIndex = m_commandQueue.queueFamilyIndex;
         poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
         VkResult result =

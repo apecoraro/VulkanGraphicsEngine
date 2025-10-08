@@ -27,7 +27,6 @@ namespace vgfx
     VertexBuffer::VertexBuffer(
         Context& context,
         CommandBufferFactory& commandBufferFactory,
-        CommandQueue& commandQueue,
         const Config& config,
         const VertexData* pVertexData,
         size_t vertexDataSizeBytes)
@@ -50,10 +49,7 @@ namespace vgfx
                     VmaMemoryUsage::VMA_MEMORY_USAGE_GPU_ONLY);
         }
 
-        OneTimeCommandsHelper helper(
-            context,
-            commandBufferFactory,
-            commandQueue);
+        OneTimeCommandsHelper helper(context, commandBufferFactory);
 
         helper.copyDataToBuffer(m_buffer, pVertexData, vertexDataSizeBytes); 
     }

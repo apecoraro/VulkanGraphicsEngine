@@ -3,6 +3,7 @@
 //
 #pragma once
 
+#include "VulkanGraphicsCommandBufferFactory.h"
 #include "VulkanGraphicsCommandQueue.h"
 #include "VulkanGraphicsMemoryAllocator.h"
 
@@ -153,7 +154,9 @@ namespace vgfx
 
         bool areShaderSubgroupsSupported() const { return m_shaderSubgroupsAreSupported; }
 
-        bool isDescriptorIndexingSupported() const { return m_descriptorIndexingIsSupported;  }
+        bool isDescriptorIndexingSupported() const { return m_descriptorIndexingIsSupported; }
+
+        CommandBufferFactory& getOrCreateUtilCommandBufferFactory();
 
         ImageDownsampler& getOrCreateImageDownsampler();
 
@@ -251,6 +254,7 @@ namespace vgfx
 
         MemoryAllocator m_memoryAllocator;
 
+        std::unique_ptr<CommandBufferFactory> m_spUtilCommandBufferFactory;
         // TODO this should probably be a component of some type of pluggable system.
         struct ImageDownsamplerDeleter
         {

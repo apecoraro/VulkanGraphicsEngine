@@ -10,8 +10,13 @@ SceneLoader::SceneLoader(Context& graphicsContext)
     , m_spCommandBufferFactory(
         std::make_unique<CommandBufferFactory>(
             graphicsContext,
-            graphicsContext.getGraphicsQueueFamilyIndex()))
+            graphicsContext.getGraphicsQueue(0u)))
 {
+}
+
+vgfx::SceneLoader::~SceneLoader()
+{
+    EffectsLibrary::UnloadAll();
 }
 
 // TODO make some sort of scene file
@@ -68,8 +73,7 @@ std::unique_ptr<SceneNode> SceneLoader::loadScene(const std::string&)
             m_graphicsContext,
             modelDesc,
             meshEffect,
-            *m_spCommandBufferFactory,
-            m_graphicsContext.getGraphicsQueue(0));
+            *m_spCommandBufferFactory);
 
     drawable.setWorldTransform(modelWorldTransform);
     spGraphicsObject->addDrawable(drawable);

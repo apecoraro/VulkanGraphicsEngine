@@ -142,7 +142,7 @@ namespace vgfx
         VkResult renderFrame(SceneNode& scene);
 
         // Called by drawScene() right before scene.draw(...)
-        virtual void preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) = 0;
+        virtual size_t preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) = 0;
         // Called by drawScene() right after scene.draw(...)
         virtual void postDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) = 0;
 
@@ -170,7 +170,7 @@ namespace vgfx
             std::vector<VkSemaphore> signalSemaphores;
         };
         // Submit commands for rendering
-        virtual VkResult endRenderFrame(QueueSubmitInfo& submitInfo) = 0;
+        virtual VkResult endRenderFrame(QueueSubmitInfo& submitInfo, size_t bufferIndex) = 0;
 
     protected:
         virtual const RenderTarget& getRenderTarget(size_t frameIndex) = 0;
@@ -252,7 +252,7 @@ namespace vgfx
         SwapChain& getSwapChain() { return *m_spSwapChain.get(); }
         const SwapChain& getSwapChain() const { return *m_spSwapChain.get(); }
 
-        VkResult endRenderFrame(QueueSubmitInfo& submitInfo);
+        VkResult endRenderFrame(QueueSubmitInfo& submitInfo, size_t bufferIndex);
 
         void resizeWindow(uint32_t width, uint32_t height);
 
@@ -269,7 +269,7 @@ namespace vgfx
             return m_spSwapChain->getImage(swapChainImageIndex);
         }
 
-        void preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) override;
+        size_t preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) override;
         void postDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex) override;
 
         VkResult acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex);

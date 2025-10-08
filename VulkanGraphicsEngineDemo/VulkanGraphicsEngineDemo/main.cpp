@@ -83,21 +83,15 @@ int main(int argc, char** argv)
     vgfx::Context::DeviceConfig deviceConfig;
     vgfx::SwapChain::Config swapChainConfig = vgfx::WindowApplication::CreateSwapChainConfig();
 
-    std::cerr << "app" << std::endl;
     demo::GLFWApplication app(appConfig, instanceConfig, deviceConfig, swapChainConfig);
-    std::cerr << "app1" << std::endl;
 
-    vgfx::SceneLoader sceneLoader(app.getContext());
+    vgfx::SceneLoader& sceneLoader = app.getSceneLoader();
 
-    std::cerr << "app2" << std::endl;
     std::unique_ptr<vgfx::SceneNode> spScene = sceneLoader.loadScene(sceneFilename);
-    std::cerr << "app3" << std::endl;
 
     app.setScene(std::move(spScene));
 
-    std::cerr << "app4" << std::endl;
     app.run();
-    std::cerr << "app5" << std::endl;
 
     return EXIT_SUCCESS;
 }

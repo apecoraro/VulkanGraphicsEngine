@@ -25,7 +25,6 @@ namespace vgfx
     IndexBuffer::IndexBuffer(
         Context& context,
         CommandBufferFactory& commandBufferFactory,
-        CommandQueue& commandQueue,
         const Config& config,
         const void* pIndices,
         uint32_t numIndices)
@@ -51,10 +50,7 @@ namespace vgfx
                     VmaMemoryUsage::VMA_MEMORY_USAGE_GPU_ONLY);
         }
 
-        OneTimeCommandsHelper helper(
-            context,
-            commandBufferFactory,
-            commandQueue);
+        OneTimeCommandsHelper helper(context, commandBufferFactory);
 
         helper.copyDataToBuffer(m_buffer, pIndices, dataSizeBytes);
     }

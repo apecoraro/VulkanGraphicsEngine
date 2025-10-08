@@ -31,7 +31,6 @@ vgfx::Image::Image(
 vgfx::Image::Image(
     Context& context,
     CommandBufferFactory& commandBufferFactory,
-    CommandQueue& commandQueue,
     const Config& config,
     const void* pImageData,
     size_t imageDataSize)
@@ -43,10 +42,7 @@ vgfx::Image::Image(
         assert(config.imageInfo.usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
     }
 
-    OneTimeCommandsHelper helper(
-        context,
-        commandBufferFactory,
-        commandQueue);
+    OneTimeCommandsHelper helper(context, commandBufferFactory);
 
     OneTimeCommandsHelper::GenerateMips genMips =
         context.areShaderSubgroupsSupported() && context.isDescriptorIndexingSupported() ?

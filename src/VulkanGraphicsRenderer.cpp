@@ -33,7 +33,7 @@ namespace vgfx
         beginInfo.pInheritanceInfo = nullptr; // Optional
         vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-        preDrawScene(commandBuffer, m_frameIndex);
+        size_t bufferIndex = preDrawScene(commandBuffer, m_frameIndex);
 
         const RenderTarget& renderTarget = getRenderTarget(m_frameIndex);
 
@@ -64,27 +64,22 @@ namespace vgfx
 
         m_context.endRendering(commandBuffer);
 
-        postDrawScene(commandBuffer, m_frameIndex);
+        postDrawScene(commandBuffer, bufferIndex);
 
         vkEndCommandBuffer(commandBuffer);
 
         m_gfxQueueSubmitInfo.clearAll();
         m_gfxQueueSubmitInfo.commandBuffers.push_back(commandBuffer);
 
-        VkResult retValue = endRenderFrame(m_gfxQueueSubmitInfo);
+        VkResult retValue = endRenderFrame(m_gfxQueueSubmitInfo, bufferIndex);
 
         ++m_frameIndex;
 
         return retValue;
     }
 
-    VkResult WindowRenderer::endRenderFrame(QueueSubmitInfo& submitInfo)
+    VkResult WindowRenderer::endRenderFrame(QueueSubmitInfo& submitInfo, size_t swapChainImageIndex)
     {
-        uint32_t swapChainImageIndex = 0u;
-        if (acquireNextSwapChainImage(&swapChainImageIndex) == VK_ERROR_OUT_OF_DATE_KHR) {
-            return VK_ERROR_OUT_OF_DATE_KHR;
-        }
-
         VkSubmitInfo vkSubmitInfo = {};
         vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -126,7 +121,8 @@ namespace vgfx
         VkSwapchainKHR swapChains[] = { m_spSwapChain->getHandle() };
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = swapChains;
-        presentInfo.pImageIndices = &swapChainImageIndex;
+        uint32_t imageIndices[] = { static_cast<uint32_t>(swapChainImageIndex) };
+        presentInfo.pImageIndices = imageIndices;
 
         presentInfo.pResults = nullptr; // Optional
 
@@ -460,87 +456,78 @@ namespace vgfx
             m_context, framesInFlightPlusOne, cameraView, cameraProj, viewport);
     }
 
-    void WindowRenderer::preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex)
+    static void RecordImageLayoutTransition(
+        VkCommandBuffer cmd,
+        VkImage image,
+        VkImageLayout oldLayout,
+        VkImageLayout newLayout,
+        VkPipelineStageFlags srcStageMask,
+        VkPipelineStageFlags dstStageMask,
+        VkAccessFlags srcAccessMask,
+        VkAccessFlags dstAccessMask)
     {
-        bool imageBarrierNeeded =
-            m_context.getPresentQueue(0).queue != m_context.getGraphicsQueue(0).queue;
-        if (imageBarrierNeeded) {
-            // This barrier needed to transfer ownership of the image from the present queue to the
-            // graphics queue.
-            VkImageMemoryBarrier barrierFromPresentToDraw = {};
-            barrierFromPresentToDraw.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            barrierFromPresentToDraw.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-            barrierFromPresentToDraw.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            barrierFromPresentToDraw.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            barrierFromPresentToDraw.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            barrierFromPresentToDraw.srcQueueFamilyIndex = m_context.getPresentQueueFamilyIndex();
-            barrierFromPresentToDraw.dstQueueFamilyIndex = m_context.getGraphicsQueueFamilyIndex();
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = oldLayout;
+        barrier.newLayout = newLayout;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = image;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+        barrier.srcAccessMask = srcAccessMask;
+        barrier.dstAccessMask = dstAccessMask;
 
-            VkImage swapChainImage = getSwapChainImage(frameIndex).getHandle();
-
-            barrierFromPresentToDraw.image = swapChainImage;
-
-            VkImageSubresourceRange imageSubresourceRange = {};
-            imageSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            imageSubresourceRange.baseMipLevel = 0u;
-            imageSubresourceRange.levelCount = 1u;
-            imageSubresourceRange.baseArrayLayer = 0u;
-            imageSubresourceRange.layerCount = 1u;
-            barrierFromPresentToDraw.subresourceRange = imageSubresourceRange;
-
-            vkCmdPipelineBarrier(
-                commandBuffer,
-                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                0, // VkDependencyFlags
-                0, // memory barrier count
-                nullptr, // VkMemoryBarrier*
-                0, // buffer barrier count
-                nullptr, // VkBufferMemoryBarrier*
-                1, // image memory barrier count
-                &barrierFromPresentToDraw);
-        }
+        vkCmdPipelineBarrier(
+            cmd,
+            srcStageMask,
+            dstStageMask,
+            0,
+            0, nullptr,
+            0, nullptr,
+            1, &barrier
+        );
     }
 
-    void WindowRenderer::postDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex)
+
+    size_t WindowRenderer::preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex)
     {
-        bool imageBarrierNeeded =
-            m_context.getPresentQueue(0).queue != m_context.getGraphicsQueue(0).queue;
-        if (imageBarrierNeeded) {
-            VkImageMemoryBarrier barrierFromDrawToPresent = {};
-            barrierFromDrawToPresent.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            barrierFromDrawToPresent.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            barrierFromDrawToPresent.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-            barrierFromDrawToPresent.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            barrierFromDrawToPresent.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            barrierFromDrawToPresent.srcQueueFamilyIndex = m_context.getGraphicsQueueFamilyIndex();
-            barrierFromDrawToPresent.dstQueueFamilyIndex = m_context.getPresentQueueFamilyIndex();
-
-            VkImage swapChainImage = getSwapChainImage(frameIndex).getHandle();
-
-            barrierFromDrawToPresent.image = swapChainImage;
-
-            VkImageSubresourceRange imageSubresourceRange = {};
-            imageSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            imageSubresourceRange.baseMipLevel = 0u;
-            imageSubresourceRange.levelCount = 1u;
-            imageSubresourceRange.baseArrayLayer = 0u;
-            imageSubresourceRange.layerCount = 1u;
-            barrierFromDrawToPresent.subresourceRange = imageSubresourceRange;
-
-            vkCmdPipelineBarrier(
-                commandBuffer,
-                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                0, // VkDependencyFlags
-                0, // memory barrier count
-                nullptr, // VkMemoryBarrier*
-                0, // buffer barrier count
-                nullptr, // VkBufferMemoryBarrier*
-                1, // image memory barrier count
-                &barrierFromDrawToPresent);
+        uint32_t swapChainImageIndex = 0u;
+        if (acquireNextSwapChainImage(&swapChainImageIndex) == VK_ERROR_OUT_OF_DATE_KHR) {
+            throw VK_ERROR_OUT_OF_DATE_KHR;
         }
 
+        VkImage swapChainImage = getSwapChainImage(swapChainImageIndex).getHandle();
+
+        RecordImageLayoutTransition(
+            commandBuffer,
+            swapChainImage,
+            VK_IMAGE_LAYOUT_UNDEFINED,                    // or PRESENT_SRC_KHR on subsequent frames
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            0,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
+        return swapChainImageIndex;
+    }
+
+    void WindowRenderer::postDrawScene(VkCommandBuffer commandBuffer, size_t swapChainIndex)
+    {
+        VkImage swapChainImage = getSwapChainImage(swapChainIndex).getHandle();
+
+        RecordImageLayoutTransition(
+            commandBuffer,
+            swapChainImage,
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            0);
     }
 
     VkResult WindowRenderer::acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex)

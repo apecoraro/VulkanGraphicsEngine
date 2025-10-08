@@ -2,6 +2,7 @@
 
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsModelLibrary.h"
+#include "VulkanGraphicsSceneLoader.h"
 #include "VulkanGraphicsRenderer.h"
 
 #include <vulkan/vulkan.h>
@@ -32,6 +33,8 @@ namespace vgfx
             const Context::InstanceConfig& instanceConfig,
             const Context::DeviceConfig& deviceConfig);
 
+        ~Application();
+
         virtual VkBool32 onValidationError(
             VkDebugReportFlagsEXT flags,
             VkDebugReportObjectTypeEXT objType,
@@ -44,6 +47,8 @@ namespace vgfx
         const Context& getContext() const { return m_graphicsContext; }
         Context& getContext() { return m_graphicsContext; }
 
+        SceneLoader& getSceneLoader() { return *m_spSceneLoader.get(); }
+
         void setScene(std::unique_ptr<vgfx::SceneNode>&& spSceneRoot) {
             m_spSceneRoot = std::move(spSceneRoot);
         }
@@ -54,7 +59,7 @@ namespace vgfx
         Context m_graphicsContext;
         Context::ValidationLayerFunc m_validationLayerFunc = nullptr;
         std::unique_ptr<Renderer> m_spRenderer;
-        std::unique_ptr<CommandBufferFactory> m_spUtilCommandBufferFactory;
+        std::unique_ptr<SceneLoader> m_spSceneLoader;
         std::unique_ptr<vgfx::SceneNode> m_spSceneRoot;
     };
 

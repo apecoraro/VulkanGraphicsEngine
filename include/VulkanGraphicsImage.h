@@ -52,7 +52,6 @@ namespace vgfx
         Image(
             Context& context,
             CommandBufferFactory& commandBufferFactory,
-            CommandQueue& commandQueue,
             const Config& config,
             const void* pImageData,
             size_t imageDataSize);

@@ -43,6 +43,13 @@ Application::Application(
     if (appConfig.enableValidationLayers) {
         m_graphicsContext.enableDebugReportCallback(DebugCallback, this);
     }
+
+    m_spSceneLoader = std::make_unique<SceneLoader>(m_graphicsContext);
+}
+
+Application::~Application()
+{
+    m_graphicsContext.waitForDeviceToIdle();
 }
 
 VkBool32 Application::onValidationError(

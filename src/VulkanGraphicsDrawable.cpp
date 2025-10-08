@@ -64,7 +64,7 @@ void vgfx::Drawable::configureDescriptorSets(
 
     writeOffset += writeSize;
 
-    int32_t lightCount = drawContext.sceneState.lights.size() > 2 ? 2u : drawContext.sceneState.lights.size();
+    int32_t lightCount = drawContext.sceneState.lights.size() > 2 ? 2 : static_cast<int32_t>(drawContext.sceneState.lights.size());
     writeSize = sizeof(lightCount);
     drawContext.sceneState.pLightsBuffer->update(&lightCount, writeSize, writeOffset);
 

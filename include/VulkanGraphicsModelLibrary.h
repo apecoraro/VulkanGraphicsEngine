@@ -35,8 +35,7 @@ namespace vgfx
             Context& context,
             const ModelDesc& model,
             const MeshEffect& meshEffect,
-            CommandBufferFactory& commandBufferFactory,
-            CommandQueue commandQueue);
+            CommandBufferFactory& commandBufferFactory);
  
         // Default index buffer config for all models/drawables created by this.
         static IndexBuffer::Config& GetDefaultIndexBufferConfig();
@@ -44,8 +43,7 @@ namespace vgfx
         Image& getOrLoadImage(
             const std::string& path,
             Context& context,
-            CommandBufferFactory& commandBufferFactory,
-            CommandQueue& commandQueue);
+            CommandBufferFactory& commandBufferFactory);
 
         ImageView& getOrCreateImageView(
             const ImageView::Config& config,

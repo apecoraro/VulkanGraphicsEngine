@@ -1,5 +1,7 @@
 #pragma once
 
+#include <VulkanGraphicsCommandQueue.h>
+
 #include <cstdint>
 
 #include <vulkan/vulkan.h>
@@ -11,16 +13,16 @@ namespace vgfx
     class CommandBufferFactory
     {
     public:
-        CommandBufferFactory(Context& context, uint32_t queueFamilyIndex);
+        CommandBufferFactory(Context& context, CommandQueue commandQueue);
         ~CommandBufferFactory();
 
-        uint32_t getQueueFamilyIndex() const { return m_queueFamilyIndex;  }
+        CommandQueue getCommandQueue() const { return m_commandQueue; }
 
         VkCommandBuffer createCommandBuffer(VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
         void freeCommandBuffer(VkCommandBuffer buffer);
     private:
         Context& m_context;
-        uint32_t m_queueFamilyIndex = -1;
+        CommandQueue m_commandQueue;
         VkCommandPool m_commandPool = VK_NULL_HANDLE;
     };
 }

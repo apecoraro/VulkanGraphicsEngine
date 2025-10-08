@@ -37,14 +37,12 @@ namespace vgfx
     static std::unique_ptr<VertexBuffer> CreateVertexBuffer(
         Context& context,
         CommandBufferFactory& commandBufferFactory,
-        CommandQueue& commandQueue,
         const VertexBuffer::Config& config,
         const std::vector<uint8_t>& vertices)
     {
         return std::make_unique<VertexBuffer>(
             context,
             commandBufferFactory,
-            commandQueue,
             config,
             vertices.data(),
             vertices.size());
@@ -131,7 +129,6 @@ namespace vgfx
         const VertexBuffer::Config& vtxBufferCfg,
         Context& context,
         CommandBufferFactory& commandBufferFactory,
-        CommandQueue& commandQueue,
         std::unique_ptr<VertexBuffer>* pspVertexBuffer,
         std::unique_ptr<IndexBuffer>* pspIndexBuffer)
     {
@@ -139,7 +136,6 @@ namespace vgfx
             CreateVertexBuffer(
                 context,
                 commandBufferFactory,
-                commandQueue,
                 vtxBufferCfg,
                 vertices);
 
@@ -147,7 +143,6 @@ namespace vgfx
             std::make_unique<IndexBuffer>(
                 context,
                 commandBufferFactory,
-                commandQueue,
                 // TODO eventually could have a way to use other index buffer configs
                 ModelLibrary::GetDefaultIndexBufferConfig(),
                 indices.data(),
@@ -262,8 +257,7 @@ namespace vgfx
         Context& context,
         const ModelDesc& model,
         const MeshEffect& meshEffect,
-        CommandBufferFactory& commandBufferFactory,
-        CommandQueue commandQueue)
+        CommandBufferFactory& commandBufferFactory)
     {
         std::string modelPath = context.getAppConfig().dataDirectoryPath + "/" + model.modelPathOrShapeName;
 
@@ -338,7 +332,7 @@ namespace vgfx
 
             CreateVertexBuffers(
                 vertices, indices, vertexBufferCfg,
-                context, commandBufferFactory, commandQueue,
+                context, commandBufferFactory,
                 &newModelData.spVertexBuffer, &newModelData.spIndexBuffer);
 
             newModelData.modelImages = modelImages;
@@ -354,8 +348,7 @@ namespace vgfx
                 getOrLoadImage(
                     texturePath,
                     context,
-                    commandBufferFactory,
-                    commandQueue);
+                    commandBufferFactory);
 
             ImageView& imageView =
                 (image.getOrCreateView(
@@ -429,8 +422,7 @@ namespace vgfx
     Image& ModelLibrary::getOrLoadImage(
         const std::string& path,
         Context& context,
-        CommandBufferFactory& commandBufferFactory,
-        CommandQueue& commandQueue)
+        CommandBufferFactory& commandBufferFactory)
     {
         auto& spImage = m_imageLibrary[path];
         if (spImage != nullptr) {
@@ -467,7 +459,6 @@ namespace vgfx
             std::make_unique<Image>(
                 context,
                 commandBufferFactory,
-                commandQueue,
                 imageConfig,
                 pPixels,
                 imageSize);

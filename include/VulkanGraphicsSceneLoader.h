@@ -11,6 +11,7 @@ namespace vgfx
     {
     public:
         SceneLoader(Context& graphicsContext);
+        ~SceneLoader();
 
         std::unique_ptr<SceneNode> loadScene(
             const std::string& filePath);

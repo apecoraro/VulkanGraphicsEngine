@@ -1,5 +1,7 @@
 #include "VulkanGraphicsSwapChain.h"
 
+#include "VulkanGraphicsOneTimeCommands.h"
+
 #include <algorithm>
 #include <cassert>
 #include <stdexcept>

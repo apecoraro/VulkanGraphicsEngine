@@ -86,6 +86,15 @@ namespace vgfx
         }
     }
 
+    CommandBufferFactory& Context::getOrCreateUtilCommandBufferFactory()
+    {
+        if (m_spUtilCommandBufferFactory == nullptr) {
+            m_spUtilCommandBufferFactory.reset(new CommandBufferFactory(*this, getGraphicsQueue(0u)));
+        }
+
+        return *m_spUtilCommandBufferFactory.get();
+    }
+
     ImageDownsampler& Context::getOrCreateImageDownsampler()
     {
         assert(m_shaderSubgroupsAreSupported && m_descriptorIndexingIsSupported);

@@ -33,7 +33,7 @@ namespace vgfx
 
     void OneTimeCommandsRunner::submit(CommandQueue commandQueue)
     {
-        assert(commandQueue.queueFamilyIndex == m_commandBufferFactory.getQueueFamilyIndex());
+        assert(commandQueue.queueFamilyIndex == m_commandBufferFactory.getCommandQueue().queueFamilyIndex);
 
         VkSubmitInfo submitInfo = {};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -46,12 +46,11 @@ namespace vgfx
 
     OneTimeCommandsHelper::OneTimeCommandsHelper(
         Context& context,
-        CommandBufferFactory& commandBufferFactory,
+        CommandBufferFactory& commandBufferFactory)
         // TODO CommandBufferFactory - create command buffers, must use pool created for the provided queue
-        CommandQueue& queue)
         : m_context(context)
         , m_commandBufferFactory(commandBufferFactory)
-        , m_commandQueue(queue)
+        , m_commandQueue(m_commandBufferFactory.getCommandQueue())
     {
     }
 
@@ -103,10 +102,12 @@ namespace vgfx
     static void RecordImageMemBarrierCommand(
         VkCommandBuffer vulkanCommandBuffer,
         VkImage image,
+        VkImageLayout oldLayout,
+        VkImageLayout newLayout,
         uint32_t baseMipLevel,
         uint32_t levelCount,
-        VkImageLayout oldLayout,
-        VkImageLayout newLayout)
+        uint32_t baseArrayLayer,
+        uint32_t layerCount)
     {
         VkImageMemoryBarrier barrier = {};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -120,8 +121,8 @@ namespace vgfx
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.baseMipLevel = baseMipLevel,
         barrier.subresourceRange.levelCount = levelCount;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
+        barrier.subresourceRange.baseArrayLayer = baseArrayLayer;
+        barrier.subresourceRange.layerCount = layerCount;
 
         VkPipelineStageFlags sourceStage;
         if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED)
@@ -243,10 +244,12 @@ namespace vgfx
                 RecordImageMemBarrierCommand(
                     commandBuffer,
                     image.getHandle(),
+                    VK_IMAGE_LAYOUT_UNDEFINED,
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     0u, // base mip level
                     image.getMipLevels(),
-                    VK_IMAGE_LAYOUT_UNDEFINED,
-                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                    0u, // base array layer,
+                    VK_REMAINING_ARRAY_LAYERS);
 
                 VkBufferImageCopy copyRegion = {};
                 copyRegion.bufferOffset = 0;
@@ -287,10 +290,12 @@ namespace vgfx
                         RecordImageMemBarrierCommand(
                             commandBuffer,
                             image.getHandle(),
-                            mipLevel - 1u, // transfer source level to transfer src
-                            1u,
                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+                            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                            mipLevel - 1u, // transfer source level to transfer src
+                            1u, // only 1 mip level
+                            0u, // base array layer,
+                            VK_REMAINING_ARRAY_LAYERS);
 
                         RecordImageBlitCommand(
                             commandBuffer,
@@ -313,18 +318,38 @@ namespace vgfx
                     }
 
                 }
+
                 RecordImageMemBarrierCommand(
                     commandBuffer,
                     image.getHandle(),
+                    VK_IMAGE_LAYOUT_UNDEFINED,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     0u, // base mip level
                     image.getMipLevels(),
-                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    //VK_IMAGE_LAYOUT_UNDEFINED,
-                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                    0u, // base array layer,
+                    VK_REMAINING_ARRAY_LAYERS);
             });
 
         runner.submit(m_commandQueue);
 
         memoryAllocator.destroyBuffer(stagingBuffer);
+    }
+
+    void OneTimeCommandsHelper::recordImageMemBarrierCommand(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t baseMipLevel, uint32_t levelCount, uint32_t baseArrayLayer, uint32_t layerCount)
+    {
+        OneTimeCommandsRunner runner(
+            m_commandBufferFactory,
+            [=](VkCommandBuffer commandBuffer) {
+                RecordImageMemBarrierCommand(
+                    commandBuffer,
+                    image,
+                    oldLayout,
+                    newLayout,
+                    baseMipLevel,
+                    levelCount,
+                    baseArrayLayer,
+                    layerCount);
+            });
+        runner.submit(m_commandQueue);
     }
 }
