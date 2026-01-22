@@ -3,7 +3,10 @@
 #include "VulkanGraphicsCamera.h"
 #include "VulkanGraphicsDepthStencilBuffer.h"
 #include "VulkanGraphicsDescriptorPoolBuilder.h"
+#include "VulkanGraphicsDrawable.h"
+#include "VulkanGraphicsEffects.h"
 #include "VulkanGraphicsRenderTarget.h"
+#include "VulkanGraphicsSampler.h"
 #include "VulkanGraphicsSceneNode.h"
 
 #include <glm/glm.hpp>
@@ -18,11 +21,74 @@
 
 namespace vgfx
 {
-    VkResult Renderer::renderFrame(SceneNode& scene)
+    void Renderer::createImageSamplers(Drawable& drawable)
+    {
+        ImageSampler& imageSampler = drawable.getImageSampler(ImageType::Diffuse);
+
+        const Image& image = imageSampler.first->getImage();
+        uint32_t mipLevels =
+            vgfx::Image::ComputeMipLevels2D(image.getWidth(), image.getHeight());
+
+        Sampler& sampler = EffectsLibrary::GetOrCreateSampler(
+            m_context,
+            Sampler::Config(
+                VK_FILTER_LINEAR,
+                VK_FILTER_LINEAR,
+                VK_SAMPLER_MIPMAP_MODE_LINEAR,
+                0.0f, // min lod
+                static_cast<float>(mipLevels),
+                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                false, 0));
+        imageSampler.second = &sampler;
+    }
+
+    void Renderer::buildPipelines(Object& object, DrawContext& drawContext)
+    {
+        const auto& viewState = drawContext.sceneState.views.back();
+        vgfx::PipelineBuilder builder(viewState.viewport, drawContext.depthBufferEnabled);
+
+        //std::vector<VkDynamicState> dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+        std::string vertexShader = "MvpTransform_XyzRgbUvNormal_Out.vert.spv";
+        std::string fragmentShader = "TexturedBlinnPhong.frag.spv";
+
+        std::string vertexShaderEntryPointFunc = "main";
+        std::string fragmentShaderEntryPointFunc = "main";
+
+        EffectsLibrary::MeshEffectDesc meshEffectDesc(
+            vertexShader,
+            vertexShaderEntryPointFunc,
+            fragmentShader,
+            fragmentShaderEntryPointFunc);
+
+        MeshEffect& meshEffect =
+            EffectsLibrary::GetOrLoadEffect(m_context, meshEffectDesc);
+
+        for (auto& pDrawable : object.getDrawables()) {
+
+            Pipeline::InputAssemblyConfig inputConfig(
+                pDrawable->getVertexBuffer().getConfig().primitiveTopology,
+                pDrawable->getIndexBuffer().getHasPrimitiveRestartValues());
+
+            std::unique_ptr<Pipeline> spPipeline =
+                builder.configureDrawableInput(meshEffect, pDrawable->getVertexBuffer().getConfig(), inputConfig)
+                .configureRasterizer(viewState.rasterizerConfig)
+                //.configureDynamicStates(dynamicStates)
+                .configureRenderTarget(drawContext.renderTarget)
+                .createPipeline(drawContext.context);
+
+            addPipeline(std::move(spPipeline));
+
+            pDrawable->setMeshEffect(&meshEffect);
+
+            createImageSamplers(*pDrawable);
+        }
+    }
+
+    void Renderer::renderFrame(SceneNode& scene)
     {
         size_t cpuFrameInFlight = m_frameIndex % m_descriptorPools.size();
-        DescriptorPool& descriptorPool = *m_descriptorPools[cpuFrameInFlight].get();
-        descriptorPool.reset();
 
         VkCommandBuffer commandBuffer = m_commandBuffers[cpuFrameInFlight];
         vkResetCommandBuffer(commandBuffer, 0);
@@ -33,11 +99,12 @@ namespace vgfx
         beginInfo.pInheritanceInfo = nullptr; // Optional
         vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-        size_t bufferIndex = preDrawScene(commandBuffer, m_frameIndex);
-
-        const RenderTarget& renderTarget = getRenderTarget(m_frameIndex);
+        const RenderTarget& renderTarget = prepareRenderTarget(m_frameIndex, commandBuffer);
 
         m_context.beginRendering(commandBuffer, renderTarget);
+
+        DescriptorPool& descriptorPool = *m_descriptorPools[cpuFrameInFlight].get();
+        descriptorPool.reset();
 
         DrawContext drawState{
             .context = m_context,
@@ -58,32 +125,23 @@ namespace vgfx
 
         drawState.sceneState.pLightsBuffer = m_lightsBuffers[cpuFrameInFlight].get();
 
-        scene.draw(drawState);
+        scene.draw(*this, drawState);
 
-        drawState.popView();
+        postDrawScene(m_frameIndex, commandBuffer);
 
         m_context.endRendering(commandBuffer);
 
-        postDrawScene(commandBuffer, bufferIndex);
-
         vkEndCommandBuffer(commandBuffer);
 
-        m_gfxQueueSubmitInfo.clearAll();
-        m_gfxQueueSubmitInfo.commandBuffers.push_back(commandBuffer);
-
-        VkResult retValue = endRenderFrame(m_gfxQueueSubmitInfo, bufferIndex);
-
-        ++m_frameIndex;
-
-        return retValue;
+        addCommandBufferToSubmitInfo(commandBuffer);
     }
 
-    VkResult WindowRenderer::endRenderFrame(QueueSubmitInfo& submitInfo, size_t swapChainImageIndex)
+    void Renderer::submitGraphicsCommands()
     {
+        QueueSubmitInfo& submitInfo = m_queueSubmitInfo;
+
         VkSubmitInfo vkSubmitInfo = {};
         vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-        submitInfo.addWait(m_spSwapChain->getImageAvailableSemaphore(m_syncObjIndex), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
         vkSubmitInfo.waitSemaphoreCount = static_cast<uint32_t>(submitInfo.waitSemaphores.size());
         vkSubmitInfo.pWaitSemaphores = submitInfo.waitSemaphores.data();
@@ -92,20 +150,29 @@ namespace vgfx
         vkSubmitInfo.commandBufferCount = static_cast<uint32_t>(submitInfo.commandBuffers.size());
         vkSubmitInfo.pCommandBuffers = submitInfo.commandBuffers.data();
 
-        submitInfo.signalSemaphores.push_back(m_renderFinishedSemaphores[m_syncObjIndex]->getHandle());
         vkSubmitInfo.signalSemaphoreCount = static_cast<uint32_t>(submitInfo.signalSemaphores.size());
         vkSubmitInfo.pSignalSemaphores = submitInfo.signalSemaphores.data();
-
-        VkDevice device = m_context.getLogicalDevice();
-
-        VkFence fences[] = { m_inFlightFences[m_syncObjIndex]->getHandle() };
-        vkResetFences(device, 1, fences);
 
         vkQueueSubmit(
             m_context.getGraphicsQueue(0u).queue,
             1,
             &vkSubmitInfo,
-            fences[0]);
+            submitInfo.fence);
+    }
+
+    VkResult SwapChainPresenter::present(Renderer& renderer)
+    {
+        VkDevice device = m_context.getLogicalDevice();
+
+        VkFence fences[] = { m_inFlightFences[m_syncObjIndex]->getHandle() };
+        vkResetFences(device, 1, fences);
+
+        auto& submitInfo = renderer.getSubmitInfo();
+        submitInfo.fence = fences[0];
+        submitInfo.addWait(m_spSwapChain->getImageAvailableSemaphore(m_syncObjIndex), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        submitInfo.signalSemaphores.push_back(m_renderFinishedSemaphores[m_syncObjIndex]->getHandle());
+
+        renderer.submitGraphicsCommands();
 
         ++m_syncObjIndex;
         if (m_syncObjIndex == m_inFlightFences.size()) {
@@ -121,7 +188,7 @@ namespace vgfx
         VkSwapchainKHR swapChains[] = { m_spSwapChain->getHandle() };
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = swapChains;
-        uint32_t imageIndices[] = { static_cast<uint32_t>(swapChainImageIndex) };
+        uint32_t imageIndices[] = { static_cast<uint32_t>(m_curSwapChainImageIndex) };
         presentInfo.pImageIndices = imageIndices;
 
         presentInfo.pResults = nullptr; // Optional
@@ -169,7 +236,7 @@ namespace vgfx
         return props.maxResourceSize > 0u;
     }
 
-    void WindowRenderer::checkIsDeviceSuitable(VkPhysicalDevice device) const
+    void SwapChainPresenter::checkIsDeviceSuitable(VkPhysicalDevice device) const
     {
         uint32_t minImageCount = 0u;
         uint32_t maxImageCount = 0u;
@@ -262,12 +329,12 @@ namespace vgfx
         }
     }
 
-    bool WindowRenderer::queueFamilySupportsPresent(VkPhysicalDevice device, uint32_t familyIndex) const
+    bool SwapChainPresenter::queueFamilySupportsPresent(VkPhysicalDevice device, uint32_t familyIndex) const
     {
         return SwapChain::SurfaceSupportsQueueFamily(device, m_surface, familyIndex);
     }
 
-    void WindowRenderer::configureForDevice(VkPhysicalDevice physicalDevice)
+    void SwapChainPresenter::configureForDevice(VkPhysicalDevice physicalDevice)
     {
         // Set defaults for all configuration parameters (if not explicitly set already).
         if (!m_swapChainConfig.imageCount.has_value()
@@ -379,7 +446,7 @@ namespace vgfx
         }
     }
 
-    void WindowRenderer::initSwapChain()
+    void SwapChainPresenter::initSwapChain(Renderer& renderer)
     {
         m_spSwapChain =
             std::make_unique<SwapChain>(m_context, m_surface, m_swapChainConfig);
@@ -388,7 +455,8 @@ namespace vgfx
         // to query to get this value even though we passed it in.
         uint32_t frameBufferingCount = m_spSwapChain->getImageCount();
 
-        Renderer::initGraphicsResources(frameBufferingCount);
+        const auto& swapChainExtent = m_spSwapChain->getImageExtent();
+        renderer.initGraphicsResources(swapChainExtent.width, swapChainExtent.height, frameBufferingCount);
 
         m_renderFinishedSemaphores.reserve(frameBufferingCount);
         m_swapChainRenderTargets.resize(frameBufferingCount);
@@ -404,26 +472,20 @@ namespace vgfx
         }
 
         if (m_swapChainConfig.depthStencilFormat.has_value()) {
-            const auto& swapChainExtent = m_spSwapChain->getImageExtent();
             DepthStencilBuffer::Config dsCfg(
                 swapChainExtent.width,
                 swapChainExtent.height,
                 m_swapChainConfig.depthStencilFormat.value());
-            m_spDepthStencilBuffer.reset(
-                new DepthStencilBuffer(m_context, dsCfg));
+
+            renderer.setDepthStencilBuffer(std::make_unique<DepthStencilBuffer>(m_context, dsCfg));
 
             for (size_t i = 0; i < frameBufferingCount; ++i) {
-                m_swapChainRenderTargets[i].attachDepthStencilBuffer(*m_spDepthStencilBuffer.get());
+                m_swapChainRenderTargets[i].attachDepthStencilBuffer(*renderer.getDepthStencilBuffer());
             }
-
-
-        }
-        else {
-            m_spDepthStencilBuffer.reset();
         }
     }
 
-    std::unique_ptr<Camera> WindowRenderer::createCamera(uint32_t framesInFlightPlusOne)
+    void Renderer::createCamera(uint32_t width, uint32_t height, uint32_t framesInFlightPlusOne)
     {
         glm::vec3 viewPos(2.0f, 2.0f, 2.0f);
         glm::mat4 cameraView = glm::lookAt(
@@ -431,7 +493,6 @@ namespace vgfx
             glm::vec3(0.0f, 0.0f, 0.0f), // center
             glm::vec3(0.0f, 0.0f, 1.0f)); // up
 
-        auto& swapChainExtent = m_spSwapChain->getImageExtent();
         // Vulkan NDC is different than OpenGL, so use this clip matrix to correct for that.
         const glm::mat4 clip(
             1.0f, 0.0f, 0.0f, 0.0f,
@@ -441,18 +502,19 @@ namespace vgfx
         glm::mat4 cameraProj =
             clip * glm::perspective(
                 glm::radians(45.0f),
-                static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height),
+                static_cast<float>(width) / static_cast<float>(height),
                 0.1f, // near
                 30.0f); // far
         VkViewport viewport {
             .x = 0,
             .y = 0,
-            .width = static_cast<float>(swapChainExtent.width),
-            .height = static_cast<float>(swapChainExtent.height),
+            .width = static_cast<float>(width),
+            .height = static_cast<float>(height),
             .minDepth = 0.0f,
             .maxDepth = 1.0f
         };
-        return std::make_unique<Camera>(
+
+        m_spCamera = std::make_unique<Camera>(
             m_context, framesInFlightPlusOne, cameraView, cameraProj, viewport);
     }
 
@@ -492,15 +554,13 @@ namespace vgfx
         );
     }
 
-
-    size_t WindowRenderer::preDrawScene(VkCommandBuffer commandBuffer, size_t frameIndex)
+    void SwapChainPresenter::acquireSwapChainImageForRendering(VkCommandBuffer commandBuffer)
     {
-        uint32_t swapChainImageIndex = 0u;
-        if (acquireNextSwapChainImage(&swapChainImageIndex) == VK_ERROR_OUT_OF_DATE_KHR) {
+        if (acquireNextSwapChainImage(&m_curSwapChainImageIndex) == VK_ERROR_OUT_OF_DATE_KHR) {
             throw VK_ERROR_OUT_OF_DATE_KHR;
         }
 
-        VkImage swapChainImage = getSwapChainImage(swapChainImageIndex).getHandle();
+        VkImage swapChainImage = getSwapChainImage(m_curSwapChainImageIndex).getHandle();
 
         RecordImageLayoutTransition(
             commandBuffer,
@@ -511,13 +571,11 @@ namespace vgfx
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             0,
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-
-        return swapChainImageIndex;
     }
 
-    void WindowRenderer::postDrawScene(VkCommandBuffer commandBuffer, size_t swapChainIndex)
+    void SwapChainPresenter::transitionSwapChainImageForPresent(VkCommandBuffer commandBuffer)
     {
-        VkImage swapChainImage = getSwapChainImage(swapChainIndex).getHandle();
+        VkImage swapChainImage = getSwapChainImage(m_curSwapChainImageIndex).getHandle();
 
         RecordImageLayoutTransition(
             commandBuffer,
@@ -530,7 +588,7 @@ namespace vgfx
             0);
     }
 
-    VkResult WindowRenderer::acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex)
+    VkResult SwapChainPresenter::acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex)
     {
         VkDevice device = m_context.getLogicalDevice();
         VkFence fences[] = { m_inFlightFences[m_syncObjIndex]->getHandle() };
@@ -550,7 +608,7 @@ namespace vgfx
             pSwapChainImageIndex);
     }
 
-    void WindowRenderer::resizeWindow(uint32_t width, uint32_t height)
+    void SwapChainPresenter::resizeWindow(uint32_t width, uint32_t height, Renderer& renderer)
     {
         m_context.waitForDeviceToIdle();
 
@@ -560,22 +618,33 @@ namespace vgfx
         };
         m_swapChainConfig.imageExtent = windowWidthHeight;
         m_spSwapChain->recreate(m_surface, m_swapChainConfig);
-        m_spCamera = createCamera(static_cast<uint32_t>(m_spSwapChain->getImageCount()));
+
+        renderer.resizeRenderTargetResources(width, height, m_spSwapChain->getImageCount() + 1);
     }
 
-    void Renderer::initGraphicsResources(uint32_t frameBufferingCount)
+    void Renderer::resizeRenderTargetResources(uint32_t width, uint32_t height, uint32_t frameBufferingCount)
     {
-        m_frameBufferingCount = frameBufferingCount;
+        size_t framesInFlightPlusOne = frameBufferingCount + 1;
+        if (frameBufferingCount != m_frameBufferingCount) {
+            m_frameBufferingCount = frameBufferingCount;
 
+            m_descriptorPools.clear();
+            m_commandBuffers.clear();
+            m_lightsBuffers.clear();
+
+            createResourcePools(framesInFlightPlusOne);
+        }
+
+        createCamera(width, height, framesInFlightPlusOne);
+    }
+
+    void Renderer::createResourcePools(uint32_t framesInFlightPlusOne)
+    {
         DescriptorPoolBuilder poolBuilder;
         poolBuilder.addDescriptors(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100);
         poolBuilder.addDescriptors(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 100);
         poolBuilder.addMaxSets(200);
         //poolBuilder.setCreateFlags(VkDescriptorPoolCreateFlags);
-
-        m_spCommandBufferFactory =
-            std::make_unique<CommandBufferFactory>(
-                m_context, m_context.getGraphicsQueueFamilyIndex());
 
         struct LightingUniforms
         {
@@ -586,7 +655,6 @@ namespace vgfx
         };
 
         Buffer::Config lightsBufferCfg(sizeof(LightingUniforms) * 10); // Support up to 10 lights
-        size_t framesInFlightPlusOne = frameBufferingCount + 1;
         for (size_t i = 0; i < framesInFlightPlusOne; ++i) {
             m_descriptorPools.emplace_back(poolBuilder.createPool(m_context));
 
@@ -598,7 +666,19 @@ namespace vgfx
                     Buffer::Type::UniformBuffer,
                     lightsBufferCfg));
         }
+    }
 
-        m_spCamera = createCamera(static_cast<uint32_t>(framesInFlightPlusOne));
+    void Renderer::initGraphicsResources(uint32_t renderTargetWidth, uint32_t renderTargetHeight, uint32_t frameBufferingCount)
+    {
+        m_frameBufferingCount = frameBufferingCount;
+
+        m_spCommandBufferFactory =
+            std::make_unique<CommandBufferFactory>(
+                m_context, m_context.getGraphicsQueueFamilyIndex());
+
+        size_t framesInFlightPlusOne = frameBufferingCount + 1;
+        createResourcePools(framesInFlightPlusOne);
+
+        createCamera(renderTargetWidth, renderTargetHeight, static_cast<uint32_t>(framesInFlightPlusOne));
     }
 }

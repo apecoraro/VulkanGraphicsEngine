@@ -19,7 +19,12 @@
 
 namespace vgfx
 {
-    using ImageSamplerMap = std::map<MeshEffect::ImageType, std::pair<const ImageView*, const Sampler*>>;
+    enum class ImageType
+    {
+        Diffuse,
+    };
+    using ImageSampler = std::pair<const ImageView*, const Sampler*>;
+    using ImageSamplers = std::map<ImageType, ImageSampler>;
     // Geometry of an single drawable object (vertices and indices).
     class Drawable
     {
@@ -28,14 +33,11 @@ namespace vgfx
             Context& context,
             VertexBuffer& vertexBuffer,
             IndexBuffer& indexBuffer,
-            const MeshEffect& meshEffect,
-            const ImageSamplerMap& imageSamplers)
+            ImageSamplers& imageSamplers)
             : m_vertexBuffer(vertexBuffer)
             , m_indexBuffer(indexBuffer)
-            , m_meshEffect(meshEffect)
             , m_imageSamplers(imageSamplers)
         {
-            
         }
 
         void draw(DrawContext& recorder);
@@ -46,21 +48,25 @@ namespace vgfx
         const IndexBuffer& getIndexBuffer() const { return m_indexBuffer; }
         IndexBuffer& getIndexBuffer() { return m_indexBuffer; }
 
-        const MeshEffect& getMeshEffect() const { return m_meshEffect; }
- 
-        size_t getImageCount() const { return m_imageSamplers.size(); }
-
-        std::pair<const ImageView*, const Sampler*> getImageSampler(MeshEffect::ImageType imageType) const
-        {
-            const auto& findIt = m_imageSamplers.find(imageType);
-            if (findIt == m_imageSamplers.end()) {
-                return std::make_pair<const ImageView*, const Sampler*>(nullptr, nullptr);
-            }
-            return findIt->second;
-        }
+        void setMeshEffect(MeshEffect* pMeshEffect) { m_pMeshEffect = pMeshEffect; }
+        const MeshEffect* getMeshEffect() const { return m_pMeshEffect; }
 
         const glm::mat4& getWorldTransform() const { return m_worldTransform; }
         void setWorldTransform(const glm::mat4& worldTransform) { m_worldTransform = worldTransform; }
+
+        void setImageSampler(ImageType type, const ImageSampler& imageSampler)
+        {
+            m_imageSamplers[type] = imageSampler;
+        }
+
+        ImageSampler& getImageSampler(ImageType imageType)
+        {
+            const auto& findIt = m_imageSamplers.find(imageType);
+            if (findIt == m_imageSamplers.end()) {
+                return (m_imageSamplers[imageType] = std::make_pair<const ImageView*, const Sampler*>(nullptr, nullptr));
+            }
+            return findIt->second;
+        }
 
     protected:
         void configureDescriptorSets(DrawContext& drawContext, std::vector<VkDescriptorSet>* pDescriptorSets);
@@ -69,10 +75,10 @@ namespace vgfx
 
         VertexBuffer& m_vertexBuffer;
         IndexBuffer& m_indexBuffer;
-        const MeshEffect& m_meshEffect;
-        std::map<MeshEffect::ImageType, std::pair<const ImageView*, const Sampler*>> m_imageSamplers;
+        const MeshEffect* m_pMeshEffect = nullptr;
         glm::mat4 m_worldTransform = glm::identity<glm::mat4>();
         std::vector<VkDescriptorSet> m_descriptorSets;
+        ImageSamplers m_imageSamplers;
     };
 }
 

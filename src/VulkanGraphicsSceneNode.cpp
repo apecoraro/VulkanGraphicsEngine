@@ -4,12 +4,10 @@
 
 namespace vgfx
 {
-    void LightNode::draw(DrawContext& drawContext)
+    void LightNode::draw(Renderer& renderer, DrawContext& drawContext)
     {
         drawContext.pushLight(m_position, m_color, m_radius);
 
-        GroupNode::draw(drawContext);
-
-        drawContext.popLight();
+        GroupNode::draw(renderer, drawContext);
     }
 }

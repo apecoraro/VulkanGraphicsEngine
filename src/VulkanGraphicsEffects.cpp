@@ -62,6 +62,10 @@ namespace vgfx
     using MeshEffectsLibrary = std::map<MeshEffectId, std::unique_ptr<MeshEffect>>;
     static MeshEffectsLibrary s_meshEffectsLibrary;
 
+
+    using SamplerLibrary = std::map<Sampler::Config, std::unique_ptr<Sampler>>;
+    static SamplerLibrary s_samplerLibrary;
+
     vgfx::DescriptorSetLayout::DescriptorBindings GetVertShaderDescriptorBindings(
         const std::string&,// shaderPath
         const std::string&)// shaderEntryFunc
@@ -144,18 +148,26 @@ namespace vgfx
 
         std::vector<VkPushConstantRange> pushConstantRanges = { pushConstantRange };
 
-        std::vector<vgfx::MeshEffect::ImageType> imageTypes = { vgfx::MeshEffect::ImageType::Diffuse };
-
         spMeshEffect =
             std::make_unique<MeshEffect>(
                 vertexShader,
-                meshEffectDesc.vertexShaderInputs,
                 fragmentShader,
                 pushConstantRanges,
-                std::move(descriptorSetLayouts),
-                meshEffectDesc.imageTypes);
+                std::move(descriptorSetLayouts));
 
         return *spMeshEffect.get();
+    }
+
+    Sampler& EffectsLibrary::GetOrCreateSampler(Context& context, const Sampler::Config& config)
+    {
+        auto& spSampler = s_samplerLibrary[config];
+        if (spSampler != nullptr) {
+            return *spSampler.get();
+        }
+
+        spSampler = std::make_unique<Sampler>(context, config);
+
+        return *spSampler.get();
     }
 
     void EffectsLibrary::Optimize()
@@ -175,5 +187,6 @@ namespace vgfx
         s_vertexShadersLibrary.clear();
         s_fragmentShadersLibrary.clear();
         s_meshEffectsLibrary.clear();
+        s_samplerLibrary.clear();
     }
 }

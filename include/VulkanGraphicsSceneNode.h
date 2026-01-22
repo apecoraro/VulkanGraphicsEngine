@@ -8,13 +8,14 @@
 namespace vgfx
 {
     struct DrawContext;
+    class Renderer;
 
     class SceneNode
     {
     public:
         SceneNode() = default;
 
-        virtual void draw(DrawContext& drawContext) = 0;
+        virtual void draw(Renderer& renderer, DrawContext& drawContext) = 0;
     };
 
     class GroupNode : public SceneNode
@@ -27,10 +28,10 @@ namespace vgfx
             m_children.emplace_back(std::move(addNode));
         }
 
-        void draw(DrawContext& drawState) override
+        void draw(Renderer& renderer, DrawContext& drawState) override
         {
             for (auto& spChild : m_children) {
-                spChild->draw(drawState);
+                spChild->draw(renderer, drawState);
             }
         }
 
@@ -74,7 +75,7 @@ namespace vgfx
             , m_color(color)
             , m_radius(radius) { }
 
-        void draw(DrawContext& drawContext) override;
+        void draw(Renderer& renderer, DrawContext& drawContext) override;
 
         const glm::vec4 getPosition() const { return m_position; }
         const glm::vec3 getColor() const { return m_color; }

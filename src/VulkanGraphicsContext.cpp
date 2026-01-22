@@ -21,7 +21,7 @@ namespace vgfx
         const AppConfig& appConfig,
         const InstanceConfig& instanceConfig,
         const DeviceConfig& deviceConfig,
-        Renderer* pRenderer)
+        Renderer& renderer)
     {
         m_appConfig = appConfig;
 
@@ -29,17 +29,15 @@ namespace vgfx
             appConfig,
             instanceConfig);
 
-        if (pRenderer != nullptr) {
-            pRenderer->bindToInstance(m_instance, m_pAllocationCallbacks);
+        if (renderer.getPresenter() != nullptr) {
+            renderer.getPresenter()->createVulkanSurface(m_instance, m_pAllocationCallbacks);
         }
 
         pickPhysicalDevice(
             deviceConfig,
-            pRenderer);
+            renderer);
 
-        if (pRenderer != nullptr) {
-            pRenderer->configureForDevice(m_physicalDevice);
-        }
+        renderer.configureForDevice(m_physicalDevice);
 
         createLogicalDevice(deviceConfig);
 
@@ -339,7 +337,7 @@ namespace vgfx
 
     void Context::pickPhysicalDevice(
         const DeviceConfig& deviceConfig,
-        const Renderer* pRenderer)
+        const Renderer& renderer)
     {
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(m_instance, &deviceCount, nullptr);
@@ -362,7 +360,7 @@ namespace vgfx
                     physicalDeviceProperties.vendorID,
                     physicalDeviceProperties.deviceType,
                     deviceConfig,
-                    pRenderer,
+                    renderer,
                     &queueFamilyProperties)) {
                 m_physicalDevice = device;
 
@@ -408,7 +406,7 @@ namespace vgfx
         uint32_t vendorId,
         VkPhysicalDeviceType deviceType,
         const DeviceConfig& deviceConfig,
-        const Renderer* pRenderer,
+        const Renderer& renderer,
         std::vector<VkQueueFamilyProperties>* pQueueFamilyProperties)
     {
 
@@ -427,14 +425,12 @@ namespace vgfx
                 checkQueueFamilySupport(
                     device,
                     deviceConfig,
-                    pRenderer,
+                    renderer,
                     pQueueFamilyProperties);
 
             checkDeviceExtensionSupport(device, deviceConfig);
 
-            if (pRenderer != nullptr) {
-                pRenderer->checkIsDeviceSuitable(device);
-            }
+            renderer.checkIsDeviceSuitable(device);
 
             checkDeviceFeatureSupport(device, deviceConfig); 
         } catch (const std::exception& exc) {
@@ -448,7 +444,7 @@ namespace vgfx
     Context::QueueFamilyIndices Context::checkQueueFamilySupport(
         VkPhysicalDevice device,
         const DeviceConfig& deviceConfig,
-        const Renderer* pRenderer,
+        const Renderer& renderer,
         std::vector<VkQueueFamilyProperties>* pQueueFamilyProperties)
     {
         uint32_t queueFamilyCount = 0;
@@ -485,9 +481,8 @@ namespace vgfx
                 }
             }
 
-            if (pRenderer != nullptr
-                && pRenderer->requiresPresentQueue()) {
-                bool presentSupport = pRenderer->queueFamilySupportsPresent(device, i);
+            if (renderer.getPresenter() != nullptr) {
+                bool presentSupport = renderer.getPresenter()->queueFamilySupportsPresent(device, i);
 
                 if (presentSupport &&
                     (!queueFamilyIndices.presentFamily.has_value()
@@ -499,7 +494,7 @@ namespace vgfx
                 }
             }
 
-            if (queueFamilyIndices.isComplete(deviceConfig, pRenderer)) {
+            if (queueFamilyIndices.isComplete(deviceConfig, renderer.getPresenter() != nullptr)) {
                 *pQueueFamilyProperties = std::move(queueFamilyProperties);
                 return queueFamilyIndices;
             }
@@ -510,10 +505,8 @@ namespace vgfx
 
     bool Context::QueueFamilyIndices::isComplete(
         const DeviceConfig& deviceConfig,
-        const Renderer* pRenderer) const
+        bool presentQueueRequired) const
     {
-        bool presentQueueRequired = pRenderer != nullptr && pRenderer->requiresPresentQueue();
-
         return (!deviceConfig.graphicsQueueRequired || this->graphicsFamily.has_value())
             && (!presentQueueRequired || this->presentFamily.has_value())
             && (!deviceConfig.dedicatedComputeQueueRequired || this->computeFamily.has_value())

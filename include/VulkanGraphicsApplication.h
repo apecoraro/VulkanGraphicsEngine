@@ -16,22 +16,22 @@ namespace vgfx
     public:
         Application() = delete;
 
-        using CreateRendererFunc = std::function<std::unique_ptr<Renderer>(
-            Context::AppConfig& appConfig,
-            Context::InstanceConfig& instanceConfig,
-            Context::DeviceConfig& deviceConfig)>;
-
         using ConfigFunc = std::function<void(
             Context::AppConfig& appConfig,
             Context::InstanceConfig& instanceConfig,
             Context::DeviceConfig& deviceConfig)>;
 
+        using CreateRendererFunc = std::function<std::unique_ptr<Renderer>(
+            Context::AppConfig& appConfig,
+            Context::InstanceConfig& instanceConfig,
+            Context::DeviceConfig& deviceConfig)>;
+
         Application(
-            CreateRendererFunc createRendererFunc,
-            ConfigFunc initFunc,
+            ConfigFunc configFunc,
             const Context::AppConfig& appConfig,
             const Context::InstanceConfig& instanceConfig,
-            const Context::DeviceConfig& deviceConfig);
+            const Context::DeviceConfig& deviceConfig,
+            CreateRendererFunc createRendererFunc);
 
         ~Application();
 
@@ -75,7 +75,7 @@ namespace vgfx
 
         using CreateVulkanSurfaceFunc = std::function<VkResult(VkInstance, void*, const VkAllocationCallbacks*, VkSurfaceKHR*)>;
 
-        using CreateWindowRendererFunc = std::function<std::unique_ptr<WindowRenderer>(
+        using CreateWindowRendererFunc = std::function<std::unique_ptr<Renderer>(
             Context::AppConfig& appConfig,
             Context::InstanceConfig& instanceConfig,
             Context::DeviceConfig& deviceConfig,
@@ -90,11 +90,11 @@ namespace vgfx
             const SwapChain::Config& swapChainConfig,
             void* pWindow,
             CreateVulkanSurfaceFunc createVulkanSurfaceFunc,
-            CreateWindowRendererFunc createRendererFunc=nullptr,
+            CreateWindowRendererFunc createRendererFunc,
             ConfigFunc configFunc=nullptr);
 
-        const WindowRenderer& getRenderer() const { return *m_pWindowRenderer; }
-        WindowRenderer& getRenderer() { return *m_pWindowRenderer; }
+        const SwapChainPresenter& getSwapChainPresenter() const { return *m_spSwapChainPresenter; }
+        SwapChainPresenter& getSwapChainPresenter() { return *m_spSwapChainPresenter; }
 
         void setFrameBufferResized(bool flag) {
             m_frameBufferResized = flag;
@@ -115,7 +115,7 @@ namespace vgfx
         SwapChain::Config m_swapChainConfig;
         void* m_pWindow = nullptr;
         CreateVulkanSurfaceFunc m_createVulkanSurface;
-        WindowRenderer* m_pWindowRenderer = nullptr;
+        std::unique_ptr<SwapChainPresenter> m_spSwapChainPresenter = nullptr;
         bool m_frameBufferResized = false;
     };
 }

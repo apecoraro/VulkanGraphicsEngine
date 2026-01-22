@@ -70,7 +70,8 @@ GLFWApplication::GLFWApplication(
                 swapChainConfig.imageExtent = windowExtent;
             }
 
-            return std::make_unique<vgfx::WindowRenderer>(m_graphicsContext, swapChainConfig, pWindow, createVulkanSurfaceFunc);
+            vgfx::SwapChainPresenter* pSwapChainPresenter = new vgfx::SwapChainPresenter(m_graphicsContext, swapChainConfig, pWindow, createVulkanSurfaceFunc);
+            return std::make_unique<vgfx::Renderer>(m_graphicsContext, pSwapChainPresenter);
         },
         [&](vgfx::Context::AppConfig& appConfig,
             vgfx::Context::InstanceConfig& instanceConfig,
@@ -102,10 +103,11 @@ GLFWApplication::~GLFWApplication()
 
 void GLFWApplication::run()
 {
-    vgfx::WindowRenderer& renderer = getRenderer();
+    vgfx::SwapChainPresenter& renderer = getRenderer();
     while (!glfwWindowShouldClose(m_pGLFWwindow)) {
         glfwPollEvents();
-        VkResult result = renderer.renderFrame(*m_spSceneRoot.get());
+        renderer.renderFrame(*m_spSceneRoot.get());
+        VkResult result = renderer.present();
         if (result == VK_ERROR_OUT_OF_DATE_KHR || m_frameBufferResized) {
             uint32_t width = 0u, height = 0u;
             GetFrameBufferSize(m_pGLFWwindow, &width, &height);

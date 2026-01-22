@@ -3,6 +3,7 @@
 #include "VulkanGraphicsContext.h"
 #include "VulkanGraphicsDescriptors.h"
 #include "VulkanGraphicsProgram.h"
+#include "VulkanGraphicsSampler.h"
 #include "VulkanGraphicsVertexBuffer.h"
 
 #include <vulkan/vulkan.h>
@@ -36,30 +37,22 @@ namespace vgfx
         void setPipeline(const Pipeline& pipeline) const { m_pPipeline = &pipeline; }
     };
     // Encapsulates a vertex and fragment shader; the DescriptorSetLayouts should correspond
-    // to the uniform inputs to the shaders; the imageTypes should correspond to the image
-    // inputs (these are used for loading images from disk).
+    // to the uniform inputs to the shaders
     class MeshEffect : public Effect
     {
     public:
-        enum class ImageType
-        {
-            Diffuse,
-        };
-        
         MeshEffect(
             const Program& vertexShader,
             const std::vector<VertexBuffer::AttributeDescription>& vtxShaderInputs,
             const Program& fragmentShader,
             const std::vector<VkPushConstantRange>& pushConstantRanges,
-            DescriptorSetLayouts&& descriptorSetLayouts,
-            const std::vector<ImageType>& imageTypes)
+            DescriptorSetLayouts&& descriptorSetLayouts)
             : m_meshEffectId(MeshEffectId(&vertexShader, &fragmentShader))
             , m_vertexShader(vertexShader)
             , m_vertexShaderInputs(vtxShaderInputs)
             , m_fragmentShader(fragmentShader)
             , m_pushConstantRanges(pushConstantRanges)
             , m_descriptorSetLayouts(std::move(descriptorSetLayouts))
-            , m_imageTypes(imageTypes)
         {
         }
 
@@ -83,7 +76,6 @@ namespace vgfx
         const std::vector<VertexBuffer::AttributeDescription>& getVertexShaderInputs() const { return m_vertexShaderInputs; }
         const std::vector<VkPushConstantRange>& getPushConstantRanges() const { return m_pushConstantRanges; }
         const DescriptorSetLayouts& getDescriptorSetLayouts() const { return m_descriptorSetLayouts; }
-        const std::vector<ImageType>& getImageTypes() const { return m_imageTypes; }
 
     private:
         MeshEffectId m_meshEffectId;
@@ -91,8 +83,7 @@ namespace vgfx
         std::vector<VertexBuffer::AttributeDescription> m_vertexShaderInputs;
         const Program& m_fragmentShader;
         const std::vector<VkPushConstantRange> m_pushConstantRanges;
-        DescriptorSetLayouts m_descriptorSetLayouts;
-        std::vector<ImageType> m_imageTypes;
+        DescriptorSetLayouts m_descriptorSetLayouts; 
     };
 
     class ComputeEffect : public Effect
@@ -106,24 +97,18 @@ namespace vgfx
         {
             std::string vertexShaderPath;
             std::string vertexShaderEntryPointFunc;
-            std::vector<VertexBuffer::AttributeDescription> vertexShaderInputs;
             std::string fragmentShaderPath;
             std::string fragmentShaderEntryPointFunc;
-            std::vector<MeshEffect::ImageType> imageTypes;
 
             MeshEffectDesc(
                 const std::string& vtxShaderPath,
                 const std::string& vtxShaderEntryPointFunc,
-                const std::vector<VertexBuffer::AttributeDescription>& vtxShaderInputs,
                 const std::string& fragShaderPath,
-                const std::string& fragShaderEntryPointFunc,
-                const std::vector<MeshEffect::ImageType>& imgTypes)
+                const std::string& fragShaderEntryPointFunc)
                 : vertexShaderPath(vtxShaderPath)
                 , vertexShaderEntryPointFunc(vtxShaderEntryPointFunc)
-                , vertexShaderInputs(vtxShaderInputs)
                 , fragmentShaderPath(fragShaderPath)
                 , fragmentShaderEntryPointFunc(fragShaderEntryPointFunc)
-                , imageTypes(imgTypes)
             {
             }
         };
@@ -131,6 +116,10 @@ namespace vgfx
         MeshEffect& GetOrLoadEffect(
             Context& context,
             const MeshEffectDesc& effectDesc);
+
+        Sampler& GetOrCreateSampler(
+            Context& context,
+            const Sampler::Config& config);
 
         //ComputeEffect& GetOrLoadEffect(); // TODO
             //Context& context,

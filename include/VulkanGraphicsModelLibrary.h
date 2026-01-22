@@ -26,15 +26,14 @@ namespace vgfx
         struct ModelDesc
         {
             std::string modelPathOrShapeName;
-            using Images = std::unordered_map<MeshEffect::ImageType, std::string>;
-            // Use imageOverrides to override the images specified by the model, or provide them for a shape.
-            Images imageOverrides;
+            using Images = std::unordered_map<ImageType, std::string>;
+            // Use imagesOverrides to override the imagesOverrides specified by the model, or provide them for a shape.
+            Images imagesOverrides;
         };
 
         Drawable& getOrCreateDrawable(
             Context& context,
             const ModelDesc& model,
-            const MeshEffect& meshEffect,
             CommandBufferFactory& commandBufferFactory);
  
         // Default index buffer config for all models/drawables created by this.
@@ -50,10 +49,6 @@ namespace vgfx
             Context& context,
             const Image& image);
 
-        Sampler& getOrCreateSampler(
-            const Sampler::Config& config,
-            Context& context);
-
     private:
         static VertexBuffer::Config DefaultVertexBufferConfig;
         static IndexBuffer::Config DefaultIndexBufferConfig;
@@ -64,11 +59,11 @@ namespace vgfx
             IndexBuffer** ppIndexBuffer,
             ModelDesc::Images* pModelImages) const;
 
-        Drawable* findDrawable(const std::string& modelPath, const MeshEffect& meshEffect);
+        Drawable* findDrawable(const std::string& modelPath);
 
         using FilePath = std::string;
 
-        using DrawableLibrary = std::unordered_map<FilePath, std::map<MeshEffectId, std::unique_ptr<Drawable>>>;
+        using DrawableLibrary = std::unordered_map<FilePath, std::unique_ptr<Drawable>>;
         DrawableLibrary m_drawableLibrary;
 
         using ImageLibrary = std::unordered_map<FilePath, std::unique_ptr<Image>>;
@@ -76,9 +71,6 @@ namespace vgfx
 
         using ImageViewLibrary = std::map<ImageView::Config, std::unique_ptr<ImageView>>;
         ImageViewLibrary m_imageViewLibrary;
-
-        using SamplerLibrary = std::map<Sampler::Config, std::unique_ptr<Sampler>>;
-        SamplerLibrary m_samplerLibrary;
 
         struct ModelData
         {

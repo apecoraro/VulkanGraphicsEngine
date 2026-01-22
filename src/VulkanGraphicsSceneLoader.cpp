@@ -42,27 +42,11 @@ std::unique_ptr<SceneNode> SceneLoader::loadScene(const std::string&)
     const std::string& dataPath = m_graphicsContext.getAppConfig().dataDirectoryPath;
     std::string modelPath = "SHAPE_SPHERE";
     std::string modelDiffuseTexName = "wood.png";
-    std::string vertexShader = "MvpTransform_XyzRgbUvNormal_Out.vert.spv";
-    std::string fragmentShader = "TexturedBlinnPhong.frag.spv";
-
-    std::string vertexShaderEntryPointFunc = "main";
-    std::string fragmentShaderEntryPointFunc = "main";
-
-    EffectsLibrary::MeshEffectDesc meshEffectDesc(
-        vertexShader,
-        vertexShaderEntryPointFunc,
-        VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions, // TODO should use reflection for this.
-        fragmentShader,
-        fragmentShaderEntryPointFunc,
-        { MeshEffect::ImageType::Diffuse });
-
-    MeshEffect& meshEffect =
-        EffectsLibrary::GetOrLoadEffect(m_graphicsContext, meshEffectDesc);
 
     ModelLibrary::ModelDesc modelDesc;
     modelDesc.modelPathOrShapeName = modelPath;
     if (!modelDiffuseTexName.empty()) {
-        modelDesc.imageOverrides[MeshEffect::ImageType::Diffuse] = modelDiffuseTexName;
+        modelDesc.imagesOverrides[MeshEffect::ImageType::Diffuse] = modelDiffuseTexName;
     }
 
     glm::mat4 modelWorldTransform = glm::identity<glm::mat4>();
@@ -72,7 +56,6 @@ std::unique_ptr<SceneNode> SceneLoader::loadScene(const std::string&)
         m_spModelLibrary->getOrCreateDrawable(
             m_graphicsContext,
             modelDesc,
-            meshEffect,
             *m_spCommandBufferFactory);
 
     drawable.setWorldTransform(modelWorldTransform);

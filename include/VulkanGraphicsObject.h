@@ -11,6 +11,9 @@ namespace vgfx
 {
     class Drawable;
     struct DrawContext;
+    class Renderer;
+
+    using Drawables = std::vector<Drawable*>;
     // Represents an Object in the scene, has a world transformation, can be composed of
     // multiple Drawables each with their own transformation relative to this.
     class Object : public SceneNode
@@ -21,14 +24,14 @@ namespace vgfx
 
         void addDrawable(Drawable& pDrawable);
 
-        void draw(DrawContext& drawContext);
+        Drawables& getDrawables() { return m_drawables; }
+        const Drawables& getDrawables() const { return m_drawables; }
+
+        void draw(Renderer& renderer, DrawContext& drawContext);
 
     private:
-        void buildPipelines(DrawContext& drawContext);
-
-        std::vector<Drawable*> m_drawables;
+        Drawables m_drawables;
         bool m_buildPipelines = true;
-        std::vector<std::unique_ptr<Pipeline>> m_pipelines;
     };
 }
 

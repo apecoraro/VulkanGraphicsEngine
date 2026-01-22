@@ -17,9 +17,9 @@ void vgfx::Drawable::configureDescriptorSets(
     std::vector<VkDescriptorSet>* pDescriptorSets)
 {
     pDescriptorSets->clear();
-    pDescriptorSets->resize(m_meshEffect.getDescriptorSetLayouts().size());
-    for (size_t index = 0; index < m_meshEffect.getDescriptorSetLayouts().size(); ++index) {
-        const auto& spDescSetLayout = m_meshEffect.getDescriptorSetLayouts()[index];
+    pDescriptorSets->resize(m_pMeshEffect->getDescriptorSetLayouts().size());
+    for (size_t index = 0; index < m_pMeshEffect->getDescriptorSetLayouts().size(); ++index) {
+        const auto& spDescSetLayout = m_pMeshEffect->getDescriptorSetLayouts()[index];
         
         VkDescriptorSet* pWritePtr = pDescriptorSets->data() + index;
         drawContext.descriptorPool.allocateDescriptorSets(
@@ -32,7 +32,7 @@ void vgfx::Drawable::configureDescriptorSets(
     updater.bindDescriptor(0, *curViewState.pCameraProjectionBuffer);
     updater.updateDescriptorSet(drawContext.context, pDescriptorSets->at(0));
 
-    auto imageSampler = getImageSampler(MeshEffect::ImageType::Diffuse);
+    auto& imageSampler = getImageSampler(ImageType::Diffuse);
 
     CombinedImageSamplerDescriptorUpdater imageSamplerUpdater(*imageSampler.first, *imageSampler.second);
 
@@ -79,14 +79,14 @@ void vgfx::Drawable::draw(DrawContext& drawContext)
     vkCmdBindPipeline(
         commandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
-        m_meshEffect.getPipeline().getHandle());
+        m_pMeshEffect->getPipeline().getHandle());
 
     configureDescriptorSets(drawContext, &m_descriptorSets);
 
     vkCmdBindDescriptorSets(
         commandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
-        m_meshEffect.getPipeline().getLayout(),
+        m_pMeshEffect->getPipeline().getLayout(),
         0u, // Offset in descriptor array
         static_cast<uint32_t>(m_descriptorSets.size()),
         m_descriptorSets.data(),
@@ -100,7 +100,7 @@ void vgfx::Drawable::draw(DrawContext& drawContext)
 
     vkCmdPushConstants(
         commandBuffer,
-        m_meshEffect.getPipeline().getLayout(),
+        m_pMeshEffect->getPipeline().getLayout(),
         VK_SHADER_STAGE_VERTEX_BIT,
         0,
         sizeof(pushConstants),

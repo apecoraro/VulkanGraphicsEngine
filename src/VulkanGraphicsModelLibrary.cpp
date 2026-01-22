@@ -256,18 +256,17 @@ namespace vgfx
     Drawable& ModelLibrary::getOrCreateDrawable(
         Context& context,
         const ModelDesc& model,
-        const MeshEffect& meshEffect,
         CommandBufferFactory& commandBufferFactory)
     {
         std::string modelPath = context.getAppConfig().dataDirectoryPath + "/" + model.modelPathOrShapeName;
 
-        Drawable* pDrawable = findDrawable(modelPath, meshEffect);
+        Drawable* pDrawable = findDrawable(modelPath);
         if (pDrawable != nullptr) {
             return *pDrawable;
         }
 
         // make a copy of the override paths (if any) so that we can add the model file's images if there are some.
-        ModelDesc::Images modelImages = model.imageOverrides;
+        ModelDesc::Images modelImages = model.imagesOverrides;
 
         VertexBuffer* pVertexBuffer;
         IndexBuffer* pIndexBuffer;
@@ -295,36 +294,19 @@ namespace vgfx
                     throw std::runtime_error(warn + err);
                 }
 
-                // This is kind of crappy way to do this.
-                if (VertexBuffer::ComputeVertexStride(meshEffect.getVertexShaderInputs()) ==
-                    VertexBuffer::ComputeVertexStride(VertexXyzRgbUv::GetConfig().vertexAttrDescriptions)) {
-                    CreateVertsFromShapes<VertexXyzRgbUv>(
-                        attrib,
-                        shapes,
-                        CreateXyzRgbUv,
-                        &vertices,
-                        &indices);
+                CreateVertsFromShapes<VertexXyzRgbUvN>(
+                    attrib,
+                    shapes,
+                    CreateXyzRgbUvN,
+                    &vertices,
+                    &indices);
 
-                    vertexBufferCfg = VertexXyzRgbUv::GetConfig();
-                } else if (VertexBuffer::ComputeVertexStride(meshEffect.getVertexShaderInputs()) ==
-                    VertexBuffer::ComputeVertexStride(VertexXyzRgbUvN::GetConfig().vertexAttrDescriptions)) {
-                    CreateVertsFromShapes<VertexXyzRgbUvN>(
-                        attrib,
-                        shapes,
-                        CreateXyzRgbUvN,
-                        &vertices,
-                        &indices);
-
-                    vertexBufferCfg = VertexXyzRgbUvN::GetConfig();
-                } else {
-                    assert(false && "Unkown vertex config.");
-                }
+                vertexBufferCfg = VertexXyzRgbUvN::GetConfig();
 
                 if (!materials.empty()) {
-                    if (model.imageOverrides.find(MeshEffect::ImageType::Diffuse) == model.imageOverrides.end()) {
-                        modelImages[MeshEffect::ImageType::Diffuse] = materials.front().diffuse_texname;
+                    if (model.imagesOverrides.find(ImageType::Diffuse) == model.imagesOverrides.end()) {
+                        modelImages[ImageType::Diffuse] = materials.front().diffuse_texname;
                     }
-                    // TODO support other types of images.
                 }
             }
 
@@ -341,9 +323,9 @@ namespace vgfx
             pIndexBuffer = newModelData.spIndexBuffer.get();
         }
 
-        std::map<MeshEffect::ImageType, std::pair<const ImageView*, const Sampler*>> imageSamplers;
-        for (auto imageType : meshEffect.getImageTypes()) {
-            std::string texturePath = context.getAppConfig().dataDirectoryPath + "/" + modelImages[imageType];
+        ImageSamplers imageSamplers;
+        for (auto imageTypeAndPath : modelImages) {
+            std::string texturePath = context.getAppConfig().dataDirectoryPath + "/" + imageTypeAndPath.second;
             Image& image =
                 getOrLoadImage(
                     texturePath,
@@ -355,30 +337,13 @@ namespace vgfx
                     ImageView::Config(
                         image.getFormat(), VK_IMAGE_VIEW_TYPE_2D)));
 
-            uint32_t mipLevels =
-                vgfx::Image::ComputeMipLevels2D(image.getWidth(), image.getHeight());
-            Sampler& sampler =
-                getOrCreateSampler(
-                    vgfx::Sampler::Config(
-                        VK_FILTER_LINEAR,
-                        VK_FILTER_LINEAR,
-                        VK_SAMPLER_MIPMAP_MODE_LINEAR,
-                        0.0f, // min lod
-                        static_cast<float>(mipLevels),
-                        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                        false, 0),
-                    context); // Last two parameters are for anisotropic filtering
-            imageSamplers[imageType] = std::make_pair<const ImageView*, const Sampler*>(&imageView, &sampler);
+            imageSamplers[imageTypeAndPath.first] = ImageSampler(&imageView, nullptr);
         }
-        auto& modelMap = m_drawableLibrary[modelPath];
-        return *(modelMap[meshEffect.getId()] =
+
+        return *(m_drawableLibrary[modelPath] =
             std::make_unique<Drawable>(
-                context,
                 *pVertexBuffer,
                 *pIndexBuffer,
-                meshEffect,
                 imageSamplers)).get();
     }
 
@@ -405,16 +370,12 @@ namespace vgfx
         return false;
     }
 
-    Drawable* ModelLibrary::findDrawable(const std::string& modelPath, const MeshEffect& meshEffect)
+    Drawable* ModelLibrary::findDrawable(const std::string& modelPath)
     {
         // Drawables are stored by path and MeshEffect
-        const auto& findModels = m_drawableLibrary.find(modelPath);
-        if (findModels != m_drawableLibrary.end()) {
-            // Can reuse previously created Drawable meshes if they use the same MeshEffect
-            const auto& findDrawableMeshEffectMap = findModels->second.find(meshEffect.getId());
-            if (findDrawableMeshEffectMap  != findModels->second.end()) {
-                return findDrawableMeshEffectMap->second.get();
-            }
+        const auto& findModel = m_drawableLibrary.find(modelPath);
+        if (findModel != m_drawableLibrary.end()) {
+            return findModel->second.get();
         }
         return nullptr;
     }
@@ -478,17 +439,5 @@ namespace vgfx
         spImageView = std::make_unique<ImageView>(context, config, image);
 
         return *spImageView.get();
-    }
-
-    Sampler& ModelLibrary::getOrCreateSampler(const Sampler::Config& config, Context& context)
-    {
-        auto& spSampler = m_samplerLibrary[config];
-        if (spSampler != nullptr) {
-            return *spSampler.get();
-        }
-
-        spSampler = std::make_unique<Sampler>(context, config);
-
-        return *spSampler.get();
     }
 }
