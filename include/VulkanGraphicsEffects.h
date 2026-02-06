@@ -43,13 +43,11 @@ namespace vgfx
     public:
         MeshEffect(
             const Program& vertexShader,
-            const std::vector<VertexBuffer::AttributeDescription>& vtxShaderInputs,
             const Program& fragmentShader,
             const std::vector<VkPushConstantRange>& pushConstantRanges,
             DescriptorSetLayouts&& descriptorSetLayouts)
             : m_meshEffectId(MeshEffectId(&vertexShader, &fragmentShader))
             , m_vertexShader(vertexShader)
-            , m_vertexShaderInputs(vtxShaderInputs)
             , m_fragmentShader(fragmentShader)
             , m_pushConstantRanges(pushConstantRanges)
             , m_descriptorSetLayouts(std::move(descriptorSetLayouts))
@@ -73,14 +71,12 @@ namespace vgfx
         const Program& getVertexShader() const { return m_vertexShader; }
         const Program& getFragmentShader() const { return m_fragmentShader; }
 
-        const std::vector<VertexBuffer::AttributeDescription>& getVertexShaderInputs() const { return m_vertexShaderInputs; }
         const std::vector<VkPushConstantRange>& getPushConstantRanges() const { return m_pushConstantRanges; }
         const DescriptorSetLayouts& getDescriptorSetLayouts() const { return m_descriptorSetLayouts; }
 
     private:
         MeshEffectId m_meshEffectId;
         const Program& m_vertexShader;
-        std::vector<VertexBuffer::AttributeDescription> m_vertexShaderInputs;
         const Program& m_fragmentShader;
         const std::vector<VkPushConstantRange> m_pushConstantRanges;
         DescriptorSetLayouts m_descriptorSetLayouts; 

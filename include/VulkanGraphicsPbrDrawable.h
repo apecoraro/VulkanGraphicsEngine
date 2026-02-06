@@ -15,15 +15,12 @@ namespace vgfx
 
     private:
         PbrDrawable(
-            Context& context,
             VertexBuffer& vertexBuffer,
             IndexBuffer& indexBuffer,
-            const MeshEffect& meshEffect,
-            const ImageSamplerMap& imageSamplers)
-            : Drawable(context,
+            ImageSamplers& imageSamplers)
+            : Drawable(
                 vertexBuffer,
                 indexBuffer,
-                meshEffect,
                 imageSamplers)
         {
         }

@@ -30,7 +30,6 @@ namespace vgfx
     {
     public:
         Drawable(
-            Context& context,
             VertexBuffer& vertexBuffer,
             IndexBuffer& indexBuffer,
             ImageSamplers& imageSamplers)

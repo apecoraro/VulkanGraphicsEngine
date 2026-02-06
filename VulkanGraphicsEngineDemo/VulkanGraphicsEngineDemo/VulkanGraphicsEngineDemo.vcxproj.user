@@ -6,6 +6,7 @@
     <LocalDebuggerEnvironment>TEST_MODEL='-d ../../data -m viking_room.obj -i viking_room.png -v MvpTransform_XyzRgbUvNormal_Out.vert.spv -f TexturedBlinnPhong.frag.spv'
 TEST_SHAPE='-d ../../data -m SHAPE_SPHERE -i Quake_Remastered.png -v MvpTransform_XyzRgbUvNormal_Out.vert.spv -f TexturedBlinnPhong.frag.spv'
 $(LocalDebuggerEnvironment)</LocalDebuggerEnvironment>
+    <LocalDebuggerCommandArgumentsHistory>-p ../../data -s SHAPE_SPHERE -v|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LocalDebuggerCommandArguments>-d ../../data -m viking_room.obj -v ub_d0.0_xyz_rgb_uv_in_rgb_uv_out.spv -f s_d1.0_rgb_uv_in.spv</LocalDebuggerCommandArguments>

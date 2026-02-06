@@ -46,7 +46,7 @@ std::unique_ptr<SceneNode> SceneLoader::loadScene(const std::string&)
     ModelLibrary::ModelDesc modelDesc;
     modelDesc.modelPathOrShapeName = modelPath;
     if (!modelDiffuseTexName.empty()) {
-        modelDesc.imagesOverrides[MeshEffect::ImageType::Diffuse] = modelDiffuseTexName;
+        modelDesc.imagesOverrides[ImageType::Diffuse] = modelDiffuseTexName;
     }
 
     glm::mat4 modelWorldTransform = glm::identity<glm::mat4>();
