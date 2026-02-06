@@ -102,10 +102,14 @@ namespace vgfx
         friend class Context;
         virtual void createVulkanSurface(VkInstance instance, const VkAllocationCallbacks* pAllocationCallbacks) = 0;
         virtual void checkIsDeviceSuitable(VkPhysicalDevice device) const = 0;
+        virtual bool presentQueueIsRequired() const { return false; }
         virtual bool queueFamilySupportsPresent(VkPhysicalDevice device, uint32_t familyIndex) const { return true; }
         virtual void configureForDevice(VkPhysicalDevice device) = 0;
 
     public:
+        virtual void initSwapChain(Renderer& renderer) = 0;
+        virtual const RenderTarget& acquireSwapChainImageForRendering(VkCommandBuffer commandBuffer) = 0;
+        virtual void transitionSwapChainImageForPresent(VkCommandBuffer commandBuffer) {};
         virtual VkResult present(Renderer& renderer) = 0;
     };
 
@@ -123,7 +127,6 @@ namespace vgfx
         // is not specified in the SwapChainConfig then the corresponding callback function must 
         // not be nullptr.
         SwapChainPresenter(
-            Context& context,
             const SwapChain::Config& swapChainConfig,
             void* pWindow,
             CreateVulkanSurfaceFunc createVulkanSurfaceFunc,
@@ -131,8 +134,7 @@ namespace vgfx
             ChooseImageExtentFunc chooseWindowExtentFunc = nullptr,
             ChooseSurfaceFormatFunc chooseSurfaceFormatFunc = nullptr,
             ChoosePresentModeFunc choosePresentModeFunc = nullptr)
-            : m_context(context)
-            , m_swapChainConfig(swapChainConfig)
+            : m_swapChainConfig(swapChainConfig)
             , m_pWindow(pWindow)
             , m_createVulkanSurfaceFunc(createVulkanSurfaceFunc)
             , m_chooseImageCountFunc(chooseImageCountFunc)
@@ -156,13 +158,18 @@ namespace vgfx
 
         void checkIsDeviceSuitable(VkPhysicalDevice device) const override;
 
+        bool presentQueueIsRequired() const override { return true; }
+
         bool queueFamilySupportsPresent(VkPhysicalDevice device, uint32_t familyIndex) const override;
 
         void configureForDevice(VkPhysicalDevice device) override;
 
         const SwapChain::Config& getSwapChainConfig() const { return m_swapChainConfig; }
+        SwapChain::Config& getSwapChainConfig() { return m_swapChainConfig; }
 
-        void initSwapChain(Renderer& renderer);
+        void* getWindow() { return m_pWindow; }
+
+        void initSwapChain(Renderer& renderer) override;
 
         SwapChain& getSwapChain() { return *m_spSwapChain.get(); }
         const SwapChain& getSwapChain() const { return *m_spSwapChain.get(); }
@@ -171,37 +178,23 @@ namespace vgfx
 
         void resizeWindow(uint32_t width, uint32_t height, Renderer& renderer);
 
+        const RenderTarget& acquireSwapChainImageForRendering(VkCommandBuffer commandBuffer) override;
+        void transitionSwapChainImageForPresent(VkCommandBuffer commandBuffer) override;
+
     private:
-        const RenderTarget& prepareRenderTarget(size_t frameIndex, VkCommandBuffer commandBuffer) override
-        {
-            m_queueSubmitInfo.clearAll();
-
-            acquireSwapChainImageForRendering(commandBuffer);
-            return m_swapChainRenderTargets[m_curSwapChainImageIndex];
-        }
-
-        void postDrawScene(size_t frameIndex, VkCommandBuffer commandBuffer) override
-        {
-            transitionSwapChainImageForPresent(commandBuffer);
-        }
-
         const Image& getSwapChainImage(size_t frameIndex)
         {
             size_t swapChainImageIndex = frameIndex % m_spSwapChain->getImageCount();
             return m_spSwapChain->getImage(swapChainImageIndex);
         }
 
-        void acquireSwapChainImageForRendering(VkCommandBuffer commandBuffer);
-        void transitionSwapChainImageForPresent(VkCommandBuffer commandBuffer);
-
         VkResult acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex);
-
-        Context& m_context;
 
         SwapChain::Config m_swapChainConfig;
         VkSurfaceKHR m_surface = VK_NULL_HANDLE;
         void* m_pWindow = nullptr;
         CreateVulkanSurfaceFunc m_createVulkanSurfaceFunc = nullptr;
+        VkDevice m_logicalDevice = VK_NULL_HANDLE;
         std::unique_ptr<SwapChain> m_spSwapChain;
         std::vector<RenderTarget> m_swapChainRenderTargets;
         uint32_t m_curSwapChainImageIndex = 0u; // most recently acquired swap chain
@@ -221,22 +214,15 @@ namespace vgfx
     class Renderer
     {
     protected:
-        friend class Context;
-        // Called by vgfx::Context to validate that a particular device will work for this Renderer.
-        virtual void checkIsDeviceSuitable(VkPhysicalDevice device) const = 0;
-
-        // Callback by vgfx::Context after a physical device has been selected. Allows this Renderer
-        // to setup its configuration based on the capabilities of the device.
-        virtual void configureForDevice(VkPhysicalDevice device) = 0;
-
         Context& m_context;
+        Presenter& m_presenter;
 
     public:
-        Renderer(Context& context, Presenter* pPresenter) : m_context(context), m_pPresenter(pPresenter) { }
+        Renderer(Context& context, Presenter& presenter) : m_context(context), m_presenter(presenter) { }
         virtual ~Renderer() = default;
 
-        Presenter* getPresenter() { return m_pPresenter;  }
-        const Presenter* getPresenter() const { return m_pPresenter;  }
+        Presenter& getPresenter() { return m_presenter;  }
+        const Presenter& getPresenter() const { return m_presenter;  }
 
         const Camera& getCamera() const { return *m_spCamera.get(); }
         Camera& getCamera() { return *m_spCamera.get(); }
@@ -253,6 +239,7 @@ namespace vgfx
 
         virtual void buildPipelines(Object& object, DrawContext& drawContext);
         virtual void createImageSamplers(Drawable& drawable);
+
         // Records command buffer(s) to draw the scene in its current state.
         virtual void renderFrame(SceneNode& scene);
         struct QueueSubmitInfo
@@ -290,8 +277,15 @@ namespace vgfx
         void submitGraphicsCommands();
 
     protected:
-        virtual const RenderTarget& prepareRenderTarget(size_t frameIndex, VkCommandBuffer commandBuffer) = 0;
-        virtual void postDrawScene(size_t frameIndex, VkCommandBuffer commandBuffer) = 0;
+        virtual const RenderTarget& prepareRenderTarget(VkCommandBuffer commandBuffer)
+        {
+            return m_presenter.acquireSwapChainImageForRendering(commandBuffer);
+        }
+
+        virtual void postDrawScene(VkCommandBuffer commandBuffer)
+        {
+            return m_presenter.transitionSwapChainImageForPresent(commandBuffer);
+        }
 
         std::unique_ptr<DepthStencilBuffer> m_spDepthStencilBuffer;
         std::unique_ptr<Camera> m_spCamera;
@@ -317,7 +311,6 @@ namespace vgfx
         std::vector<std::unique_ptr<Buffer>> m_lightsBuffers;
 
         QueueSubmitInfo m_queueSubmitInfo;
-        Presenter* m_pPresenter = nullptr;
     };
 }
 

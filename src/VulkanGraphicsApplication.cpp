@@ -19,10 +19,11 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 }
 
 Application::Application(
-    ConfigFunc configFunc,
+    AppConfigFunc configFunc,
     const Context::AppConfig& appConfig,
     const Context::InstanceConfig& instanceConfig,
     const Context::DeviceConfig& deviceConfig,
+    Presenter& presenter,
     CreateRendererFunc createRendererFunc)
     : m_validationLayerFunc(appConfig.onValidationLayerFunc)
 {
@@ -32,7 +33,7 @@ Application::Application(
 
     configFunc(appConfigFinal, instanceConfigFinal, deviceConfigFinal);
 
-    m_spRenderer = createRendererFunc(appConfigFinal, instanceConfigFinal, deviceConfigFinal);
+    m_spRenderer = createRendererFunc(appConfigFinal, instanceConfigFinal, deviceConfigFinal, presenter);
 
     m_graphicsContext.init(
         appConfigFinal,
@@ -43,8 +44,6 @@ Application::Application(
     if (appConfig.enableValidationLayers) {
         m_graphicsContext.enableDebugReportCallback(DebugCallback, this);
     }
-
-    m_spRenderer->initGraphicsResources();
 
     m_spSceneLoader = std::make_unique<SceneLoader>(m_graphicsContext);
 }
@@ -99,11 +98,9 @@ WindowApplication::WindowApplication(
     const Context::AppConfig& appConfig,
     const Context::InstanceConfig& instanceConfig,
     const Context::DeviceConfig& deviceConfig,
-    const SwapChain::Config& swapChainConfig,
-    void* pWindow,
-    CreateVulkanSurfaceFunc createVulkanSurfaceFunc,
-    CreateWindowRendererFunc createRendererFunc,
-    ConfigFunc configFunc)
+    AppConfigFunc configFunc,
+    std::unique_ptr<SwapChainPresenter>&& spSwapChainPresenter,
+    Application::CreateRendererFunc createRendererFunc)
     : Application(
         [&](Context::AppConfig& appConfig,
             Context::InstanceConfig& instanceConfig,
@@ -115,23 +112,14 @@ WindowApplication::WindowApplication(
                 configFunc(appConfig, instanceConfig, deviceConfig);
             }
         },
-        appConfig, instanceConfig, deviceConfig,
-        [&](Context::AppConfig& appConfig,
-            Context::InstanceConfig& instanceConfig,
-            Context::DeviceConfig& deviceConfig) {
-                SwapChain::Config swapChainConfigFinal = swapChainConfig;
-                return createRendererFunc(appConfig, instanceConfig, deviceConfig, swapChainConfig, pWindow, createVulkanSurfaceFunc);
-        })
-    , m_swapChainConfig(swapChainConfig)
-    , m_pWindow(pWindow)
-    , m_createVulkanSurface(createVulkanSurfaceFunc)
+        appConfig, instanceConfig, deviceConfig, *spSwapChainPresenter.get(), createRendererFunc)
+    , m_spSwapChainPresenter(std::move(spSwapChainPresenter))
 {
-    m_spSwapChainPresenter.reset(reinterpret_cast<SwapChainPresenter*>(m_spRenderer->getPresenter()));
 }
 
 void vgfx::WindowApplication::resizeWindow(uint32_t width, uint32_t height)
 {
-    m_spSwapChainPresenter->resizeWindow(width, height);
+    m_spSwapChainPresenter->resizeWindow(width, height, *m_spRenderer.get());
 
     // TODO somehow notify m_spSceneRoot that resize has happened.
 }

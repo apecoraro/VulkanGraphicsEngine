@@ -99,7 +99,9 @@ namespace vgfx
         beginInfo.pInheritanceInfo = nullptr; // Optional
         vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-        const RenderTarget& renderTarget = prepareRenderTarget(m_frameIndex, commandBuffer);
+        m_queueSubmitInfo.clearAll();
+
+        const RenderTarget& renderTarget = prepareRenderTarget(commandBuffer);
 
         m_context.beginRendering(commandBuffer, renderTarget);
 
@@ -127,7 +129,7 @@ namespace vgfx
 
         scene.draw(*this, drawState);
 
-        postDrawScene(m_frameIndex, commandBuffer);
+        postDrawScene(commandBuffer);
 
         m_context.endRendering(commandBuffer);
 
@@ -162,7 +164,7 @@ namespace vgfx
 
     VkResult SwapChainPresenter::present(Renderer& renderer)
     {
-        VkDevice device = m_context.getLogicalDevice();
+        VkDevice device = m_logicalDevice;
 
         VkFence fences[] = { m_inFlightFences[m_syncObjIndex]->getHandle() };
         vkResetFences(device, 1, fences);
@@ -193,7 +195,7 @@ namespace vgfx
 
         presentInfo.pResults = nullptr; // Optional
 
-        return vkQueuePresentKHR(m_context.getPresentQueue(0u).queue, &presentInfo);
+        return vkQueuePresentKHR(renderer.getContext().getPresentQueue(0u).queue, &presentInfo);
     }
 
     static bool SurfaceFormatIsSupported(
@@ -448,14 +450,17 @@ namespace vgfx
 
     void SwapChainPresenter::initSwapChain(Renderer& renderer)
     {
+        m_logicalDevice = renderer.getContext().getLogicalDevice();
+
         m_spSwapChain =
-            std::make_unique<SwapChain>(m_context, m_surface, m_swapChainConfig);
+            std::make_unique<SwapChain>(renderer.getContext(), m_surface, m_swapChainConfig);
 
         // Don't know how many images were created until after creation, so have
         // to query to get this value even though we passed it in.
         uint32_t frameBufferingCount = m_spSwapChain->getImageCount();
 
         const auto& swapChainExtent = m_spSwapChain->getImageExtent();
+
         renderer.initGraphicsResources(swapChainExtent.width, swapChainExtent.height, frameBufferingCount);
 
         m_renderFinishedSemaphores.reserve(frameBufferingCount);
@@ -463,10 +468,10 @@ namespace vgfx
         for (size_t i = 0; i < frameBufferingCount; ++i) {
 
             m_renderFinishedSemaphores.push_back(
-                std::make_unique<Semaphore>(m_context));
+                std::make_unique<Semaphore>(renderer.getContext()));
 
             m_inFlightFences.push_back(
-                std::make_unique<Fence>(m_context));
+                std::make_unique<Fence>(renderer.getContext()));
 
             m_swapChainRenderTargets[i].addRenderImage(m_spSwapChain->getImage(i));
         }
@@ -477,7 +482,7 @@ namespace vgfx
                 swapChainExtent.height,
                 m_swapChainConfig.depthStencilFormat.value());
 
-            renderer.setDepthStencilBuffer(std::make_unique<DepthStencilBuffer>(m_context, dsCfg));
+            renderer.setDepthStencilBuffer(std::make_unique<DepthStencilBuffer>(renderer.getContext(), dsCfg));
 
             for (size_t i = 0; i < frameBufferingCount; ++i) {
                 m_swapChainRenderTargets[i].attachDepthStencilBuffer(*renderer.getDepthStencilBuffer());
@@ -554,7 +559,7 @@ namespace vgfx
         );
     }
 
-    void SwapChainPresenter::acquireSwapChainImageForRendering(VkCommandBuffer commandBuffer)
+    const RenderTarget& SwapChainPresenter::acquireSwapChainImageForRendering(VkCommandBuffer commandBuffer)
     {
         if (acquireNextSwapChainImage(&m_curSwapChainImageIndex) == VK_ERROR_OUT_OF_DATE_KHR) {
             throw VK_ERROR_OUT_OF_DATE_KHR;
@@ -571,6 +576,8 @@ namespace vgfx
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             0,
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
+        return m_swapChainRenderTargets[m_curSwapChainImageIndex];
     }
 
     void SwapChainPresenter::transitionSwapChainImageForPresent(VkCommandBuffer commandBuffer)
@@ -590,7 +597,7 @@ namespace vgfx
 
     VkResult SwapChainPresenter::acquireNextSwapChainImage(uint32_t* pSwapChainImageIndex)
     {
-        VkDevice device = m_context.getLogicalDevice();
+        VkDevice device = m_logicalDevice;
         VkFence fences[] = { m_inFlightFences[m_syncObjIndex]->getHandle() };
         vkWaitForFences(
             device,
@@ -610,7 +617,7 @@ namespace vgfx
 
     void SwapChainPresenter::resizeWindow(uint32_t width, uint32_t height, Renderer& renderer)
     {
-        m_context.waitForDeviceToIdle();
+        renderer.getContext().waitForDeviceToIdle();
 
         VkExtent2D windowWidthHeight {
             .width = width,
@@ -619,12 +626,12 @@ namespace vgfx
         m_swapChainConfig.imageExtent = windowWidthHeight;
         m_spSwapChain->recreate(m_surface, m_swapChainConfig);
 
-        renderer.resizeRenderTargetResources(width, height, m_spSwapChain->getImageCount() + 1);
+        renderer.resizeRenderTargetResources(width, height, m_spSwapChain->getImageCount());
     }
 
     void Renderer::resizeRenderTargetResources(uint32_t width, uint32_t height, uint32_t frameBufferingCount)
     {
-        size_t framesInFlightPlusOne = frameBufferingCount + 1;
+        uint32_t framesInFlightPlusOne = frameBufferingCount + 1;
         if (frameBufferingCount != m_frameBufferingCount) {
             m_frameBufferingCount = frameBufferingCount;
 
@@ -676,7 +683,7 @@ namespace vgfx
             std::make_unique<CommandBufferFactory>(
                 m_context, m_context.getGraphicsQueueFamilyIndex());
 
-        size_t framesInFlightPlusOne = frameBufferingCount + 1;
+        uint32_t framesInFlightPlusOne = frameBufferingCount + 1;
         createResourcePools(framesInFlightPlusOne);
 
         createCamera(renderTargetWidth, renderTargetHeight, static_cast<uint32_t>(framesInFlightPlusOne));

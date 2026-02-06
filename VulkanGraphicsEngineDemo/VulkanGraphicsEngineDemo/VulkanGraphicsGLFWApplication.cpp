@@ -51,28 +51,6 @@ GLFWApplication::GLFWApplication(
         appConfig,
         instanceConfig,
         deviceConfig,
-        swapChainConfig,
-        InitWindow(),
-        CreateWindowSurfaceCallback,
-        [&](vgfx::Context::AppConfig& appConfig,
-            vgfx::Context::InstanceConfig& instanceConfig,
-            vgfx::Context::DeviceConfig& deviceConfig,
-            vgfx::SwapChain::Config& swapChainConfig,
-            void* pWindow,
-            vgfx::WindowApplication::CreateVulkanSurfaceFunc createVulkanSurfaceFunc)
-        {
-            GLFWwindow* pGlfwWindow = reinterpret_cast<GLFWwindow*>(pWindow);
-            if (!swapChainConfig.imageExtent.has_value()) {
-                VkExtent2D windowExtent;
-                // Current size of window is used as default if SwapChainConfig::imageExtent is not specified.
-                GetFrameBufferSize(pGlfwWindow, &windowExtent.width, &windowExtent.height);
-
-                swapChainConfig.imageExtent = windowExtent;
-            }
-
-            vgfx::SwapChainPresenter* pSwapChainPresenter = new vgfx::SwapChainPresenter(m_graphicsContext, swapChainConfig, pWindow, createVulkanSurfaceFunc);
-            return std::make_unique<vgfx::Renderer>(m_graphicsContext, pSwapChainPresenter);
-        },
         [&](vgfx::Context::AppConfig& appConfig,
             vgfx::Context::InstanceConfig& instanceConfig,
             vgfx::Context::DeviceConfig& deviceConfig)
@@ -84,9 +62,29 @@ GLFWApplication::GLFWApplication(
                 instanceConfig.requiredExtensions.end(),
                 glfwExtensions,
                 glfwExtensions + glfwExtensionCount);
+        },
+        std::make_unique<vgfx::SwapChainPresenter>(swapChainConfig, InitWindow(), CreateWindowSurfaceCallback),
+        [&](vgfx::Context::AppConfig& appConfig,
+            vgfx::Context::InstanceConfig& instanceConfig,
+            vgfx::Context::DeviceConfig& deviceConfig,
+            vgfx::Presenter& presenter)
+        {
+            vgfx::SwapChainPresenter& swapChainPresenter = reinterpret_cast<vgfx::SwapChainPresenter&>(presenter);
+            vgfx::SwapChain::Config& swapChainConfig = swapChainPresenter.getSwapChainConfig();
+            if (!swapChainConfig.imageExtent.has_value()) {
+                // Current size of window is used as default if SwapChainConfig::imageExtent is not specified.
+                GLFWwindow* pGlfwWindow = reinterpret_cast<GLFWwindow*>(swapChainPresenter.getWindow());
+                VkExtent2D windowExtent;
+                GetFrameBufferSize(pGlfwWindow, &windowExtent.width, &windowExtent.height);
+
+                swapChainConfig.imageExtent = windowExtent;
+            }
+
+            return std::make_unique<vgfx::Renderer>(m_graphicsContext, swapChainPresenter);
         })
+        
 {
-    m_pGLFWwindow = reinterpret_cast<GLFWwindow*>(m_pWindow);
+    m_pGLFWwindow = reinterpret_cast<GLFWwindow*>(m_spSwapChainPresenter->getWindow());
     if (!m_pGLFWwindow) {
         throw std::runtime_error("Failed to init GLFW window!");
     }
@@ -103,11 +101,11 @@ GLFWApplication::~GLFWApplication()
 
 void GLFWApplication::run()
 {
-    vgfx::SwapChainPresenter& renderer = getRenderer();
+    vgfx::Renderer& renderer = getRenderer();
     while (!glfwWindowShouldClose(m_pGLFWwindow)) {
         glfwPollEvents();
         renderer.renderFrame(*m_spSceneRoot.get());
-        VkResult result = renderer.present();
+        VkResult result = renderer.getPresenter().present(renderer);
         if (result == VK_ERROR_OUT_OF_DATE_KHR || m_frameBufferResized) {
             uint32_t width = 0u, height = 0u;
             GetFrameBufferSize(m_pGLFWwindow, &width, &height);

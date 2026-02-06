@@ -16,21 +16,25 @@ namespace vgfx
     public:
         Application() = delete;
 
-        using ConfigFunc = std::function<void(
+        // Use AppConfigFunc to configure the config objects specific to the app.
+        using AppConfigFunc = std::function<void(
             Context::AppConfig& appConfig,
             Context::InstanceConfig& instanceConfig,
             Context::DeviceConfig& deviceConfig)>;
 
+        // Use CreateRendererFunc to create a specific type of renderer for this app.
         using CreateRendererFunc = std::function<std::unique_ptr<Renderer>(
             Context::AppConfig& appConfig,
             Context::InstanceConfig& instanceConfig,
-            Context::DeviceConfig& deviceConfig)>;
+            Context::DeviceConfig& deviceConfig,
+            Presenter& presenter)>;
 
         Application(
-            ConfigFunc configFunc,
+            AppConfigFunc configFunc,
             const Context::AppConfig& appConfig,
             const Context::InstanceConfig& instanceConfig,
             const Context::DeviceConfig& deviceConfig,
+            Presenter& presenter,
             CreateRendererFunc createRendererFunc);
 
         ~Application();
@@ -53,6 +57,8 @@ namespace vgfx
             m_spSceneRoot = std::move(spSceneRoot);
         }
 
+        Renderer& getRenderer() { return *m_spRenderer.get(); }
+
         virtual void run() = 0;
 
     protected:
@@ -73,25 +79,13 @@ namespace vgfx
 
         WindowApplication() = delete;
 
-        using CreateVulkanSurfaceFunc = std::function<VkResult(VkInstance, void*, const VkAllocationCallbacks*, VkSurfaceKHR*)>;
-
-        using CreateWindowRendererFunc = std::function<std::unique_ptr<Renderer>(
-            Context::AppConfig& appConfig,
-            Context::InstanceConfig& instanceConfig,
-            Context::DeviceConfig& deviceConfig,
-            SwapChain::Config& swapChainConfig,
-            void* pWindow,
-            CreateVulkanSurfaceFunc createVulkanSurfaceFunc)>;
-
         WindowApplication(
             const Context::AppConfig& appConfig,
             const Context::InstanceConfig& instanceConfig,
-            const Context::DeviceConfig& deviceConfig,
-            const SwapChain::Config& swapChainConfig,
-            void* pWindow,
-            CreateVulkanSurfaceFunc createVulkanSurfaceFunc,
-            CreateWindowRendererFunc createRendererFunc,
-            ConfigFunc configFunc=nullptr);
+            const Context::DeviceConfig& devConfig,
+            AppConfigFunc configFunc,
+            std::unique_ptr<SwapChainPresenter>&& spSwapChainPresenter,
+            Application::CreateRendererFunc createRendererFunc);
 
         const SwapChainPresenter& getSwapChainPresenter() const { return *m_spSwapChainPresenter; }
         SwapChainPresenter& getSwapChainPresenter() { return *m_spSwapChainPresenter; }
@@ -101,20 +95,8 @@ namespace vgfx
         }
 
     protected:
-        std::unique_ptr<Renderer> createRenderer(
-            const Context::AppConfig& appConfig,
-            const Context::InstanceConfig& instanceConfig,
-            const Context::DeviceConfig& deviceConfig);
-        void initSwapChain(
-            const Context::AppConfig& appConfig,
-            const Context::InstanceConfig& instanceConfig,
-            const Context::DeviceConfig& deviceConfig);
-
         void resizeWindow(uint32_t width, uint32_t height);
 
-        SwapChain::Config m_swapChainConfig;
-        void* m_pWindow = nullptr;
-        CreateVulkanSurfaceFunc m_createVulkanSurface;
         std::unique_ptr<SwapChainPresenter> m_spSwapChainPresenter = nullptr;
         bool m_frameBufferResized = false;
     };

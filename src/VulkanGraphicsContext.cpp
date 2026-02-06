@@ -29,15 +29,13 @@ namespace vgfx
             appConfig,
             instanceConfig);
 
-        if (renderer.getPresenter() != nullptr) {
-            renderer.getPresenter()->createVulkanSurface(m_instance, m_pAllocationCallbacks);
-        }
+        renderer.getPresenter().createVulkanSurface(m_instance, m_pAllocationCallbacks);
 
         pickPhysicalDevice(
             deviceConfig,
             renderer);
 
-        renderer.configureForDevice(m_physicalDevice);
+        renderer.getPresenter().configureForDevice(m_physicalDevice);
 
         createLogicalDevice(deviceConfig);
 
@@ -47,6 +45,8 @@ namespace vgfx
                 appConfig.minorVersion,
                 appConfig.patchVersion),
             *this);
+
+        renderer.getPresenter().initSwapChain(renderer);
     }
 
     void Context::shutdown()
@@ -430,9 +430,9 @@ namespace vgfx
 
             checkDeviceExtensionSupport(device, deviceConfig);
 
-            renderer.checkIsDeviceSuitable(device);
+            renderer.getPresenter().checkIsDeviceSuitable(device);
 
-            checkDeviceFeatureSupport(device, deviceConfig); 
+            checkDeviceFeatureSupport(device, deviceConfig);
         } catch (const std::exception& exc) {
             std::cout << "Device is not suitable: " << exc.what() << std::endl;
             return false;
@@ -481,8 +481,9 @@ namespace vgfx
                 }
             }
 
-            if (renderer.getPresenter() != nullptr) {
-                bool presentSupport = renderer.getPresenter()->queueFamilySupportsPresent(device, i);
+            bool presentQueueIsRequired = renderer.getPresenter().presentQueueIsRequired();
+            if (presentQueueIsRequired) {
+                bool presentSupport = renderer.getPresenter().queueFamilySupportsPresent(device, i);
 
                 if (presentSupport &&
                     (!queueFamilyIndices.presentFamily.has_value()
@@ -494,7 +495,7 @@ namespace vgfx
                 }
             }
 
-            if (queueFamilyIndices.isComplete(deviceConfig, renderer.getPresenter() != nullptr)) {
+            if (queueFamilyIndices.isComplete(deviceConfig, presentQueueIsRequired)) {
                 *pQueueFamilyProperties = std::move(queueFamilyProperties);
                 return queueFamilyIndices;
             }
