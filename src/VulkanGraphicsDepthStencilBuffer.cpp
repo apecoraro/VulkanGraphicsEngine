@@ -1,4 +1,5 @@
 #include "VulkanGraphicsDepthStencilBuffer.h"
+#include "VulkanGraphicsOneTimeCommands.h"
 
 #include <cassert>
 #include <set>
@@ -48,7 +49,8 @@ namespace vgfx
 
     DepthStencilBuffer::DepthStencilBuffer(
         Context& context,
-        const Config& config)
+        const Config& config,
+        CommandBufferFactory& commandBufferFactory)
         : m_spImage(new Image(context, GetImageConfig(config.width, config.height, config.format)))
     {
         ImageView::Config imageViewConfig(config.format, VK_IMAGE_VIEW_TYPE_2D);
@@ -59,6 +61,11 @@ namespace vgfx
         }
         // Create the default image view
         getOrCreateImageView(imageViewConfig);
+        OneTimeCommandsHelper helper(context, commandBufferFactory);
+        helper.recordImageMemBarrierCommand(
+            m_spImage->getHandle(),
+            VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
 }
 

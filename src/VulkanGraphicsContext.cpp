@@ -881,7 +881,7 @@ namespace vgfx
     {
         uint32_t maxQueueCount = getGraphicsQueueMaxCount();
         if (queueIndex < maxQueueCount) {
-            CommandQueue commandQueue(m_queueFamilyIndices.graphicsFamily.value());
+            CommandQueue commandQueue(m_queueFamilyIndices.graphicsFamily.value(), VK_NULL_HANDLE);
             vkGetDeviceQueue(
                 m_device,
                 commandQueue.queueFamilyIndex,
@@ -908,7 +908,7 @@ namespace vgfx
     {
         uint32_t maxQueueCount = getPresentQueueMaxCount();
         if (queueIndex < maxQueueCount) {
-            CommandQueue commandQueue(m_queueFamilyIndices.presentFamily.value());
+            CommandQueue commandQueue(m_queueFamilyIndices.presentFamily.value(), VK_NULL_HANDLE);
             vkGetDeviceQueue(
                 m_device,
                 commandQueue.queueFamilyIndex,
@@ -935,7 +935,7 @@ namespace vgfx
     {
         uint32_t maxQueueCount = getDedicatedComputeQueueMaxCount();
         if (queueIndex < maxQueueCount) {
-            CommandQueue commandQueue(m_queueFamilyIndices.computeFamily.value());
+            CommandQueue commandQueue(m_queueFamilyIndices.computeFamily.value(), VK_NULL_HANDLE);
             vkGetDeviceQueue(
                 m_device,
                 commandQueue.queueFamilyIndex,
@@ -962,7 +962,7 @@ namespace vgfx
     {
         uint32_t maxQueueCount = getDedicatedTransferQueueMaxCount();
         if (queueIndex < maxQueueCount) {
-            CommandQueue commandQueue(m_queueFamilyIndices.transferFamily.value());
+            CommandQueue commandQueue(m_queueFamilyIndices.transferFamily.value(), VK_NULL_HANDLE);
             vkGetDeviceQueue(
                 m_device,
                 commandQueue.queueFamilyIndex,

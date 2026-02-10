@@ -197,6 +197,7 @@ namespace vgfx
         VkDevice m_logicalDevice = VK_NULL_HANDLE;
         std::unique_ptr<SwapChain> m_spSwapChain;
         std::vector<RenderTarget> m_swapChainRenderTargets;
+		std::vector<std::unique_ptr<DepthStencilBuffer>> m_swapChainDepthStencilBuffers;
         uint32_t m_curSwapChainImageIndex = 0u; // most recently acquired swap chain
 
         ChooseImageCountFunc m_chooseImageCountFunc = nullptr;
@@ -227,12 +228,9 @@ namespace vgfx
         const Camera& getCamera() const { return *m_spCamera.get(); }
         Camera& getCamera() { return *m_spCamera.get(); }
 
-        DepthStencilBuffer* getDepthStencilBuffer() { return m_spDepthStencilBuffer.get(); }
-        const DepthStencilBuffer* getDepthStencilBuffer() const { return m_spDepthStencilBuffer.get(); }
-
-        void setDepthStencilBuffer(std::unique_ptr<DepthStencilBuffer>&& spNewBuffer) { m_spDepthStencilBuffer = std::move(spNewBuffer); }
-
         Context& getContext() { return m_context; }
+
+        CommandBufferFactory& getCommandBufferFactory() { return *m_spCommandBufferFactory.get(); }
 
         void initGraphicsResources(uint32_t renderTargetWidth, uint32_t renderTargetHeight, uint32_t frameBufferingCount);
         void resizeRenderTargetResources(uint32_t width, uint32_t height, uint32_t frameBufferingCount);
@@ -287,7 +285,6 @@ namespace vgfx
             return m_presenter.transitionSwapChainImageForPresent(commandBuffer);
         }
 
-        std::unique_ptr<DepthStencilBuffer> m_spDepthStencilBuffer;
         std::unique_ptr<Camera> m_spCamera;
 
         std::vector<std::unique_ptr<Pipeline>> m_pipelines;

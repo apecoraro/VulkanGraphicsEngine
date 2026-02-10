@@ -34,7 +34,8 @@ namespace vgfx
         };
         DepthStencilBuffer(
             Context& context,
-            const Config& config);
+            const Config& config,
+            CommandBufferFactory& commandBufferFactory);
 
         VkFormat getFormat() const { return m_spImage->getFormat(); }
         VkSampleCountFlagBits getSampleCount() const { return m_spImage->getSampleCount(); }

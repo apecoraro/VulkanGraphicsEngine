@@ -129,19 +129,23 @@ namespace vgfx
         {
             barrier.srcAccessMask = 0;
             sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+        }
+        else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
         {
             barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+        }
+        else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
         {
             barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
             sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        } else if (oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+        }
+        else if (oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
         {
             barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
             sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        } else
+        }
+        else
         {
             assert(false && "Unsupported old layout transition in QuantumVideoDecoder!");
         }
@@ -151,23 +155,34 @@ namespace vgfx
         {
             barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        } else if (newLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+        }
+        else if (newLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
         {
             barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
             destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        } else if (newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+        }
+        else if (newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
         {
             barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
             destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        } else if (newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+        }
+        else if (newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
         {
             barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
             destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        } else if (newLayout == VK_IMAGE_LAYOUT_GENERAL)
+        }
+        else if (newLayout == VK_IMAGE_LAYOUT_GENERAL)
         {
             barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
             destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        } else
+        }
+        else if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+        {
+            barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        }
+        else
         {
             assert(false && "Unsupported new layout transition in QuantumVideoDecoder!");
         }

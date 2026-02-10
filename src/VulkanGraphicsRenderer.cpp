@@ -484,10 +484,11 @@ namespace vgfx
                 swapChainExtent.height,
                 m_swapChainConfig.depthStencilFormat.value());
 
-            renderer.setDepthStencilBuffer(std::make_unique<DepthStencilBuffer>(renderer.getContext(), dsCfg));
-
+			m_swapChainDepthStencilBuffers.reserve(frameBufferingCount);
             for (size_t i = 0; i < frameBufferingCount; ++i) {
-                m_swapChainRenderTargets[i].attachDepthStencilBuffer(*renderer.getDepthStencilBuffer());
+                m_swapChainDepthStencilBuffers.emplace_back(
+                    std::make_unique<DepthStencilBuffer>(renderer.getContext(), dsCfg, renderer.getCommandBufferFactory()));
+                m_swapChainRenderTargets[i].attachDepthStencilBuffer(*m_swapChainDepthStencilBuffers[i]);
             }
         }
     }
@@ -683,7 +684,8 @@ namespace vgfx
 
         m_spCommandBufferFactory =
             std::make_unique<CommandBufferFactory>(
-                m_context, m_context.getGraphicsQueueFamilyIndex());
+                m_context,
+                m_context.getGraphicsQueue(0u));
 
         uint32_t framesInFlightPlusOne = frameBufferingCount + 1;
         createResourcePools(framesInFlightPlusOne);
