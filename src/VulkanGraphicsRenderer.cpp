@@ -129,13 +129,15 @@ namespace vgfx
 
         scene.draw(*this, drawState);
 
-        postDrawScene(commandBuffer);
-
         m_context.endRendering(commandBuffer);
+
+        postDrawScene(commandBuffer);
 
         vkEndCommandBuffer(commandBuffer);
 
         addCommandBufferToSubmitInfo(commandBuffer);
+
+        ++m_frameIndex;
     }
 
     void Renderer::submitGraphicsCommands()

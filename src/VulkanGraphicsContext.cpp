@@ -762,7 +762,6 @@ namespace vgfx
             ContainerOfStringsToCharPtrs(deviceConfig.requiredDeviceExtensions, &deviceExtensionsAsCharPtrs);
         }
 
-
         // TODO add way for internal components to register to add extensions and/or features.
         VkPhysicalDevice16BitStorageFeatures storage16BitFeatures = {};
         VkPhysicalDeviceFloat16Int8FeaturesKHR fp16Features = {};
