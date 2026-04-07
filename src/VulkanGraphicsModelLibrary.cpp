@@ -306,6 +306,7 @@ namespace vgfx
                 if (!materials.empty()) {
                     if (model.imagesOverrides.find(ImageType::Diffuse) == model.imagesOverrides.end()) {
                         modelImages[ImageType::Diffuse] = materials.front().diffuse_texname;
+                        // TODO materials.front().diffuse_textopt has the sampler parameters
                     }
                 }
             }
@@ -337,7 +338,25 @@ namespace vgfx
                     ImageView::Config(
                         image.getFormat(), VK_IMAGE_VIEW_TYPE_2D)));
 
-            imageSamplers[imageTypeAndPath.first] = ImageSampler(&imageView, nullptr);
+            uint32_t mipLevels =
+                vgfx::Image::ComputeMipLevels2D(image.getWidth(), image.getHeight());
+
+            // TODO this should come from the model or be hardcoded in the shape loader.
+            Sampler& sampler =
+                EffectsLibrary::GetOrCreateSampler(
+                    context,
+                    Sampler::Config(
+                        VK_FILTER_LINEAR,
+                        VK_FILTER_LINEAR,
+                        VK_SAMPLER_MIPMAP_MODE_LINEAR,
+                        0.0f, // min lod
+                        static_cast<float>(mipLevels),
+                        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                        false, 0));
+
+            imageSamplers[imageTypeAndPath.first] = ImageSampler(&imageView, &sampler);
         }
 
         return *(m_drawableLibrary[modelPath] =

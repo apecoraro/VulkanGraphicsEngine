@@ -29,7 +29,9 @@ void vgfx::Drawable::configureDescriptorSets(
     auto& curViewState = drawContext.sceneState.views.back();
     // First set is the projection matrix
     DescriptorSetUpdater updater;
-    updater.bindDescriptor(0, *curViewState.pCameraProjectionBuffer);
+
+    BufferUpdater cameraProjectionBufferUpdater(*curViewState.pCameraProjectionBuffer);
+    updater.bindDescriptor(0, cameraProjectionBufferUpdater);
     updater.updateDescriptorSet(drawContext.context, pDescriptorSets->at(0));
 
     auto& imageSampler = getImageSampler(ImageType::Diffuse);
@@ -47,28 +49,35 @@ void vgfx::Drawable::configureDescriptorSets(
         -translationColumn.z);
 
     size_t writeSize = sizeof(viewPos);
-    size_t writeOffset = 0;
-    drawContext.sceneState.pLightsBuffer->update(&viewPos, writeSize, writeOffset);
+    size_t startWriteOffset =
+        drawContext.sceneState.pDynamicRingBuffer->write(&viewPos, writeSize);
 
-    writeOffset += writeSize;
+    size_t totalWriteSize = writeSize;
 
     float ambient = 0.02f;
     writeSize = sizeof(ambient);
-    drawContext.sceneState.pLightsBuffer->update(&ambient, writeSize, writeOffset);
+    drawContext.sceneState.pDynamicRingBuffer->write(&ambient, writeSize);
 
-    writeOffset += writeSize;
+    totalWriteSize += writeSize;
 
     auto pLights = drawContext.sceneState.lights.data();
     writeSize = sizeof(LightState) * 2;
-    drawContext.sceneState.pLightsBuffer->update(pLights, writeSize, writeOffset);
+    drawContext.sceneState.pDynamicRingBuffer->write(pLights, writeSize);
 
-    writeOffset += writeSize;
+    totalWriteSize += writeSize;
 
     int32_t lightCount = drawContext.sceneState.lights.size() > 2 ? 2 : static_cast<int32_t>(drawContext.sceneState.lights.size());
     writeSize = sizeof(lightCount);
-    drawContext.sceneState.pLightsBuffer->update(&lightCount, writeSize, writeOffset);
+    drawContext.sceneState.pDynamicRingBuffer->write(&lightCount, writeSize);
 
-    updater.bindDescriptor(1, *drawContext.sceneState.pLightsBuffer);
+    totalWriteSize += writeSize;
+
+	BufferUpdater dynamicBufferUpdater(
+        drawContext.sceneState.pDynamicRingBuffer->getBuffer(),
+        startWriteOffset, totalWriteSize);
+    updater.bindDescriptor(1, dynamicBufferUpdater);
+    // This should be called once at the start of the frame.
+	// Then we need to update the dynamic descriptors in vkCmdBindDescriptorSets.
     updater.updateDescriptorSet(drawContext.context, pDescriptorSets->at(1));
 }
 

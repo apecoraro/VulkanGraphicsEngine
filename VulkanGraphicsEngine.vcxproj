@@ -97,17 +97,19 @@
     <None Include="dependencies\AMD_FidelityEffects\CAS_Shader.glsl" />
     <None Include="dependencies\AMD_FidelityEffects\compile_fidelity_effects.bat" />
     <None Include="dependencies\AMD_FidelityEffects\SPDIntegrationLinearSampler.glsl" />
-    <None Include="shaders\compile.bat" />
     <None Include="shaders\compile.sh" />
+    <None Include="shaders\GBuffer.frag" />
     <None Include="shaders\MvpTransform_RgbUv_Out.vert" />
+    <None Include="shaders\MvpTransform_Uv_Out.vert" />
     <None Include="shaders\MvpTransform_XyzRgbUvNormal_Out.vert" />
     <None Include="shaders\NoTransform_RgbUv_out.vert" />
     <None Include="shaders\PBR.frag" />
     <None Include="shaders\README.md" />
     <None Include="shaders\TextureColorPassThru.frag" />
     <None Include="shaders\TextureColorPassThru_Sampler[1.0].frag" />
-    <None Include="shaders\TexturedBlinnPhong.frag" />
-    <None Include="shaders\TexturedBlinnPhongDebug.frag" />
+    <None Include="shaders\TexturedBlinnPhong2Lights.frag" />
+    <None Include="shaders\TexturedBlinnPhongDebug2Lights.frag" />
+    <None Include="shaders\TexturedBlinnPhongGBufferPointLight.frag" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

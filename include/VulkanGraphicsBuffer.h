@@ -5,13 +5,14 @@
 
 #include <cassert>
 #include <cstdint>
+#include <stdexcept>
 #include <vector>
 
 #include <vulkan/vulkan.h>
 
 namespace vgfx
 {
-    class Buffer : public DescriptorUpdater
+    class Buffer
     {
     public:
         struct Config
@@ -55,7 +56,7 @@ namespace vgfx
             LeaveMapped,
             UnMap,
         };
-        bool update(
+        bool write(
             void* pData,
             size_t sizeOfDataBytes,
             size_t writeOffsetBytes = 0u,
@@ -79,6 +80,39 @@ namespace vgfx
 
         VkBuffer getHandle() { return m_buffer.handle;  }
         size_t getSize() const { return m_bufferSize; }
+		Type getType() const { return m_type; }
+
+    private:
+        void destroy();
+
+        Context& m_context;
+        Type m_type;
+        size_t m_bufferSize = 0u;
+
+        MemoryAllocator::Buffer m_buffer;
+        uint8_t* m_pMappedPtr = nullptr;
+    };
+
+    class BufferUpdater : public DescriptorUpdater
+    {
+    public:
+        BufferUpdater(Buffer& buffer)
+            : DescriptorUpdater(static_cast<VkDescriptorType>(buffer.getType()))
+            , m_buffer(buffer)
+        {
+            m_bufferInfo.buffer = m_buffer.getHandle();
+            m_bufferInfo.offset = 0;
+            m_bufferInfo.range = buffer.getSize();
+		}
+
+        BufferUpdater(Buffer& buffer, size_t offset, size_t range)
+            : DescriptorUpdater(static_cast<VkDescriptorType>(buffer.getType()))
+            , m_buffer(buffer)
+        {
+            m_bufferInfo.buffer = m_buffer.getHandle();
+            m_bufferInfo.offset = offset;
+            m_bufferInfo.range = range;
+        }
 
         void update(VkWriteDescriptorSet* pWriteSet) const override
         {
@@ -91,15 +125,73 @@ namespace vgfx
         }
 
     private:
-        void destroy();
-
-        Context& m_context;
-        size_t m_bufferSize = 0u;
-
-        MemoryAllocator::Buffer m_buffer;
-        uint8_t* m_pMappedPtr = nullptr;
-
+        Buffer& m_buffer;
         VkDescriptorBufferInfo m_bufferInfo = {};
     };
+
+    class DynamicRingBuffer {
+    public:
+        DynamicRingBuffer(
+            Context& context,
+            size_t bufferSize)
+            : m_spBuffer(std::make_unique<Buffer>(
+                context,
+                Buffer::Type::DynamicStorageBuffer,
+				Buffer::Config(bufferSize)))
+            , m_head(0u)
+            , m_tail(0u)
+        {
+            VkPhysicalDeviceProperties props;
+            vkGetPhysicalDeviceProperties(context.getPhysicalDevice(), &props);
+            m_alignment = props.limits.minUniformBufferOffsetAlignment;
+        }
+
+        ~DynamicRingBuffer() { }
+
+		Buffer& getBuffer() { return *m_spBuffer; }
+
+        size_t write(
+            void* pData,
+            size_t sizeOfDataBytes)
+        {
+            // Align the current head
+            size_t alignedHead = (m_head + m_alignment - 1) & ~(m_alignment - 1);
+
+            // Wrap around if we hit the end of the physical buffer
+            if (alignedHead + sizeOfDataBytes > m_spBuffer->getSize()) {
+                alignedHead = 0;
+            }
+
+            // Check if we've caught up to the tail (buffer full)
+            // Note: Simple logic assumes frame sync handles actual safety
+            if (alignedHead < m_tail && alignedHead + sizeOfDataBytes > m_tail) {
+                throw std::runtime_error("Ring buffer exhausted!");
+            }
+
+            m_head = alignedHead + sizeOfDataBytes;
+            m_spBuffer->write(pData, sizeOfDataBytes, alignedHead, Buffer::MemMap::LeaveMapped);
+            return alignedHead;
+        }
+
+        // Reset the head to the beginning (or move tail to head after GPU sync)
+        void reset()
+        {
+            m_head = 0;
+            m_tail = 0;
+        }
+
+        // Move tail forward to release memory after a GPU fence is hit
+        void releaseTo(size_t offset)
+        {
+            m_tail = offset;
+        }
+
+    private:
+        std::unique_ptr<Buffer> m_spBuffer;
+        size_t m_alignment = 0u;
+        size_t m_head = 0u; // Where we are currently allocating
+        size_t m_tail = 0u; // Where the GPU has finished reading
+    };
+
 }
 

@@ -23,8 +23,8 @@ namespace vgfx
         Context& context,
         Type type,
         const Config& config)
-        : DescriptorUpdater(static_cast<VkDescriptorType>(type))
-        , m_context(context)
+        : m_context(context)
+        , m_type(type)
         , m_bufferSize(config.bufferSize)
     {
         const char* pBufferName = nullptr;
@@ -48,10 +48,6 @@ namespace vgfx
                     config.memoryUsage,
                     pBufferName);
         }
-
-        m_bufferInfo.buffer = getHandle();
-        m_bufferInfo.offset = 0;
-        m_bufferInfo.range = getSize();
     }
 
     void Buffer::destroy()

@@ -21,29 +21,6 @@
 
 namespace vgfx
 {
-    void Renderer::createImageSamplers(Drawable& drawable)
-    {
-        ImageSampler& imageSampler = drawable.getImageSampler(ImageType::Diffuse);
-
-        const Image& image = imageSampler.first->getImage();
-        uint32_t mipLevels =
-            vgfx::Image::ComputeMipLevels2D(image.getWidth(), image.getHeight());
-
-        Sampler& sampler = EffectsLibrary::GetOrCreateSampler(
-            m_context,
-            Sampler::Config(
-                VK_FILTER_LINEAR,
-                VK_FILTER_LINEAR,
-                VK_SAMPLER_MIPMAP_MODE_LINEAR,
-                0.0f, // min lod
-                static_cast<float>(mipLevels),
-                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                false, 0));
-        imageSampler.second = &sampler;
-    }
-
     void Renderer::buildPipelines(Object& object, DrawContext& drawContext)
     {
         const auto& viewState = drawContext.sceneState.views.back();
@@ -81,8 +58,6 @@ namespace vgfx
             addPipeline(std::move(spPipeline));
 
             pDrawable->setMeshEffect(&meshEffect);
-
-            createImageSamplers(*pDrawable);
         }
     }
 
@@ -125,7 +100,7 @@ namespace vgfx
             m_spCamera->getViewport(),
             m_spCamera->getRasterizerConfig());
 
-        drawState.sceneState.pLightsBuffer = m_lightsBuffers[cpuFrameInFlight].get();
+        drawState.sceneState.pDynamicRingBuffer = m_dynamicRingBufferPool[cpuFrameInFlight].get();
 
         scene.draw(*this, drawState);
 
@@ -162,6 +137,46 @@ namespace vgfx
             1,
             &vkSubmitInfo,
             submitInfo.fence);
+    }
+
+    void DeferredRenderer::buildPipelines(Object& object, DrawContext& drawContext)
+    {
+        const auto& viewState = drawContext.sceneState.views.back();
+        vgfx::PipelineBuilder builder(viewState.viewport, drawContext.depthBufferEnabled);
+
+        //std::vector<VkDynamicState> dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+        std::string vertexShader = "MvpTransform_XyzRgbUvNormal_Out.vert.spv";
+        std::string fragmentShader = "GBuffer.frag.spv";
+
+        std::string vertexShaderEntryPointFunc = "main";
+        std::string fragmentShaderEntryPointFunc = "main";
+
+        EffectsLibrary::MeshEffectDesc meshEffectDesc(
+            vertexShader,
+            vertexShaderEntryPointFunc,
+            fragmentShader,
+            fragmentShaderEntryPointFunc);
+
+        MeshEffect& meshEffect =
+            EffectsLibrary::GetOrLoadEffect(m_context, meshEffectDesc);
+
+        for (auto& pDrawable : object.getDrawables()) {
+
+            Pipeline::InputAssemblyConfig inputConfig(
+                pDrawable->getVertexBuffer().getConfig().primitiveTopology,
+                pDrawable->getIndexBuffer().getHasPrimitiveRestartValues());
+
+            std::unique_ptr<Pipeline> spPipeline =
+                builder.configureDrawableInput(meshEffect, pDrawable->getVertexBuffer().getConfig(), inputConfig)
+                .configureRasterizer(viewState.rasterizerConfig)
+                //.configureDynamicStates(dynamicStates)
+                .configureRenderTarget(drawContext.renderTarget)
+                .createPipeline(drawContext.context);
+
+            addPipeline(std::move(spPipeline));
+
+            pDrawable->setMeshEffect(&meshEffect);
+        }
     }
 
     VkResult SwapChainPresenter::present(Renderer& renderer)
@@ -640,7 +655,7 @@ namespace vgfx
 
             m_descriptorPools.clear();
             m_commandBuffers.clear();
-            m_lightsBuffers.clear();
+            m_dynamicRingBufferPool.clear();
 
             createResourcePools(framesInFlightPlusOne);
         }
@@ -656,25 +671,25 @@ namespace vgfx
         poolBuilder.addMaxSets(200);
         //poolBuilder.setCreateFlags(VkDescriptorPoolCreateFlags);
 
-        struct LightingUniforms
+        /*struct LightingUniforms
         {
             LightState lights[2];
             int lightCount;
             float ambient;
             glm::vec3 viewPos;
-        };
+        };*/
 
-        Buffer::Config lightsBufferCfg(sizeof(LightingUniforms) * 10); // Support up to 10 lights
+        // 100 MB should be enough for now.
+		size_t dynamicBufferSize = (1024 * 1024 * 100);
         for (size_t i = 0; i < framesInFlightPlusOne; ++i) {
             m_descriptorPools.emplace_back(poolBuilder.createPool(m_context));
 
             m_commandBuffers.push_back(m_spCommandBufferFactory->createCommandBuffer());
 
-            m_lightsBuffers.emplace_back(
-                std::make_unique<Buffer>(
+            m_dynamicRingBufferPool.emplace_back(
+                std::make_unique<DynamicRingBuffer>(
                     m_context,
-                    Buffer::Type::UniformBuffer,
-                    lightsBufferCfg));
+                    dynamicBufferSize));
         }
     }
 

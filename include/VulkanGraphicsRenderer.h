@@ -46,7 +46,7 @@ namespace vgfx
     {
         std::vector<ViewState> views;
         std::vector<LightState> lights;
-        Buffer* pLightsBuffer;
+        DynamicRingBuffer* pDynamicRingBuffer;
     };
 
     struct DrawContext
@@ -236,10 +236,8 @@ namespace vgfx
         void resizeRenderTargetResources(uint32_t width, uint32_t height, uint32_t frameBufferingCount);
 
         virtual void buildPipelines(Object& object, DrawContext& drawContext);
-        virtual void createImageSamplers(Drawable& drawable);
-
-        // Records command buffer(s) to draw the scene in its current state.
         virtual void renderFrame(SceneNode& scene);
+
         struct QueueSubmitInfo
         {
             void addWait(VkSemaphore sem, VkPipelineStageFlags stage)
@@ -305,9 +303,23 @@ namespace vgfx
         std::unique_ptr<CommandBufferFactory> m_spCommandBufferFactory;
         std::vector<VkCommandBuffer> m_commandBuffers;
 
-        std::vector<std::unique_ptr<Buffer>> m_lightsBuffers;
+        std::vector<std::unique_ptr<DynamicRingBuffer>> m_dynamicRingBufferPool;
 
         QueueSubmitInfo m_queueSubmitInfo;
+    };
+
+    class DeferredRenderer : public Renderer
+    {
+    public:
+        DeferredRenderer(Context& context, Presenter& presenter) : Renderer(context, presenter) { }
+        virtual ~DeferredRenderer() = default;
+
+        virtual void buildPipelines(Object& object, DrawContext& drawContext);
+        virtual void renderFrame(SceneNode& scene);
+
+    protected:
+        virtual const RenderTarget& prepareRenderTarget(VkCommandBuffer commandBuffer);
+        virtual void postDrawScene(VkCommandBuffer commandBuffer);
     };
 }
 

@@ -111,9 +111,6 @@
     <None Include="shaders\compile.sh">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="shaders\TexturedBlinnPhong.frag">
-      <Filter>Shaders</Filter>
-    </None>
     <None Include="shaders\TextureColorPassThru_Sampler[1.0].frag">
       <Filter>Shaders</Filter>
     </None>
@@ -123,10 +120,19 @@
     <None Include="shaders\PBR.frag">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="shaders\TexturedBlinnPhongDebug.frag">
+    <None Include="shaders\GBuffer.frag">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="shaders\compile.bat">
+    <None Include="shaders\TexturedBlinnPhongGBufferPointLight.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\TexturedBlinnPhong2Lights.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\TexturedBlinnPhongDebug2Lights.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\MvpTransform_Uv_Out.vert">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
